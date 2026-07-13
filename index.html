@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0E0D12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<title>Resonance — a player that learns</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ---- token system ----
+     warm = keep (amber / ember), cool = drop (slate). Feedback color IS meaning.
+     Fraunces (editorial, the human's taste) vs IBM Plex Mono (the machine, the model). */
+  :root{
+    --bg:#0E0D12; --panel:#17151E; --panel-2:#1D1A26; --line:#2A2635;
+    --ink:#ECE7DE; --muted:#8A8397; --faint:#5C566B;
+    --ember:#E0524B;   /* heart / all-time favorite */
+    --amber:#E8A24B;   /* primary accent / cool = liked / kept */
+    --slate:#6C7CA0;   /* skip / not my type */
+    --dim:#4A4658;     /* thumbs down / hated genre */
+    --ok:#7FB08A;
+    --r:14px;
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,sans-serif;
+    --disp:'Fraunces',Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:radial-gradient(1200px 700px at 78% -8%, #1a1626 0%, var(--bg) 55%) fixed, var(--bg);
+    color:var(--ink); font-family:var(--sans); line-height:1.5;
+    -webkit-font-smoothing:antialiased; min-height:100vh;
+  }
+  a{color:var(--amber)}
+  button{font-family:inherit; cursor:pointer}
+  .wrap{max-width:1180px; margin:0 auto; padding:26px 22px 60px}
+
+  /* header */
+  header{display:flex; align-items:baseline; justify-content:space-between; gap:18px; margin-bottom:22px; flex-wrap:wrap}
+  .brand{display:flex; align-items:baseline; gap:12px}
+  .brand h1{font-family:var(--disp); font-weight:900; font-size:30px; letter-spacing:-.02em; margin:0}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 14px var(--amber);align-self:center;transition:.4s}
+  .brand .dot.live{background:var(--ember);box-shadow:0 0 16px var(--ember);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  .brand span.sub{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .status{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right;max-width:340px}
+  .status b{color:var(--amber);font-weight:500}
+
+  /* setup panel */
+  .setup{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:22px}
+  .setup.done{padding:12px 18px}
+  .setup h2{font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  .field label{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:.04em}
+  .field .hint{color:var(--faint);font-size:10.5px}
+  .field input, .field select{
+    width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;
+    color:var(--ink);padding:11px 12px;font-family:var(--mono);font-size:13px;outline:none;transition:.15s;
+  }
+  .field input:focus, .field select:focus{border-color:var(--amber)}
+  .row-actions{display:flex;gap:12px;align-items:center;margin-top:18px;flex-wrap:wrap}
+  .btn{background:var(--amber);color:#211a0d;border:none;border-radius:10px;padding:12px 20px;font-weight:600;font-size:14px;letter-spacing:.01em;transition:.15s}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .btn.ghost:hover{color:var(--ink);border-color:var(--faint)}
+  .btn.sm{padding:8px 13px;font-size:12px}
+  .pill{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:7px 14px;font-family:var(--mono);font-size:11.5px;transition:.15s}
+  .pill:hover{color:var(--ink);border-color:var(--faint)}
+  .pill.on{border-color:var(--ember);color:#f0a49f}
+  .hdr-actions{display:flex;gap:8px;align-items:center}
+  .nextneutral{margin-top:10px;width:100%;background:transparent;border:1px dashed var(--line);color:var(--muted);padding:10px;border-radius:10px;font-family:var(--mono);font-size:11.5px;transition:.15s}
+  .nextneutral:hover{border-color:var(--faint);color:var(--ink)}
+  .anchor{border-top:1px solid var(--line);padding:12px 18px 16px}
+  .anchor .tgl{font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .anchor .tgl:hover{color:var(--amber)}
+  .anchor textarea{width:100%;min-height:84px;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:10px;font-family:var(--mono);font-size:12px;outline:none;margin:10px 0 8px;resize:vertical}
+  .anchor .row{display:flex;gap:8px}
+  .anchor select{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:8px;font-family:var(--mono);font-size:12px}
+
+  /* main stage */
+  .stage{display:grid;grid-template-columns:1.55fr 1fr;gap:22px;align-items:start}
+  @media(max-width:900px){.stage{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .now{padding:0}
+  .videoshell{position:relative;background:#000;aspect-ratio:16/9;width:100%}
+  #player{position:absolute;inset:0;width:100%;height:100%}
+  .videoshell .placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--faint);font-family:var(--mono);font-size:12px;text-align:center;padding:24px}
+  .np-body{padding:20px 22px 22px}
+  .np-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:10px;display:flex;justify-content:space-between}
+  .np-eyebrow .src{color:var(--amber)}
+  .np-title{font-family:var(--disp);font-weight:600;font-size:29px;line-height:1.12;letter-spacing:-.015em;margin:0 0 4px}
+  .np-artist{color:var(--muted);font-size:15px;margin-bottom:6px}
+  .np-reason{font-size:13.5px;color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:11px;margin:12px 0 16px}
+  .np-reason b{color:var(--amber);font-style:normal;font-family:var(--mono);font-size:11px;letter-spacing:.06em}
+
+  /* progress */
+  .prog{height:5px;background:var(--line);border-radius:99px;overflow:hidden;margin:4px 0 6px}
+  .prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--ember));transition:width .3s linear}
+  .times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:18px}
+
+  /* feedback — the teaching surface. each button says what it teaches the model. */
+  .feedback{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .fb{display:flex;flex-direction:column;align-items:center;gap:7px;background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:13px 6px 11px;transition:.14s;color:var(--muted)}
+  .fb:hover{transform:translateY(-2px)}
+  .fb .ico{font-size:19px;line-height:1}
+  .fb .lab{font-weight:600;font-size:12.5px;color:var(--ink)}
+  .fb .teach{font-family:var(--mono);font-size:9.5px;letter-spacing:.02em;text-align:center;line-height:1.3;color:var(--faint)}
+  .fb.skip:hover{border-color:var(--slate);box-shadow:0 0 0 1px var(--slate) inset}
+  .fb.heart:hover{border-color:var(--ember);box-shadow:0 0 0 1px var(--ember) inset}
+  .fb.heart.on{border-color:var(--ember);background:rgba(224,82,75,.12)}
+  .fb.heart.on .ico{color:var(--ember)}
+  .fb.down:hover{border-color:var(--dim);box-shadow:0 0 0 1px var(--dim) inset}
+  .fb.play:hover{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
+  .fb .ico.amber{color:var(--amber)}
+
+  /* right column */
+  .side{display:flex;flex-direction:column;gap:22px}
+  .panel-h{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:16px 18px 0;display:flex;justify-content:space-between;align-items:center}
+  .panel-h .n{color:var(--amber)}
+
+  /* up next — the lookahead. this is the signature: you see it planning 2 ahead + why. */
+  .queue{padding:12px 14px 16px}
+  .qitem{display:flex;gap:12px;padding:11px;border-radius:10px;border:1px solid transparent;transition:.2s;position:relative}
+  .qitem+.qitem{margin-top:6px}
+  .qitem .pos{font-family:var(--mono);font-size:11px;color:var(--faint);width:26px;flex:none;padding-top:2px}
+  .qitem .meta .t{font-weight:600;font-size:14px;line-height:1.2}
+  .qitem .meta .a{color:var(--muted);font-size:12.5px}
+  .qitem .meta .why{color:var(--faint);font-size:11.5px;font-style:italic;margin-top:4px}
+  .qitem.first{background:var(--panel-2);border-color:var(--line)}
+  .qslot-empty{color:var(--faint);font-family:var(--mono);font-size:12px;padding:14px;text-align:center}
+  .thinking{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--amber)}
+  .thinking:after{content:'';animation:dots 1.4s steps(4,end) infinite}
+  @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+
+  /* taste model */
+  .model{padding:12px 18px 18px}
+  .model .grp{margin-top:14px}
+  .model .grp:first-child{margin-top:6px}
+  .model .grp .h{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:7px}
+  .model .grp .h .sw{width:8px;height:8px;border-radius:2px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted);background:var(--bg)}
+  .chip.new{animation:flash 1s ease}
+  @keyframes flash{0%{background:var(--amber);color:#211a0d}100%{background:var(--bg)}}
+  .chip.love{border-color:rgba(224,82,75,.4);color:#f0a49f}
+  .chip.hate{border-color:var(--dim);color:var(--faint);text-decoration:line-through}
+  .empty-model{color:var(--faint);font-family:var(--mono);font-size:11.5px;font-style:italic}
+  .model-actions{display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .model-actions a{font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .model-actions a:hover{color:var(--amber)}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(30px);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 18px;font-family:var(--mono);font-size:12.5px;color:var(--ink);opacity:0;transition:.3s;pointer-events:none;z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast .k{color:var(--amber)}
+  .hidden{display:none!important}
+  .warnbar{background:rgba(224,82,75,.1);border:1px solid rgba(224,82,75,.35);color:#f0b0ab;border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:18px;font-family:var(--mono)}
+  .warnbar b{color:var(--ember)}
+  input[type=file]{display:none}
+  footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="dot" id="livedot"></span>
+      <h1>Resonance</h1>
+      <span class="sub">a player that learns · 2 ahead</span>
+    </div>
+    <div class="hdr-actions">
+      <button class="pill" id="modePill" title="Play only your all-time favorites">♥ favorites</button>
+      <button class="pill" id="gearBtn" title="API keys & settings">⚙</button>
+    </div>
+    <div class="status" id="status">Add a Gemini key and a seed to begin.</div>
+  </header>
+
+  <div id="sandboxWarn" class="warnbar hidden">
+    <b>Playback blocked here.</b> This preview sandbox is stopping YouTube's player script. Download this file and serve it locally (see below) — everything works there.
+  </div>
+  <div id="fileWarn" class="warnbar hidden">
+    <b>YouTube refuses to play from file:// (Error 153)</b> — it requires the page to be served over HTTP.<br><br>
+    <b>On a phone:</b> host this file free (drag it into app.netlify.com/drop, or GitHub Pages) and open the URL — then Add to Home Screen.<br>
+    <b>On a computer:</b> run <code>python -m http.server 8080</code> in this folder, open <b>http://localhost:8080/resonance.html</b>.
+  </div>
+  <script>
+    if(location.protocol==='file:'){ document.getElementById('fileWarn').classList.remove('hidden'); }
+  </script>
+
+  <!-- SETUP -->
+  <section class="setup" id="setup">
+    <h2 id="setupTitle">Setup</h2>
+    <div class="grid">
+      <div class="field">
+        <label>Gemini API key <span class="hint">— required · aistudio.google.com</span></label>
+        <input id="geminiKey" type="password" placeholder="AIza…" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>YouTube Data API key <span class="hint">— optional but recommended · reliable search</span></label>
+        <input id="ytKey" type="password" placeholder="AIza… (leave blank for Gemini-guess mode)" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Seed — an artist, song, or vibe to start from</label>
+        <input id="seed" type="text" placeholder="e.g. moody Arabic indie · Radiohead · late-night jazz">
+      </div>
+      <div class="field">
+        <label>Gemini model <span class="hint">— change if you hit a 404</span></label>
+        <select id="model">
+          <option value="gemini-3.5-flash">gemini-3.5-flash (recommended)</option>
+          <option value="gemini-flash-latest">gemini-flash-latest (auto-updates)</option>
+          <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (cheapest)</option>
+          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+        </select>
+      </div>
+    </div>
+    <div class="row-actions">
+      <button class="btn" id="startBtn">Start listening</button>
+      <button class="btn ghost sm" id="importBtn">Import taste profile</button>
+      <button class="btn ghost sm" id="exportBtn2">Export / back up taste profile</button>
+      <input type="file" id="importFile" accept="application/json">
+      <span id="setupNote" style="font-family:var(--mono);font-size:11px;color:var(--faint)"></span>
+    </div>
+  </section>
+
+  <!-- STAGE -->
+  <div class="stage hidden" id="stage">
+    <!-- NOW PLAYING -->
+    <div class="card now">
+      <div class="videoshell">
+        <div id="player"></div>
+        <div class="placeholder" id="playerPh">building your first pick…</div>
+      </div>
+      <div class="np-body">
+        <div class="np-eyebrow"><span>Now playing</span><span class="src" id="npSource">YouTube</span></div>
+        <h3 class="np-title" id="npTitle">—</h3>
+        <div class="np-artist" id="npArtist"></div>
+        <div class="np-reason" id="npReason"></div>
+
+        <div class="prog"><i id="progFill"></i></div>
+        <div class="times"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
+
+        <div class="feedback">
+          <button class="fb play" id="btnPlay" title="Play / pause">
+            <span class="ico amber" id="playIco">▶</span><span class="lab">Play</span>
+            <span class="teach">finish it = you like it</span>
+          </button>
+          <button class="fb heart" id="btnHeart" title="All-time favorite">
+            <span class="ico">♥</span><span class="lab">Heart</span>
+            <span class="teach">all-time favorite</span>
+          </button>
+          <button class="fb skip" id="btnSkip" title="Skip — not my type">
+            <span class="ico">⏭</span><span class="lab">Skip</span>
+            <span class="teach">not my type</span>
+          </button>
+          <button class="fb down" id="btnDown" title="Thumbs down — hate this genre">
+            <span class="ico">⏻</span><span class="lab">Down</span>
+            <span class="teach">kill this whole genre</span>
+          </button>
+        </div>
+        <button class="nextneutral" id="btnNext">next song — teaches nothing →</button>
+      </div>
+    </div>
+
+    <!-- SIDE -->
+    <div class="side">
+      <div class="card">
+        <div class="panel-h">Up next <span class="n" id="qcount">planning…</span></div>
+        <div class="queue" id="queue"></div>
+      </div>
+      <div class="card">
+        <div class="panel-h">Taste model <span class="n" id="mcount"></span></div>
+        <div class="model" id="model"></div>
+        <div class="anchor">
+          <span class="tgl" id="anchorTgl">＋ add songs manually</span>
+          <div class="hidden" id="anchorForm">
+            <textarea id="anchorText" placeholder="One per line:&#10;Song Title — Artist&#10;Aicha - Cheb Khaled"></textarea>
+            <div class="row">
+              <select id="anchorBucket">
+                <option value="loved">♥ all-time favorites</option>
+                <option value="liked">songs I like</option>
+                <option value="disliked">not my type</option>
+                <option value="hatedGenres">banned genres (one per line)</option>
+              </select>
+              <button class="btn sm" id="anchorAdd">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Resonance learns only from your four signals. Nothing leaves your browser except calls to Google's Gemini and YouTube APIs with your own keys.<br>
+    Finish a song → liked · Heart → favorite · Skip → not your type · Down → genre killed.
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   STATE
+============================================================ */
+const S = {
+  gemini:'', yt:'', model:'gemini-3.5-flash',
+  profile: { loved:[], liked:[], disliked:[], hatedGenres:[], genreScore:{}, artistScore:{}, seed:'' },
+  seenKeys: new Set(),      // "artist|title" to avoid repeats
+  seenIds: new Set(),       // youtube ids used
+  candidates: [],           // Gemini suggestions not yet resolved
+  queue: [],                // resolved, playable {title,artist,genre,reason,videoId}
+  current: null,
+  player: null, ytReady:false, playing:false, resolving:false, thinking:false, started:false,
+  progTimer:null, mode:'discover', heartQueue:[], history:[], userPaused:false,
+};
+
+/* ============================================================
+   PERSISTENCE  (memory-first; localStorage best-effort; JSON export/import)
+============================================================ */
+function saveLocal(){
+  try{ localStorage.setItem('resonance_profile', JSON.stringify(S.profile)); }catch(e){}
+}
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem('resonance_profile');
+    if(raw){ const p = JSON.parse(raw); Object.assign(S.profile, p);
+      (p.loved||[]).concat(p.liked||[],p.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
+      return true; }
+  }catch(e){}
+  return false;
+}
+function exportProfile(){
+  const blob = new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='resonance-taste-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  toast('Profile exported');
+}
+function saveKeys(){ try{ localStorage.setItem('resonance_keys', JSON.stringify({g:S.gemini,y:S.yt,m:S.model,s:S.profile.seed})); }catch(_){}}
+function loadKeys(){
+  try{
+    const k=JSON.parse(localStorage.getItem('resonance_keys')||'null'); if(!k) return;
+    $('geminiKey').value=k.g||''; $('ytKey').value=k.y||'';
+    if(k.m) $('model').value=k.m; $('seed').value=k.s||'';
+    if(k.g) $('setupNote').textContent='Keys remembered on this device. Just hit Start.';
+  }catch(_){}
+}
+
+/* ============================================================
+   HELPERS
+============================================================ */
+const $ = id => document.getElementById(id);
+const key = t => ((t.artist||'')+'|'+(t.title||'')).toLowerCase().trim();
+function toast(msg){ const el=$('toast'); el.innerHTML=msg; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),2600); }
+function setStatus(html){ $('status').innerHTML=html; }
+function fmt(s){ s=Math.max(0,Math.floor(s||0)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function bump(obj,k,by){ if(!k) return; obj[k]=(obj[k]||0)+by; }
+function topKeys(obj,n){ return Object.entries(obj).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k])=>k); }
+
+/* ============================================================
+   GEMINI  — recommendation + learning
+============================================================ */
+async function askGemini(n){
+  const p = S.profile;
+  const avoid = [...S.seenKeys].slice(-45).join('; ') || 'none yet';
+  const lines = [
+    'You are a precise music recommendation engine. Suggest '+n+' songs to play NEXT for this listener.',
+    '',
+    'ALL-TIME FAVORITES (weight these the most): '+ (p.loved.map(desc).join(' / ')||'none yet'),
+    'LIKED — listened all the way through: '+ (p.liked.slice(-25).map(desc).join(' / ')||'none yet'),
+    'DISLIKED — skipped, steer away from these: '+ (p.disliked.slice(-25).map(desc).join(' / ')||'none yet'),
+    'BANNED GENRES — never suggest anything in these: '+ (p.hatedGenres.join(', ')||'none'),
+    p.seed ? 'STARTING MOOD/SEED (strong signal, especially early): '+p.seed : '',
+    '',
+    'Already played or queued — do NOT repeat any of these: '+avoid,
+    '',
+    'Rules:',
+    '- Real songs that exist on YouTube. Prefer official audio/video.',
+    '- Never suggest a banned genre. Steer clear of anything close to Disliked.',
+    '- Lean hard toward the mood of the Favorites and Liked list.',
+    '- Of the '+n+', make most of them safe/close picks and at most one a tasteful exploration.',
+    '- Vary artists; do not stack the same artist.',
+    '',
+    'Return ONLY a raw JSON array, no markdown, no commentary:',
+    '[{"title":"","artist":"","genre":"","reason":"max 12 words, why it fits THIS listener","searchQuery":"Artist Title official audio","youtubeId":"11-char id if you are confident, else empty string"}]'
+  ].filter(Boolean).join('\n');
+
+  const call = async(model)=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(S.gemini),
+    {method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({contents:[{parts:[{text:lines}]}],generationConfig:{temperature:1.0}})});
+  let res = await call(S.model);
+  if(res.status===404 && S.model!=='gemini-flash-latest'){
+    // model retired since this app was built — fall back to the auto-updating alias
+    S.model='gemini-flash-latest'; toast('Model retired · switched to gemini-flash-latest');
+    res = await call(S.model);
+  }
+  if(!res.ok){ const t=await res.text(); throw new Error('Gemini '+res.status+': '+t.slice(0,180)); }
+  const data = await res.json();
+  let txt = (data.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
+  txt = txt.replace(/```json/gi,'').replace(/```/g,'').trim();
+  const start=txt.indexOf('['), end=txt.lastIndexOf(']');
+  if(start<0||end<0) throw new Error('Gemini returned no JSON array');
+  const arr = JSON.parse(txt.slice(start,end+1));
+  return arr.filter(x=>x && x.title && x.artist);
+}
+const desc = t => t.title+' — '+t.artist+(t.genre?(' ['+t.genre+']'):'');
+
+/* ============================================================
+   RESOLVE  — title/artist -> playable YouTube videoId
+============================================================ */
+async function resolveVideoId(cand){
+  // discovery filters: banned genre + no repeats
+  if(cand.genre && S.profile.hatedGenres.map(g=>g.toLowerCase()).includes(cand.genre.toLowerCase())) return null;
+  if(S.seenKeys.has(key(cand))) return null;
+  return resolveVideoIdRaw(cand, false);
+}
+async function resolveVideoIdRaw(cand, allowSeen){
+  if(S.yt){
+    try{
+      const q = cand.searchQuery || (cand.artist+' '+cand.title+' official audio');
+      const u='https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=3&type=video&videoEmbeddable=true&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(S.yt);
+      const r=await fetch(u);
+      if(r.ok){ const d=await r.json();
+        const hit=(d.items||[]).find(i=>i.id&&i.id.videoId&&(allowSeen||!S.seenIds.has(i.id.videoId)));
+        if(hit) return hit.id.videoId;
+      } else if(r.status===403){ setStatus('<b>YouTube key quota/permission issue.</b> Falling back to Gemini guesses.'); S.ytBad=true; }
+    }catch(e){}
+  }
+  if(cand.youtubeId && /^[\w-]{11}$/.test(cand.youtubeId) && (allowSeen||!S.seenIds.has(cand.youtubeId))) return cand.youtubeId;
+  return null;
+}
+
+/* ============================================================
+   QUEUE MANAGEMENT  — always keep 2 ahead
+============================================================ */
+async function refillCandidates(){
+  if(S.candidates.length>=3 || S.thinking) return;
+  S.thinking=true; renderQueue();
+  try{ const got=await askGemini(6); S.candidates.push(...got); }
+  catch(e){ setStatus('<b>Recommendation error.</b> '+String(e.message||e).slice(0,120)); }
+  S.thinking=false;
+}
+async function ensureQueue(){
+  if(S.resolving) return; S.resolving=true;
+  try{
+    let guard=0;
+    while(S.queue.length<2 && guard++<14){
+      if(S.candidates.length===0){ await refillCandidates(); if(S.candidates.length===0) break; }
+      const cand=S.candidates.shift();
+      const id=await resolveVideoId(cand);
+      if(id){ cand.videoId=id; S.queue.push(cand); S.seenIds.add(id); S.seenKeys.add(key(cand)); }
+    }
+  } finally { S.resolving=false; renderQueue(); updateQCount(); }
+  if(S.candidates.length<3) refillCandidates();
+}
+
+/* ============================================================
+   PLAYBACK  (YouTube IFrame API)
+============================================================ */
+window.onYouTubeIframeAPIReady = ()=>{ S.ytReady=true; if(S.started) beginPlayback(); };
+(function loadYT(){
+  const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api';
+  s.onerror=showSandboxWarn; document.head.appendChild(s);
+  setTimeout(()=>{ if(!S.ytReady) showSandboxWarn(); }, 7000);
+})();
+function showSandboxWarn(){ if(!S.ytReady) $('sandboxWarn').classList.remove('hidden'); }
+
+function beginPlayback(){
+  if(!S.queue.length){ ensureQueue().then(()=>{ if(S.queue.length) beginPlayback(); }); return; }
+  S.current = S.queue.shift();
+  $('playerPh').classList.add('hidden');
+  S.player = new YT.Player('player',{
+    videoId:S.current.videoId,
+    playerVars:{autoplay:1,controls:1,rel:0,playsinline:1,modestbranding:1},
+    events:{
+      onReady:e=>{ e.target.playVideo(); S.playing=true; renderNow(); startProg();
+        setTimeout(()=>{ try{ if(S.player.getPlayerState()!==YT.PlayerState.PLAYING){ toast('Tap the video once to start — phone autoplay rule'); } }catch(_){}} ,2500); },
+      onStateChange:onState,
+      onError:onErr
+    }
+  });
+  ensureQueue();
+}
+function loadNext(){
+  if(S.mode==='hearts'){ nextHeart(); return; }
+  if(!S.queue.length){ setStatus('<b>Building more…</b>'); ensureQueue().then(()=>{ if(S.queue.length) loadNext(); }); return; }
+  if(S.current) S.history.push(S.current);
+  S.current = S.queue.shift();
+  $('btnHeart').classList.remove('on');
+  S.player.loadVideoById(S.current.videoId);
+  S.playing=true; renderNow(); startProg(); ensureQueue();
+}
+
+/* ---- Close to my heart mode: exclusively cycle all-time favorites ---- */
+function shuffleArr(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+async function nextHeart(){
+  if(!S.profile.loved.length){ toast('No favorites yet — heart some songs first'); exitHearts(); return; }
+  if(!S.heartQueue.length) S.heartQueue = shuffleArr(S.profile.loved);
+  const t = {...S.heartQueue.shift()};
+  if(!t.videoId || !/^[\w-]{11}$/.test(t.videoId)){
+    const id = await resolveVideoIdRaw({artist:t.artist, title:t.title}, true);
+    if(!id){ toast('Couldn\u2019t locate \u201c'+t.title+'\u201d'); return nextHeart(); }
+    t.videoId = id;
+  }
+  if(S.current) S.history.push(S.current);
+  t.reason = 'all-time favorite';
+  S.current = t;
+  $('btnHeart').classList.add('on');
+  S.player.loadVideoById(t.videoId);
+  S.playing=true; renderNow(); startProg(); renderQueue();
+}
+function enterHearts(){
+  if(!S.profile.loved.length){ toast('Heart a few songs first — or add them manually below the Taste Model'); return; }
+  S.mode='hearts'; S.heartQueue = shuffleArr(S.profile.loved);
+  renderModel(); updateModePill(); setStatus('<b>\u2665 Close to my heart</b> \u00b7 favorites only, on shuffle');
+  nextHeart();
+}
+function exitHearts(){
+  S.mode='discover'; $('btnHeart').classList.remove('on');
+  renderModel(); updateModePill(); setStatus('Back to discovery'); renderQueue(); loadNext();
+}
+function updateModePill(){
+  const b=$('modePill');
+  if(S.mode==='hearts'){ b.classList.add('on'); b.textContent='← back to discovery'; }
+  else { b.classList.remove('on'); b.textContent='♥ favorites'; }
+}
+function previousTrack(){
+  try{ if(S.player.getCurrentTime() > 5){ S.player.seekTo(0, true); return; } }catch(_){}
+  if(!S.history.length){ try{ S.player.seekTo(0, true); }catch(_){} return; }
+  const prev = S.history.pop();
+  S.current = prev;
+  S.player.loadVideoById(prev.videoId);
+  S.playing=true; renderNow(); startProg();
+}
+function neutralNext(){                        // advance, teach nothing
+  S.mode==='hearts' ? nextHeart() : loadNext();
+}
+function onState(e){
+  if(e.data===YT.PlayerState.ENDED){ completed(); }
+  else if(e.data===YT.PlayerState.PLAYING){ S.playing=true; S.userPaused=false; syncPlayIco(); $('livedot').classList.add('live');
+    try{ navigator.mediaSession.playbackState='playing'; }catch(_){}
+  }
+  else if(e.data===YT.PlayerState.PAUSED){ S.playing=false; syncPlayIco(); $('livedot').classList.remove('live');
+    try{ navigator.mediaSession.playbackState='paused'; }catch(_){}
+  }
+}
+function onErr(){ // unavailable / not embeddable -> system skip, replace (does NOT count as user dislike)
+  toast('Track unavailable · swapping'); loadNext();
+}
+function startProg(){
+  clearInterval(S.progTimer);
+  S.progTimer=setInterval(()=>{
+    if(!S.player||!S.player.getDuration) return;
+    const d=S.player.getDuration()||0, c=S.player.getCurrentTime()||0;
+    $('progFill').style.width=(d?(c/d*100):0)+'%';
+    $('tCur').textContent=fmt(c); $('tDur').textContent=fmt(d);
+  },500);
+}
+function syncPlayIco(){ $('playIco').textContent = S.playing?'❚❚':'▶'; $('btnPlay').querySelector('.lab').textContent = S.playing?'Pause':'Play'; }
+
+/* ============================================================
+   MEDIA SESSION — best effort. The YouTube iframe owns the OS
+   media session in most mobile browsers (play/pause from car and
+   lock screen route to it directly). We register handlers and
+   metadata for environments that let the page claim the session
+   (works on desktop Chrome; varies on Android).
+============================================================ */
+function initMediaSession(){
+  if(!('mediaSession' in navigator)) return;
+  const ms = navigator.mediaSession;
+  const safe=(n,f)=>{ try{ ms.setActionHandler(n,f); }catch(_){} };
+  safe('play',  ()=>{ S.userPaused=false; try{S.player.playVideo()}catch(_){} });
+  safe('pause', ()=>{ S.userPaused=true;  try{S.player.pauseVideo()}catch(_){} });
+  safe('nexttrack',     ()=>neutralNext());   // car "next" = just move on, teaches NOTHING (protects the model)
+  safe('previoustrack', ()=>previousTrack());
+}
+function updateMediaMeta(){
+  if(!('mediaSession' in navigator) || !S.current) return;
+  try{
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: S.current.title, artist: S.current.artist,
+      album: S.mode==='hearts' ? 'Close to my heart ♥' : 'Resonance',
+      artwork: [{src:'https://i.ytimg.com/vi/'+S.current.videoId+'/hqdefault.jpg', sizes:'480x360', type:'image/jpeg'}]
+    });
+  }catch(_){}
+}
+
+/* ============================================================
+   FEEDBACK  → the four signals
+============================================================ */
+function completed(){                     // listened to the end = COOL (liked) → advance
+  const t=S.current; if(!t) return;
+  if(S.mode==='hearts'){ nextHeart(); return; }   // favorites mode: no learning, just next
+  if(S.profile.loved.some(x=>key(x)===key(t))){ loadNext(); return; }  // already hearted — verdict given, don't demote to "liked"
+  addTo('liked',t); bump(S.profile.genreScore,t.genre,1); bump(S.profile.artistScore,t.artist,1);
+  flash('liked '+(t.genre||'it')); afterFeedback(t,true);
+}
+function skip(){                          // not my type (disliked)
+  const t=S.current; if(!t) return;
+  if(S.mode==='hearts'){ nextHeart(); return; }   // skipping a favorite ≠ disliking it
+  if(S.profile.loved.some(x=>key(x)===key(t))){ toast('Still a favorite ♥ · just moving on'); loadNext(); return; }
+  addTo('disliked',t); bump(S.profile.genreScore,t.genre,-1); bump(S.profile.artistScore,t.artist,-1);
+  flash('skipped · steering away'); afterFeedback(t,true);
+}
+function heart(){                         // all-time favorite (keeps playing)
+  const t=S.current; if(!t) return;
+  if(S.mode==='hearts'){ toast('Already a favorite ♥'); return; }
+  addTo('loved',t); bump(S.profile.genreScore,t.genre,3); bump(S.profile.artistScore,t.artist,3);
+  $('btnHeart').classList.add('on'); flash('❤ favorite locked in'); renderModel(); saveLocal();
+}
+function down(){                          // discovery: kill genre · hearts: remove from favorites
+  const t=S.current; if(!t) return;
+  if(S.mode==='hearts'){
+    S.profile.loved = S.profile.loved.filter(x=>key(x)!==key(t));
+    saveLocal(); renderModel(); toast('Removed from favorites'); nextHeart(); return;
+  }
+  if(t.genre && !S.profile.hatedGenres.includes(t.genre)) S.profile.hatedGenres.push(t.genre);
+  S.profile.genreScore[t.genre]=-999;
+  // purge anything of this genre already queued
+  S.queue = S.queue.filter(q=>(q.genre||'').toLowerCase()!==(t.genre||'').toLowerCase());
+  S.candidates = S.candidates.filter(q=>(q.genre||'').toLowerCase()!==(t.genre||'').toLowerCase());
+  flash('killed genre · '+t.genre); afterFeedback(t,true);
+}
+function addTo(bucket,t){
+  const k=key(t);
+  ['loved','liked','disliked'].forEach(b=>{ S.profile[b]=S.profile[b].filter(x=>key(x)!==k); });
+  S.profile[bucket].push({title:t.title,artist:t.artist,genre:t.genre,videoId:t.videoId});  // keep videoId → instant replay in hearts mode
+}
+function afterFeedback(t,advance){
+  renderModel(); saveLocal();
+  if(advance) loadNext();
+}
+function flash(msg){ toast('<span class="k">learned</span> · '+msg); }
+
+/* ============================================================
+   RENDER
+============================================================ */
+function renderNow(){
+  const t=S.current; if(!t) return;
+  $('npTitle').textContent=t.title;
+  $('npArtist').textContent=t.artist + (t.genre?(' · '+t.genre):'');
+  $('npReason').innerHTML = t.reason ? '<b>picked because</b> '+escapeHtml(t.reason) : '';
+  syncPlayIco(); updateMediaMeta();
+  setStatus(S.mode==='hearts'
+    ? '<b>♥ Close to my heart</b> · '+S.profile.loved.length+' favorites on shuffle'
+    : 'Playing · <b>'+escapeHtml(t.genre||'—')+'</b> · queue keeps 2 ready');
+}
+function renderQueue(){
+  const el=$('queue');
+  const items = S.mode==='hearts' ? S.heartQueue.slice(0,2) : S.queue.slice(0,2);
+  let html='';
+  items.forEach((t,i)=>{
+    html+=`<div class="qitem ${i===0?'first':''}"><div class="pos">${i===0?'next':'then'}</div>
+      <div class="meta"><div class="t">${escapeHtml(t.title)}</div>
+      <div class="a">${escapeHtml(t.artist)}${t.genre?(' · '+escapeHtml(t.genre)):''}</div>
+      <div class="why">${S.mode==='hearts'?'all-time favorite ♥':escapeHtml(t.reason||'')}</div></div></div>`;
+  });
+  for(let i=items.length;i<2;i++){
+    html+=`<div class="qslot-empty">${S.thinking||S.resolving?'<span class="thinking">thinking</span>':'slot open'}</div>`;
+  }
+  el.innerHTML=html; updateQCount();
+}
+function updateQCount(){
+  $('qcount').textContent = S.mode==='hearts' ? '♥ favorites' : ((S.thinking||S.resolving) ? 'planning…' : (S.queue.length+' ready'));
+}
+function renderModel(){
+  const p=S.profile, el=$('model');
+  const lovedArtists=[...new Set(p.loved.map(x=>x.artist))].slice(0,8);
+  const likedGenres=topKeys(p.genreScore,8).filter(g=>!p.hatedGenres.includes(g));
+  const parts=[];
+  parts.push(grp('#E0524B','favorites', p.loved.length? lovedArtists.map(a=>chip(a,'love')).join('') : emptyChip()));
+  parts.push(grp('#E8A24B','you like', likedGenres.length? likedGenres.map(g=>chip(g)).join('') : emptyChip()));
+  parts.push(grp('#4A4658','killed genres', p.hatedGenres.length? p.hatedGenres.map(g=>chip(g,'hate')).join('') : emptyChip('none yet')));
+  el.innerHTML = parts.join('') +
+    `<div class="model-actions"><a id="hmode" style="color:${S.mode==='hearts'?'var(--amber)':'#f0a49f'}">${S.mode==='hearts'?'← back to discovery':'♥ Close to my heart — play favorites only'}</a><a id="exp">export profile</a><a id="rst">reset model</a></div>`;
+  $('hmode').onclick=()=>{ S.mode==='hearts' ? exitHearts() : enterHearts(); };
+  $('exp').onclick=exportProfile;
+  $('rst').onclick=()=>{ if(confirm('Wipe everything Resonance has learned?')){ S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],genreScore:{},artistScore:{},seed:S.profile.seed}; S.seenKeys.clear(); saveLocal(); renderModel(); toast('Model reset'); } };
+  const total=p.loved.length+p.liked.length+p.disliked.length;
+  $('mcount').textContent = total? (total+' signals') : '';
+}
+function grp(sw,label,inner){ return `<div class="grp"><div class="h"><span class="sw" style="background:${sw}"></span>${label}</div><div class="chips">${inner}</div></div>`; }
+function chip(txt,cls){ return `<span class="chip ${cls||''}">${escapeHtml(txt)}</span>`; }
+function emptyChip(txt){ return `<span class="empty-model">${txt||'learning as you listen'}</span>`; }
+function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ============================================================
+   CONTROLS
+============================================================ */
+$('btnPlay').onclick=()=>{ if(!S.player) return;
+  if(S.playing){ S.userPaused=true; S.player.pauseVideo(); }
+  else { S.userPaused=false; S.player.playVideo(); } };
+$('btnHeart').onclick=heart;
+$('btnSkip').onclick=skip;
+$('btnDown').onclick=down;
+$('btnNext').onclick=neutralNext;
+$('exportBtn2').onclick=exportProfile;
+$('anchorTgl').onclick=()=>$('anchorForm').classList.toggle('hidden');
+$('anchorAdd').onclick=addAnchors;
+document.addEventListener('keydown',e=>{
+  if(!S.started||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
+  if(e.code==='Space'){e.preventDefault();$('btnPlay').click();}
+  if(e.key==='ArrowRight')skip();
+  if(e.key==='ArrowLeft')previousTrack();
+  if(e.key.toLowerCase()==='n')neutralNext();
+  if(e.key.toLowerCase()==='h')heart();
+});
+
+/* ---- manual anchoring: seed the model with songs you already know you love/hate ---- */
+function addAnchors(){
+  const raw=$('anchorText').value.trim(); if(!raw){ toast('Nothing to add'); return; }
+  const bucket=$('anchorBucket').value;
+  let n=0;
+  raw.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{
+    if(bucket==='hatedGenres'){
+      if(!S.profile.hatedGenres.some(g=>g.toLowerCase()===line.toLowerCase())){
+        S.profile.hatedGenres.push(line); S.profile.genreScore[line]=-999; n++;
+      }
+      return;
+    }
+    const parts=line.split(/\s+[—–]\s+|\s+-\s+|\s+by\s+/i);
+    const t={title:(parts[0]||'').trim(), artist:(parts[1]||'').trim(), genre:''};
+    if(!t.title || S.seenKeys.has(key(t))) return;
+    S.profile[bucket].push(t); S.seenKeys.add(key(t)); n++;
+  });
+  saveLocal(); renderModel(); $('anchorText').value='';
+  if(bucket==='loved' && S.mode==='hearts') S.heartQueue=shuffleArr(S.profile.loved);
+  toast('Added '+n+' — Gemini will use these from the next batch');
+}
+
+/* ============================================================
+   START
+============================================================ */
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return; const r=new FileReader();
+  r.onload=()=>{ try{ const p=JSON.parse(r.result); Object.assign(S.profile,p);
+    (p.loved||[]).concat(p.liked||[],p.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
+    $('setupNote').textContent='Imported '+((p.loved||[]).length+(p.liked||[]).length+(p.disliked||[]).length)+' signals.'; toast('Profile imported');
+  }catch(err){ toast('Bad profile file'); } };
+  r.readAsText(f);
+};
+
+$('gearBtn').onclick=()=>{
+  const s=$('setup');
+  if(s.classList.contains('hidden')){
+    $('setupTitle').textContent = S.started ? 'Settings' : 'Setup';
+    $('startBtn').textContent = S.started ? 'Save settings' : 'Start listening';
+    s.classList.remove('hidden');
+  } else { s.classList.add('hidden'); }
+};
+$('modePill').onclick=()=>{
+  if(!S.started){ toast('Start listening first'); return; }
+  S.mode==='hearts' ? exitHearts() : enterHearts();
+};
+
+$('startBtn').onclick=async ()=>{
+  S.gemini=$('geminiKey').value.trim();
+  S.yt=$('ytKey').value.trim();
+  S.model=$('model').value;
+  const seedVal=$('seed').value.trim();
+  if(!S.gemini){ toast('Gemini key required'); return; }
+  if(seedVal) S.profile.seed=seedVal;
+  saveKeys();                 // remembered on this device — no more re-entering
+
+  if(S.started){              // already running → this panel is Settings
+    $('setup').classList.add('hidden');
+    toast('Settings saved');
+    return;
+  }
+
+  initMediaSession();         // must happen inside a user gesture (this click)
+  loadLocal();                // merge any saved profile
+  if(seedVal) S.profile.seed=seedVal;
+  if(!S.profile.seed && S.profile.loved.length+S.profile.liked.length===0){ toast('Give it a seed to start from'); $('seed').focus(); return; }
+
+  S.started=true;
+  $('setup').classList.add('hidden');
+  $('stage').classList.remove('hidden');
+  renderModel(); renderQueue(); updateModePill();
+  setStatus('<b>Warming up…</b> Gemini is choosing your first tracks.');
+
+  try{
+    await ensureQueue();
+    if(!S.queue.length){ setStatus('<b>Could not build a queue.</b> Check keys/model, then reload.'); return; }
+    if(S.ytReady) beginPlayback();  // else onYouTubeIframeAPIReady will trigger it
+    else setStatus('<b>Queue ready.</b> Waiting on the player…');
+  }catch(e){ setStatus('<b>Startup failed:</b> '+String(e.message||e).slice(0,140)); }
+};
+
+/* on load: prefill remembered keys + show existing profile */
+loadKeys();
+if(loadLocal()){ /* profile exists — hearts mode will be available immediately */ }
+
+/* PWA: register service worker when hosted (required by some Chrome versions for install) */
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
