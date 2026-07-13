@@ -394,7 +394,8 @@
 
   <footer>
     Resonance learns only from your four signals. Nothing leaves your browser except calls to Google's Gemini and YouTube with your own keys.<br>
-    Finish → liked · Heart → favorite · Skip → not your type · Never → genre banned.
+    Finish → liked · Heart → favorite · Skip → not your type · Never → genre banned.<br>
+    <span id="buildStamp" style="opacity:.6"></span>
   </footer>
 </div>
 
@@ -735,11 +736,16 @@ function startProg(){
 /* seekable progress bar (works even when video is hidden in data-saver) */
 (function initSeek(){
   const bar=document.getElementById('progBar'); if(!bar) return;
-  const fracFromEvent=e=>{ const r=bar.getBoundingClientRect(); const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left; return Math.max(0,Math.min(1,x/r.width)); };
+  const clientX=e=>{
+    if(e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientX;
+    if(e.touches && e.touches.length) return e.touches[0].clientX;
+    return e.clientX;
+  };
+  const fracFromEvent=e=>{ const r=bar.getBoundingClientRect(); return Math.max(0,Math.min(1,(clientX(e)-r.left)/r.width)); };
   const preview=f=>{ $('progFill').style.width=(f*100)+'%'; $('progKnob').style.left=(f*100)+'%'; const d=getDur(); if(d) $('tCur').textContent=fmt(f*d); };
   const down=e=>{ if(!S.current) return; S.seeking=true; bar.classList.add('seeking'); preview(fracFromEvent(e)); e.preventDefault(); };
-  const move=e=>{ if(S.seeking) preview(fracFromEvent(e)); };
-  const up=e=>{ if(!S.seeking) return; const f=fracFromEvent(e); seekToFrac(f); S.seeking=false; bar.classList.remove('seeking'); };
+  const move=e=>{ if(!S.seeking) return; preview(fracFromEvent(e)); e.preventDefault(); };
+  const up=e=>{ if(!S.seeking) return; seekToFrac(fracFromEvent(e)); S.seeking=false; bar.classList.remove('seeking'); };
   bar.addEventListener('mousedown',down); window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
   bar.addEventListener('touchstart',down,{passive:false}); window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
 })();
@@ -975,11 +981,22 @@ function updateQCount(){
   }
 }
 function renderModel(){
-  const p=S.profile, el=$('model'); if(!el) return;
+  const el=$('model'); if(!el) return;
+  try{ renderModelInner(); }
+  catch(e){
+    // last-resort: never leave Sound DNA blank
+    const p=S.profile||{}; const all=[].concat(p.loved||[],p.liked||[],p.disliked||[]);
+    el.innerHTML='<div class="mlist-hint">'+all.length+' songs</div>'+
+      all.slice(0,60).map((t,i)=>`<div class="mrow"><button class="mbtn" data-fp="${i}">▶</button><span class="txt">${escapeHtml((t.title||'')+(t.artist?(' — '+t.artist):''))}</span></div>`).join('');
+    el.querySelectorAll('[data-fp]').forEach(b=>b.onclick=()=>playSpecific(all[+b.dataset.fp]));
+    try{ $('mcount').textContent=all.length+' signals'; }catch(_){}
+  }
+}
+function renderModelInner(){
+  const p=S.profile, el=$('model');
   normalizeProfile();
   const lovedArtists=[...new Set(p.loved.map(x=>x.artist).filter(Boolean))].slice(0,8);
   let likedGenres=topKeys(p.genreScore,8).filter(g=>!p.hatedGenres.includes(g));
-  // fallback: if no genre scores yet, show top artists from liked songs so the panel is never bare
   let likeLabel='you like', likeItems=likedGenres;
   if(!likeItems.length){
     const artists=[...new Set(p.liked.map(x=>x.artist).filter(Boolean))].slice(0,8);
@@ -1170,12 +1187,15 @@ function applyWide(){ $('stage').classList.toggle('wide', window.innerWidth>=820
 window.addEventListener('resize',()=>{ if(S.started) applyWide(); });
 
 /* on load: prefill remembered keys, show existing profile, open setup */
+const BUILD='build 9 · 2026-07-13';
+try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
 openSettings();
 
+/* PWA: network-first SW so new builds land immediately (no stale cache) */
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.register('sw.js').then(reg=>{ try{ reg.update(); }catch(_){}}).catch(()=>{});
 }
 </script>
 </body>
