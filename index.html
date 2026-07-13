@@ -94,10 +94,8 @@
   .now{padding:0}
   .videoshell{position:relative;background:#000;aspect-ratio:16/9;width:100%}
   #player{position:absolute;inset:0;width:100%;height:100%}
-  #artImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-  .videoshell.mini{aspect-ratio:auto;height:70px}
-  .videoshell.mini #player{opacity:.001}
-  .videoshell.mini::after{content:'♫';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--amber);opacity:.5;pointer-events:none}
+  .videoshell.mini{aspect-ratio:auto;height:0;padding-bottom:0;overflow:hidden}
+  .videoshell.mini #player{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
   .lyricsPanel{border-top:1px solid var(--line);padding:12px 18px 12px}
   .lyricsPanel .lh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
   .lyricsPanel .lh .t{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
@@ -138,27 +136,60 @@
   .np-reason{font-size:13.5px;color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:11px;margin:12px 0 16px}
   .np-reason b{color:var(--amber);font-style:normal;font-family:var(--mono);font-size:11px;letter-spacing:.06em}
 
-  /* progress */
-  .prog{height:5px;background:var(--line);border-radius:99px;overflow:hidden;margin:4px 0 6px}
-  .prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--ember));transition:width .3s linear}
-  .times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:18px}
+  /* progress — seekable */
+  .prog{position:relative;height:6px;background:var(--line);border-radius:99px;margin:4px 0 6px;cursor:pointer;touch-action:none}
+  .prog i{position:absolute;left:0;top:0;height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--ember));border-radius:99px;transition:width .12s linear}
+  .prog .knob{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(0,0,0,.5);transform:translate(-50%,-50%);left:0;opacity:0;transition:opacity .15s}
+  .prog:hover .knob,.prog.seeking .knob{opacity:1}
+  .prog::before{content:'';position:absolute;inset:-8px 0;} /* larger touch target */
+  .times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:16px}
 
-  /* feedback — the teaching surface. each button says what it teaches the model. */
-  .feedback{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-  .fb{display:flex;flex-direction:column;align-items:center;gap:7px;background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:13px 6px 11px;transition:.14s;color:var(--muted)}
-  .fb:hover{transform:translateY(-2px)}
-  .fb .ico{font-size:19px;line-height:1}
-  .fb .lab{font-weight:600;font-size:12.5px;color:var(--ink)}
-  .fb .teach{font-family:var(--mono);font-size:9.5px;letter-spacing:.02em;text-align:center;line-height:1.3;color:var(--faint)}
+  /* feedback — compact icon buttons */
+  .feedback{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .fb{display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:9px 4px;transition:.14s;color:var(--muted)}
+  .fb:active{transform:scale(.94)}
+  .fb .ico{font-size:18px;line-height:1}
+  .fb .lab{font-weight:600;font-size:11px;color:var(--ink)}
   .fb.skip:hover{border-color:var(--slate);box-shadow:0 0 0 1px var(--slate) inset}
   .fb.heart:hover{border-color:var(--ember);box-shadow:0 0 0 1px var(--ember) inset}
-  .fb.heart.on{border-color:var(--ember);background:rgba(224,82,75,.12)}
+  .fb.heart.on{border-color:var(--ember);background:rgba(224,82,75,.14)}
   .fb.heart.on .ico{color:var(--ember)}
+  .fb.down .ico{color:#9a94a8}
   .fb.down:hover{border-color:var(--dim);box-shadow:0 0 0 1px var(--dim) inset}
   .fb.play:hover{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
   .fb .ico.amber{color:var(--amber)}
+  .ds-tag{font-family:var(--mono);font-size:10px;color:var(--amber);border:1px solid rgba(232,162,75,.4);border-radius:99px;padding:2px 9px}
 
-  /* right column */
+  /* tabs */
+  .tabbar{display:flex;gap:6px;margin-bottom:16px;position:sticky;top:0;z-index:20;background:var(--bg);padding:4px 0}
+  .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:11px;padding:11px 8px;font-family:var(--mono);font-size:12.5px;transition:.15s;position:relative}
+  .tab span{font-size:12.5px}
+  .tab.on{border-color:var(--amber);color:var(--amber);background:var(--panel-2)}
+  .tab .badge{position:absolute;top:6px;right:10px;min-width:16px;height:16px;border-radius:99px;background:var(--ember);color:#fff;font-size:9px;display:none;align-items:center;justify-content:center;padding:0 4px}
+  .tab .badge.show{display:flex}
+  .tabpane{display:none}
+  .tabpane.on{display:block;animation:fade .2s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  @media(min-width:820px){
+    /* on wide screens: Now + Up-next side by side, DNA still its own tab */
+    .tab[data-tab="queue"]{display:none}
+    .stage.wide{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start}
+    .stage.wide #tabQueue{display:block}
+    .stage.wide #tabDNA.on{grid-column:1/-1}
+    .stage.wide #tabNow{display:block!important}
+  }
+
+  /* overlay */
+  .overlay{position:fixed;inset:0;background:rgba(6,5,10,.72);backdrop-filter:blur(4px);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px;overflow-y:auto}
+  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:100%;max-width:520px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .sheet-h{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink)}
+  .xbtn{background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px}
+  .xbtn:hover{color:var(--ink)}
+  .sheet-body{padding:20px}
+  .sheet-body .field{margin-bottom:15px}
+  .sheet-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+
+  /* right column (legacy, wide only) */
   .side{display:flex;flex-direction:column;gap:22px}
   .panel-h{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:16px 18px 0;display:flex;justify-content:space-between;align-items:center}
   .panel-h .n{color:var(--amber)}
@@ -231,97 +262,90 @@
     if(location.protocol==='file:'){ document.getElementById('fileWarn').classList.remove('hidden'); }
   </script>
 
-  <!-- SETUP -->
-  <section class="setup" id="setup">
-    <h2 id="setupTitle">Setup</h2>
-    <div class="grid">
-      <div class="field">
-        <label>Gemini API key <span class="hint">— required · aistudio.google.com</span></label>
-        <input id="geminiKey" type="password" placeholder="AIza…" autocomplete="off">
-      </div>
-      <div class="field">
-        <label>YouTube Data API key <span class="hint">— optional but recommended · reliable search</span></label>
-        <input id="ytKey" type="password" placeholder="AIza… (leave blank for Gemini-guess mode)" autocomplete="off">
-      </div>
-      <div class="field">
-        <label>Seed — an artist, song, or vibe to start from</label>
-        <input id="seed" type="text" placeholder="e.g. moody Arabic indie · Radiohead · late-night jazz">
-      </div>
-      <div class="field">
-        <label>Gemini model <span class="hint">— change if you hit a 404</span></label>
-        <select id="model">
-          <option value="gemini-3.5-flash">gemini-3.5-flash (recommended)</option>
-          <option value="gemini-flash-latest">gemini-flash-latest (auto-updates)</option>
-          <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (cheapest)</option>
-          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Data saver <span class="hint">— YouTube only; shrinks video to save mobile data</span></label>
-        <select id="dataSaver">
-          <option value="off">off — full video</option>
-          <option value="on">on — hide video, audio only</option>
-        </select>
+  <!-- SETTINGS OVERLAY -->
+  <div class="overlay hidden" id="settingsOverlay">
+    <div class="sheet">
+      <div class="sheet-h"><span id="setupTitle">Setup</span><button class="xbtn" id="closeSettings">✕</button></div>
+      <div class="sheet-body">
+        <div class="field">
+          <label>Gemini API key <span class="hint">— required · aistudio.google.com</span></label>
+          <input id="geminiKey" type="password" placeholder="AIza…" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>YouTube Data API key <span class="hint">— recommended · reliable search</span></label>
+          <input id="ytKey" type="password" placeholder="AIza… (blank = Gemini-guess mode)" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Seed — an artist, song, or vibe to start from</label>
+          <input id="seed" type="text" placeholder="e.g. moody Arabic indie · Radiohead · late-night jazz">
+        </div>
+        <div class="field">
+          <label>Gemini model <span class="hint">— change if you hit a 404</span></label>
+          <select id="model">
+            <option value="gemini-3.5-flash">gemini-3.5-flash (recommended)</option>
+            <option value="gemini-flash-latest">gemini-flash-latest (auto-updates)</option>
+            <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (cheapest)</option>
+            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Data saver <span class="hint">— hides the video, plays audio only</span></label>
+          <select id="dataSaver">
+            <option value="off">off — show video</option>
+            <option value="on">on — audio only, less data</option>
+          </select>
+        </div>
+        <div class="sheet-actions">
+          <button class="btn" id="startBtn">Start listening</button>
+          <button class="btn ghost sm" id="importBtn">Import profile</button>
+          <button class="btn ghost sm" id="exportBtn2">Export / back up</button>
+          <input type="file" id="importFile" accept="application/json">
+        </div>
+        <div id="setupNote" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:10px"></div>
       </div>
     </div>
-    <div class="row-actions">
-      <button class="btn" id="startBtn">Start listening</button>
-      <button class="btn ghost sm" id="importBtn">Import taste profile</button>
-      <button class="btn ghost sm" id="exportBtn2">Export / back up taste profile</button>
-      <input type="file" id="importFile" accept="application/json">
-      <span id="setupNote" style="font-family:var(--mono);font-size:11px;color:var(--faint)"></span>
-    </div>
-  </section>
+  </div>
+
+  <!-- TAB BAR -->
+  <nav class="tabbar hidden" id="tabbar">
+    <button class="tab on" data-tab="now">▶ <span>Now</span></button>
+    <button class="tab" data-tab="queue">◷ <span>Up next</span><i class="badge" id="tabBadge"></i></button>
+    <button class="tab" data-tab="dna">⬡ <span>Sound DNA</span></button>
+  </nav>
 
   <!-- STAGE -->
   <div class="stage hidden" id="stage">
-    <!-- NOW PLAYING -->
+
+    <!-- TAB: NOW PLAYING -->
+    <section class="tabpane on" id="tabNow">
     <div class="card now">
       <div class="videoshell">
         <div id="player"></div>
-        <img id="artImg" class="hidden" alt="">
         <div class="placeholder" id="playerPh">building your first pick…</div>
       </div>
       <div class="np-body">
-        <div class="np-eyebrow"><span id="npMode">◈ Now playing</span>
-          <span class="srcswitch">
-            <button id="srcYT" class="on" title="Full catalog, video">▶ YouTube</button>
-            <button id="srcAU" title="Audio-only, low data, free">♫ Audius</button>
-          </span>
-        </div>
+        <div class="np-eyebrow"><span id="npMode">◈ Now playing</span><span id="dsTag" class="ds-tag hidden">♫ audio only</span></div>
         <div class="quotaWall hidden" id="quotaWall">
           <div class="qw-i">◔</div>
           <div class="qw-t">YouTube's daily search quota is used up</div>
-          <div class="qw-s">This resets every day (Pacific midnight). Until then you can play your favorites, switch to Audius, or add a bigger YouTube key in Settings.</div>
+          <div class="qw-s">It resets daily (Pacific midnight). Until then you can play your favorites, or add a bigger YouTube key in Settings.</div>
           <div class="qw-btns">
             <button class="btn sm" id="quotaFavBtn">♥ Play my favorites</button>
-            <button class="btn ghost sm" id="quotaAudiusBtn">♫ Switch to Audius</button>
+            <button class="btn ghost sm" id="quotaSettingsBtn">⚙ Open settings</button>
           </div>
         </div>
         <h3 class="np-title" id="npTitle">—</h3>
         <div class="np-artist" id="npArtist"></div>
         <div class="np-reason" id="npReason"></div>
 
-        <div class="prog"><i id="progFill"></i></div>
+        <div class="prog" id="progBar"><i id="progFill"></i><span class="knob" id="progKnob"></span></div>
         <div class="times"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
 
         <div class="feedback">
-          <button class="fb play" id="btnPlay" title="Play / pause">
-            <span class="ico amber" id="playIco">▶</span><span class="lab">Play</span>
-            <span class="teach">finish it = you like it</span>
-          </button>
-          <button class="fb heart" id="btnHeart" title="All-time favorite">
-            <span class="ico">♥</span><span class="lab">Heart</span>
-            <span class="teach">all-time favorite</span>
-          </button>
-          <button class="fb skip" id="btnSkip" title="Skip — not my type">
-            <span class="ico">⏭</span><span class="lab">Skip</span>
-            <span class="teach">not my type</span>
-          </button>
-          <button class="fb down" id="btnDown" title="Thumbs down — hate this genre">
-            <span class="ico">⏻</span><span class="lab">Down</span>
-            <span class="teach">kill this whole genre</span>
-          </button>
+          <button class="fb play" id="btnPlay" title="Play / pause"><span class="ico amber" id="playIco">▶</span><span class="lab">Play</span></button>
+          <button class="fb heart" id="btnHeart" title="All-time favorite"><span class="ico">♥</span><span class="lab">Heart</span></button>
+          <button class="fb skip" id="btnSkip" title="Skip — not my type"><span class="ico">⏭</span><span class="lab">Skip</span></button>
+          <button class="fb down" id="btnDown" title="Never — ban this genre"><span class="ico">⦸</span><span class="lab">Never</span></button>
         </div>
         <button class="nextneutral" id="btnNext">next song — teaches nothing →</button>
       </div>
@@ -333,13 +357,18 @@
         <div id="lyricsBox"></div>
       </div>
     </div>
+    </section>
 
-    <!-- SIDE -->
-    <div class="side">
+    <!-- TAB: UP NEXT -->
+    <section class="tabpane" id="tabQueue">
       <div class="card">
         <div class="panel-h">◷ Up next <span class="n" id="qcount">planning…</span></div>
         <div class="queue" id="queue"></div>
       </div>
+    </section>
+
+    <!-- TAB: SOUND DNA -->
+    <section class="tabpane" id="tabDNA">
       <div class="card">
         <div class="panel-h">⬡ Sound DNA <span class="n" id="mcount"></span></div>
         <div class="model" id="model"></div>
@@ -359,12 +388,13 @@
           </div>
         </div>
       </div>
-    </div>
+    </section>
+
   </div>
 
   <footer>
-    Resonance learns only from your four signals. Nothing leaves your browser except calls to Google's Gemini and YouTube APIs with your own keys.<br>
-    Finish a song → liked · Heart → favorite · Skip → not your type · Down → genre killed.
+    Resonance learns only from your four signals. Nothing leaves your browser except calls to Google's Gemini and YouTube with your own keys.<br>
+    Finish → liked · Heart → favorite · Skip → not your type · Never → genre banned.
   </footer>
 </div>
 
@@ -384,7 +414,7 @@ const S = {
   current: null,
   player: null, ytReady:false, playing:false, resolving:false, thinking:false, started:false,
   progTimer:null, mode:'discover', heartQueue:[], history:[], userPaused:false,
-  source:'youtube', audio:null, audiusHost:null, pendingTrack:null, dataSaver:'off', ytQuotaOut:false,
+  pendingTrack:null, dataSaver:'off', ytQuotaOut:false, tab:'now', seeking:false,
   lyrics:null, lyricsLines:[], lyricIdx:-1, lyricsFor:'', lyricsOn:true, translated:false, editOpen:true,
 };
 
@@ -409,13 +439,12 @@ function exportProfile(){
   a.download='resonance-taste-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
   toast('Profile exported');
 }
-function saveKeys(){ try{ localStorage.setItem('resonance_keys', JSON.stringify({g:S.gemini,y:S.yt,m:S.model,s:S.profile.seed,src:S.source,ds:S.dataSaver})); }catch(_){}}
+function saveKeys(){ try{ localStorage.setItem('resonance_keys', JSON.stringify({g:S.gemini,y:S.yt,m:S.model,s:S.profile.seed,ds:S.dataSaver})); }catch(_){}}
 function loadKeys(){
   try{
     const k=JSON.parse(localStorage.getItem('resonance_keys')||'null'); if(!k) return;
     $('geminiKey').value=k.g||''; $('ytKey').value=k.y||'';
     if(k.m) $('model').value=k.m; $('seed').value=k.s||'';
-    if(k.src){ S.source=k.src; $('srcYT').classList.toggle('on',k.src==='youtube'); $('srcAU').classList.toggle('on',k.src==='audius'); }
     if(k.ds){ S.dataSaver=k.ds; const d=$('dataSaver'); if(d) d.value=k.ds; }
     if(k.g) $('setupNote').textContent='Keys remembered on this device. Just hit Start.';
   }catch(_){}
@@ -506,7 +535,7 @@ async function resolveVideoIdRaw(cand, allowSeen){
 function quotaStop(){
   clearInterval(S.progTimer);
   const canHearts = S.profile.loved.length>0;
-  setStatus('<b>YouTube daily quota is used up.</b> '+(canHearts?'You can still play your favorites.':'Add favorites or switch to Audius.'));
+  setStatus('<b>YouTube daily quota is used up.</b> '+(canHearts?'You can still play your favorites.':'Add favorites, or a bigger key in Settings.'));
   const box=$('quotaWall'); if(box){
     box.classList.remove('hidden');
     $('quotaFavBtn').style.display = canHearts ? '' : 'none';
@@ -528,7 +557,7 @@ async function ensureQueue(){
   try{
     let guard=0;
     while(S.queue.length<2 && guard++<14){
-      if(S.ytQuotaOut && S.source==='youtube') break;   // quota gone — stop trying
+      if(S.ytQuotaOut) break;   // quota gone — stop trying
       if(S.candidates.length===0){ await refillCandidates(); if(S.candidates.length===0) break; }
       const cand=S.candidates.shift();
       if(cand.genre && S.profile.hatedGenres.map(g=>g.toLowerCase()).includes((cand.genre||'').toLowerCase())) continue;
@@ -538,67 +567,45 @@ async function ensureQueue(){
         if(res.videoId) S.seenIds.add(res.videoId); S.seenKeys.add(key(cand)); }
     }
   } finally { S.resolving=false; renderQueue(); updateQCount(); }
-  if(S.ytQuotaOut && S.source==='youtube' && !S.queue.length && S.mode!=='hearts'){ quotaStop(); return; }
+  if(S.ytQuotaOut && !S.queue.length && S.mode!=='hearts'){ quotaStop(); return; }
   if(S.candidates.length<3 && !S.ytQuotaOut) refillCandidates();
 }
 
 /* ============================================================
-   PLAYBACK ENGINE — two switchable sources:
-   · youtube: IFrame API (full catalog, video data)
-   · audius:  free open API + native <audio> (audio-only, low data,
-              true background play + full media-key ownership)
+   PLAYBACK ENGINE — YouTube IFrame API (only viable free,
+   embeddable, in-browser source). Data-saver hides the video
+   but keeps audio; our own progress bar handles seeking.
 ============================================================ */
 window.onYouTubeIframeAPIReady = ()=>{ S.ytReady=true; if(S.pendingTrack){ const t=S.pendingTrack; S.pendingTrack=null; playYT(t); } };
 (function loadYT(){
   const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api';
   s.onerror=showSandboxWarn; document.head.appendChild(s);
-  setTimeout(()=>{ if(!S.ytReady && S.source==='youtube') showSandboxWarn(); }, 7000);
+  setTimeout(()=>{ if(!S.ytReady) showSandboxWarn(); }, 7000);
 })();
 function showSandboxWarn(){ if(!S.ytReady) $('sandboxWarn').classList.remove('hidden'); }
 
-/* ---- Audius: host discovery, search, stream ---- */
-async function audiusHost(){
-  if(S.audiusHost) return S.audiusHost;
-  const r=await fetch('https://api.audius.co'); const d=await r.json();
-  S.audiusHost=(d.data||[])[0]; return S.audiusHost;
-}
-async function resolveAudius(cand){
-  try{
-    const h=await audiusHost(); if(!h) return null;
-    const r=await fetch(h+'/v1/tracks/search?query='+encodeURIComponent((cand.artist+' '+cand.title).trim())+'&app_name=Resonance');
-    if(!r.ok) return null;
-    const d=await r.json(); const hit=(d.data||[])[0];
-    if(!hit) return null;
-    return { streamUrl: h+'/v1/tracks/'+hit.id+'/stream?app_name=Resonance',
-             art: (hit.artwork&&(hit.artwork['480x480']||hit.artwork['150x150']))||'' };
-  }catch(_){ return null; }
-}
-/* unified resolver: returns fields to merge into the track */
 async function resolveTrack(cand, allowSeen){
-  if(S.source==='audius'){ return await resolveAudius(cand); }
   const id=await resolveVideoIdRaw(cand, allowSeen);
   return id ? {videoId:id} : null;
 }
 
-/* ---- time accessors (source-agnostic) ---- */
-function getTime(){ try{ return S.source==='audius' ? (S.audio?S.audio.currentTime:0) : (S.player&&S.player.getCurrentTime?S.player.getCurrentTime():0); }catch(_){ return 0; } }
-function getDur(){ try{ return S.source==='audius' ? (S.audio?(S.audio.duration||0):0) : (S.player&&S.player.getDuration?S.player.getDuration():0); }catch(_){ return 0; } }
-function ctrlPlay(){ S.userPaused=false; try{ S.source==='audius' ? S.audio.play() : S.player.playVideo(); }catch(_){}}
-function ctrlPause(){ S.userPaused=true; try{ S.source==='audius' ? S.audio.pause() : S.player.pauseVideo(); }catch(_){}}
-function ctrlSeek0(){ try{ S.source==='audius' ? (S.audio.currentTime=0) : S.player.seekTo(0,true); }catch(_){}}
+/* ---- player accessors + controls ---- */
+function getTime(){ try{ return (S.player&&S.player.getCurrentTime)?S.player.getCurrentTime():0; }catch(_){ return 0; } }
+function getDur(){ try{ return (S.player&&S.player.getDuration)?S.player.getDuration():0; }catch(_){ return 0; } }
+function ctrlPlay(){ S.userPaused=false; try{ S.player.playVideo(); }catch(_){}}
+function ctrlPause(){ S.userPaused=true; try{ S.player.pauseVideo(); }catch(_){}}
+function ctrlSeek0(){ try{ S.player.seekTo(0,true); }catch(_){}}
+function seekToFrac(f){ try{ const d=getDur(); if(d) S.player.seekTo(Math.max(0,Math.min(1,f))*d, true); }catch(_){}}
 
-/* ---- the one entry point for playing any track ---- */
 function startTrack(t, pushHistory){
   if(pushHistory!==false && S.current) S.history.push(S.current);
   S.current=t;
   $('btnHeart').classList.toggle('on', S.profile.loved.some(x=>key(x)===key(t)));
   $('playerPh').classList.add('hidden');
-  if(S.source==='audius') playAudius(t); else playYT(t);
+  playYT(t);
   S.playing=true; renderNow(); startProg();
 }
 function playYT(t){
-  $('player').style.display=''; $('artImg').classList.add('hidden');
-  try{ S.audio&&S.audio.pause(); }catch(_){}
   if(!S.ytReady){ S.pendingTrack=t; return; }
   if(!S.player){
     S.player=new YT.Player('player',{
@@ -606,28 +613,12 @@ function playYT(t){
       playerVars:{autoplay:1,controls:1,rel:0,playsinline:1,modestbranding:1},
       events:{
         onReady:e=>{ e.target.playVideo(); S.playing=true; renderNow(); startProg();
-          setTimeout(()=>{ try{ if(S.player.getPlayerState()!==YT.PlayerState.PLAYING){ toast('Tap the video once to start — phone autoplay rule'); } }catch(_){}} ,2500); },
+          setTimeout(()=>{ try{ if(S.player.getPlayerState()!==YT.PlayerState.PLAYING){ toast('Tap play to start — phone autoplay rule'); } }catch(_){}} ,2500); },
         onStateChange:onState,
         onError:onErr
       }
     });
   } else S.player.loadVideoById(t.videoId);
-}
-function initAudio(){
-  S.audio=new Audio(); S.audio.preload='auto';
-  S.audio.onended=()=>completed();
-  S.audio.onplay =()=>{ S.playing=true; S.userPaused=false; syncPlayIco(); $('livedot').classList.add('live'); try{navigator.mediaSession.playbackState='playing'}catch(_){}};
-  S.audio.onpause=()=>{ S.playing=false; syncPlayIco(); $('livedot').classList.remove('live'); try{navigator.mediaSession.playbackState='paused'}catch(_){}};
-  S.audio.onerror=()=>{ toast('Track unavailable · swapping'); loadNext(); };
-}
-function playAudius(t){
-  if(!S.audio) initAudio();
-  try{ const p=document.getElementById('player'); if(p) p.style.display='none'; }catch(_){}
-  try{ S.player&&S.player.stopVideo&&S.player.stopVideo(); }catch(_){}
-  const img=$('artImg');
-  if(t.art){ img.src=t.art; img.classList.remove('hidden'); } else img.classList.add('hidden');
-  S.audio.src=t.streamUrl;
-  S.audio.play().catch(()=>toast('Tap play to start — phone autoplay rule'));
 }
 
 function beginPlayback(){
@@ -638,33 +629,32 @@ function beginPlayback(){
 function loadNext(){
   if(S.mode==='hearts'){ nextHeart(); return; }
   if(!S.queue.length){
-    if(S.ytQuotaOut && S.source==='youtube'){ quotaStop(); return; }
+    if(S.ytQuotaOut){ quotaStop(); return; }
     setStatus('<b>Building more…</b>'); ensureQueue().then(()=>{ if(S.queue.length) loadNext(); else if(S.ytQuotaOut) quotaStop(); }); return;
   }
   startTrack(S.queue.shift());
   ensureQueue();
 }
 
-/* ---- Close to my heart mode: exclusively cycle all-time favorites ---- */
+/* ---- Close to my heart mode ---- */
 function shuffleArr(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
 async function nextHeart(){
   if(!S.profile.loved.length){ toast('No favorites yet — heart some songs first'); exitHearts(); return; }
   if(!S.heartQueue.length) S.heartQueue = shuffleArr(S.profile.loved);
   const t = {...S.heartQueue.shift()};
-  const hasYT = t.videoId && /^[\w-]{11}$/.test(t.videoId);
-  if(S.source==='youtube' ? !hasYT : !t.streamUrl){
+  if(!(t.videoId && /^[\w-]{11}$/.test(t.videoId))){
     const res = await resolveTrack({artist:t.artist, title:t.title}, true);
-    if(!res){ toast('Couldn\u2019t locate \u201c'+t.title+'\u201d on '+S.source); return nextHeart(); }
+    if(!res){ toast('Couldn\u2019t locate \u201c'+t.title+'\u201d'); return nextHeart(); }
     Object.assign(t, res);
   }
   t.reason = 'all-time favorite';
   startTrack(t); renderQueue();
 }
 function enterHearts(){
-  if(!S.profile.loved.length){ toast('Heart a few songs first — or add them manually below the Taste Model'); return; }
+  if(!S.profile.loved.length){ toast('Heart a few songs first — or add them in Sound DNA'); return; }
   S.mode='hearts'; S.heartQueue = shuffleArr(S.profile.loved);
   renderModel(); updateModePill(); setStatus('<b>\u2665 Close to my heart</b> \u00b7 favorites only, on shuffle');
-  nextHeart();
+  showTab('now'); nextHeart();
 }
 function exitHearts(){
   S.mode='discover'; $('btnHeart').classList.remove('on');
@@ -672,7 +662,7 @@ function exitHearts(){
 }
 function updateModePill(){
   const b=$('modePill');
-  if(S.mode==='hearts'){ b.classList.add('on'); b.textContent='← back to discovery'; }
+  if(S.mode==='hearts'){ b.classList.add('on'); b.textContent='← discovery'; }
   else { b.classList.remove('on'); b.textContent='♥ favorites'; }
 }
 function previousTrack(){
@@ -680,34 +670,21 @@ function previousTrack(){
   if(!S.history.length){ ctrlSeek0(); return; }
   startTrack(S.history.pop(), false);
 }
-function neutralNext(){                        // advance, teach nothing
-  S.mode==='hearts' ? nextHeart() : loadNext();
-}
-/* play any specific entry from the taste model, on demand */
+function neutralNext(){ S.mode==='hearts' ? nextHeart() : loadNext(); }
 async function playSpecific(t){
   const c={...t, reason:'you chose this'};
-  const hasYT = c.videoId && /^[\w-]{11}$/.test(c.videoId);
-  if(S.source==='youtube' ? !hasYT : !c.streamUrl){
+  if(!(c.videoId && /^[\w-]{11}$/.test(c.videoId))){
     toast('Finding it…');
     const res=await resolveTrack({artist:c.artist,title:c.title}, true);
-    if(!res){ toast('Couldn\u2019t find it on '+S.source); return; }
+    if(!res){ toast('Couldn\u2019t find it'); return; }
     Object.assign(c,res);
   }
-  startTrack(c);
-}
-/* switching source mid-session: resolved IDs are source-specific, rebuild */
-async function switchSource(){
-  try{ S.player&&S.player.stopVideo&&S.player.stopVideo(); }catch(_){}
-  try{ S.audio&&S.audio.pause(); }catch(_){}
-  S.queue=[]; S.candidates=[]; S.audiusHost=null;
-  if(S.source==='audius'){ $('quotaWall').classList.add('hidden'); }
-  applyDataSaver(); renderQueue();
-  setStatus('<b>Switching to '+S.source+'…</b>');
-  if(S.mode==='hearts'){ S.heartQueue=shuffleArr(S.profile.loved); nextHeart(); }
-  else { await ensureQueue(); if(S.queue.length) startTrack(S.queue.shift()); }
+  showTab('now'); startTrack(c);
 }
 function applyDataSaver(){
-  document.querySelector('.videoshell').classList.toggle('mini', S.dataSaver==='on' && S.source==='youtube');
+  const on = S.dataSaver==='on';
+  document.querySelector('.videoshell').classList.toggle('mini', on);
+  $('dsTag').classList.toggle('hidden', !on);
 }
 function onState(e){
   if(e.data===YT.PlayerState.ENDED){ completed(); }
@@ -724,12 +701,26 @@ function onErr(){ // unavailable / not embeddable -> system skip, replace (does 
 function startProg(){
   clearInterval(S.progTimer);
   S.progTimer=setInterval(()=>{
+    if(S.seeking) { lyricsTick(getTime(), getDur()); return; }  // don't fight the user's drag
     const d=getDur(), c=getTime();
-    $('progFill').style.width=(d?(c/d*100):0)+'%';
+    const pct = d?(c/d*100):0;
+    $('progFill').style.width=pct+'%';
+    $('progKnob').style.left=pct+'%';
     $('tCur').textContent=fmt(c); $('tDur').textContent=fmt(d);
     lyricsTick(c, d);
   },300);
 }
+/* seekable progress bar (works even when video is hidden in data-saver) */
+(function initSeek(){
+  const bar=document.getElementById('progBar'); if(!bar) return;
+  const fracFromEvent=e=>{ const r=bar.getBoundingClientRect(); const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left; return Math.max(0,Math.min(1,x/r.width)); };
+  const preview=f=>{ $('progFill').style.width=(f*100)+'%'; $('progKnob').style.left=(f*100)+'%'; const d=getDur(); if(d) $('tCur').textContent=fmt(f*d); };
+  const down=e=>{ if(!S.current) return; S.seeking=true; bar.classList.add('seeking'); preview(fracFromEvent(e)); e.preventDefault(); };
+  const move=e=>{ if(S.seeking) preview(fracFromEvent(e)); };
+  const up=e=>{ if(!S.seeking) return; const f=fracFromEvent(e); seekToFrac(f); S.seeking=false; bar.classList.remove('seeking'); };
+  bar.addEventListener('mousedown',down); window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
+  bar.addEventListener('touchstart',down,{passive:false}); window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
+})();
 function syncPlayIco(){ $('playIco').textContent = S.playing?'❚❚':'▶'; $('btnPlay').querySelector('.lab').textContent = S.playing?'Pause':'Play'; }
 
 /* ============================================================
@@ -869,7 +860,7 @@ function updateMediaMeta(){
     navigator.mediaSession.metadata = new MediaMetadata({
       title: S.current.title, artist: S.current.artist,
       album: S.mode==='hearts' ? 'Close to my heart ♥' : 'Resonance',
-      artwork: [{src: (S.source==='audius' && S.current.art) ? S.current.art : ('https://i.ytimg.com/vi/'+S.current.videoId+'/hqdefault.jpg'), sizes:'480x360', type:'image/jpeg'}]
+      artwork: [{src:'https://i.ytimg.com/vi/'+S.current.videoId+'/hqdefault.jpg', sizes:'480x360', type:'image/jpeg'}]
     });
   }catch(_){}
 }
@@ -934,7 +925,7 @@ function renderNow(){
   $('npMode').textContent = S.mode==='hearts' ? '♥ Close to my heart' : '◈ Now playing';
   setStatus(S.mode==='hearts'
     ? '<b>♥ Close to my heart</b> · '+S.profile.loved.length+' favorites on shuffle'
-    : 'Playing · <b>'+escapeHtml(t.genre||'—')+'</b> · '+S.source+' · queue keeps 2 ready');
+    : 'Playing · <b>'+escapeHtml(t.genre||'—')+'</b> · queue keeps 2 ready');
 }
 function renderQueue(){
   const el=$('queue');
@@ -952,7 +943,14 @@ function renderQueue(){
   el.innerHTML=html; updateQCount();
 }
 function updateQCount(){
+  const n = S.mode==='hearts' ? S.heartQueue.length : S.queue.length;
   $('qcount').textContent = S.mode==='hearts' ? '♥ favorites' : ((S.thinking||S.resolving) ? 'planning…' : (S.queue.length+' ready'));
+  const badge=$('tabBadge');
+  if(badge){
+    const show = S.tab!=='queue' && n>0 && !S.mode.includes('hearts');
+    badge.textContent = Math.min(n,2);
+    badge.classList.toggle('show', show);
+  }
 }
 function renderModel(){
   const p=S.profile, el=$('model');
@@ -1011,9 +1009,7 @@ function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;',
 /* ============================================================
    CONTROLS
 ============================================================ */
-$('btnPlay').onclick=()=>{ if(!S.player && !S.audio) return; S.playing?ctrlPause():ctrlPlay(); };
-$('srcYT').onclick=()=>{ if(S.source==='youtube')return; S.source='youtube'; $('srcYT').classList.add('on'); $('srcAU').classList.remove('on'); saveKeys(); if(S.started) switchSource(); };
-$('srcAU').onclick=()=>{ if(S.source==='audius')return; S.source='audius'; $('srcAU').classList.add('on'); $('srcYT').classList.remove('on'); saveKeys(); if(S.started) switchSource(); };
+$('btnPlay').onclick=()=>{ if(!S.player) return; S.playing?ctrlPause():ctrlPlay(); };
 $('lyToggle').onclick=()=>{
   S.lyricsOn=!S.lyricsOn;
   $('lyToggle').textContent = S.lyricsOn ? '▲ hide' : '▼ show';
@@ -1023,7 +1019,7 @@ $('lyToggle').onclick=()=>{
 };
 $('trBtn').onclick=toggleTranslation;
 $('quotaFavBtn').onclick=()=>{ $('quotaWall').classList.add('hidden'); enterHearts(); };
-$('quotaAudiusBtn').onclick=()=>{ $('quotaWall').classList.add('hidden'); if(S.source!=='audius'){ S.source='audius'; $('srcAU').classList.add('on'); $('srcYT').classList.remove('on'); saveKeys(); switchSource(); } };
+$('quotaSettingsBtn').onclick=()=>{ $('quotaWall').classList.add('hidden'); openSettings(); };
 $('btnHeart').onclick=heart;
 $('btnSkip').onclick=skip;
 $('btnDown').onclick=down;
@@ -1031,6 +1027,18 @@ $('btnNext').onclick=neutralNext;
 $('exportBtn2').onclick=exportProfile;
 $('anchorTgl').onclick=()=>$('anchorForm').classList.toggle('hidden');
 $('anchorAdd').onclick=addAnchors;
+
+/* ---- tabs ---- */
+function showTab(name){
+  S.tab=name;
+  const paneId = {now:'tabNow', queue:'tabQueue', dna:'tabDNA'}[name];
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
+  document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on', p.id===paneId));
+  if(name==='queue'){ $('tabBadge').classList.remove('show'); }
+  if(name==='dna'){ renderModel(); }
+}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+
 document.addEventListener('keydown',e=>{
   if(!S.started||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
   if(e.code==='Space'){e.preventDefault();$('btnPlay').click();}
@@ -1040,7 +1048,7 @@ document.addEventListener('keydown',e=>{
   if(e.key.toLowerCase()==='h')heart();
 });
 
-/* ---- manual anchoring: seed the model with songs you already know you love/hate ---- */
+/* ---- manual anchoring ---- */
 function addAnchors(){
   const raw=$('anchorText').value.trim(); if(!raw){ toast('Nothing to add'); return; }
   const bucket=$('anchorBucket').value;
@@ -1063,26 +1071,28 @@ function addAnchors(){
 }
 
 /* ============================================================
-   START
+   START / SETTINGS OVERLAY
 ============================================================ */
 $('importBtn').onclick=()=>$('importFile').click();
 $('importFile').onchange=e=>{
   const f=e.target.files[0]; if(!f) return; const r=new FileReader();
   r.onload=()=>{ try{ const p=JSON.parse(r.result); Object.assign(S.profile,p);
     (p.loved||[]).concat(p.liked||[],p.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
-    $('setupNote').textContent='Imported '+((p.loved||[]).length+(p.liked||[]).length+(p.disliked||[]).length)+' signals.'; toast('Profile imported');
+    $('setupNote').textContent='Imported '+((p.loved||[]).length+(p.liked||[]).length+(p.disliked||[]).length)+' signals.'; toast('Profile imported'); renderModel();
   }catch(err){ toast('Bad profile file'); } };
   r.readAsText(f);
 };
 
-$('gearBtn').onclick=()=>{
-  const s=$('setup');
-  if(s.classList.contains('hidden')){
-    $('setupTitle').textContent = S.started ? 'Settings' : 'Setup';
-    $('startBtn').textContent = S.started ? 'Save settings' : 'Start listening';
-    s.classList.remove('hidden');
-  } else { s.classList.add('hidden'); }
-};
+function openSettings(){
+  $('setupTitle').textContent = S.started ? 'Settings' : 'Setup';
+  $('startBtn').textContent = S.started ? 'Save & close' : 'Start listening';
+  $('settingsOverlay').classList.remove('hidden');
+}
+function closeSettings(){ $('settingsOverlay').classList.add('hidden'); }
+$('gearBtn').onclick=openSettings;
+$('closeSettings').onclick=closeSettings;
+$('settingsOverlay').addEventListener('click',e=>{ if(e.target.id==='settingsOverlay') closeSettings(); });
+
 $('modePill').onclick=()=>{
   if(!S.started){ toast('Start listening first'); return; }
   S.mode==='hearts' ? exitHearts() : enterHearts();
@@ -1097,38 +1107,40 @@ $('startBtn').onclick=async ()=>{
   const seedVal=$('seed').value.trim();
   if(!S.gemini){ toast('Gemini key required'); return; }
   if(seedVal) S.profile.seed=seedVal;
-  saveKeys();                 // remembered on this device — no more re-entering
+  saveKeys();
 
-  if(S.started){              // already running → this panel is Settings
-    $('setup').classList.add('hidden');
-    toast('Settings saved');
-    return;
-  }
+  if(S.started){ closeSettings(); toast('Settings saved'); return; }
 
-  initMediaSession();         // must happen inside a user gesture (this click)
-  loadLocal();                // merge any saved profile
+  initMediaSession();
+  loadLocal();
   if(seedVal) S.profile.seed=seedVal;
   if(!S.profile.seed && S.profile.loved.length+S.profile.liked.length===0){ toast('Give it a seed to start from'); $('seed').focus(); return; }
 
   S.started=true;
-  $('setup').classList.add('hidden');
+  closeSettings();
+  $('tabbar').classList.remove('hidden');
   $('stage').classList.remove('hidden');
-  renderModel(); renderQueue(); updateModePill();
+  applyWide();
+  renderModel(); renderQueue(); updateModePill(); showTab('now');
   setStatus('<b>Warming up…</b> Gemini is choosing your first tracks.');
 
   try{
     await ensureQueue();
-    if(!S.queue.length){ setStatus('<b>Could not build a queue.</b> Check keys/model, then reload.'); return; }
-    if(S.ytReady) beginPlayback();  // else onYouTubeIframeAPIReady will trigger it
+    if(!S.queue.length){ if(!S.ytQuotaOut) setStatus('<b>Could not build a queue.</b> Check keys/model, then reload.'); return; }
+    if(S.ytReady) beginPlayback();
     else setStatus('<b>Queue ready.</b> Waiting on the player…');
   }catch(e){ setStatus('<b>Startup failed:</b> '+String(e.message||e).slice(0,140)); }
 };
 
-/* on load: prefill remembered keys + show existing profile */
-loadKeys();
-if(loadLocal()){ /* profile exists — hearts mode will be available immediately */ }
+/* wide-screen: show Now + Up-next together; keep DNA a tab */
+function applyWide(){ $('stage').classList.toggle('wide', window.innerWidth>=820); }
+window.addEventListener('resize',()=>{ if(S.started) applyWide(); });
 
-/* PWA: register service worker when hosted (required by some Chrome versions for install) */
+/* on load: prefill remembered keys, show existing profile, open setup */
+loadKeys();
+loadLocal();
+openSettings();
+
 if('serviceWorker' in navigator && location.protocol==='https:'){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
