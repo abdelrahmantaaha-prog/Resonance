@@ -414,7 +414,7 @@ const S = {
   current: null,
   player: null, ytReady:false, playing:false, resolving:false, thinking:false, started:false,
   progTimer:null, mode:'discover', heartQueue:[], history:[], userPaused:false,
-  pendingTrack:null, dataSaver:'off', ytQuotaOut:false, tab:'now', seeking:false,
+  pendingTrack:null, dataSaver:'off', ytQuotaOut:false, geminiQuotaOut:false, tab:'now', seeking:false,
   lyrics:null, lyricsLines:[], lyricIdx:-1, lyricsFor:'', lyricsOn:true, translated:false, editOpen:true,
 };
 
@@ -424,13 +424,29 @@ const S = {
 function saveLocal(){
   try{ localStorage.setItem('resonance_profile', JSON.stringify(S.profile)); }catch(e){}
 }
+/* guarantee every field exists with the right type — profiles from older
+   versions or from export/import can be missing genreScore/artistScore,
+   which would otherwise crash renderModel and blank out Sound DNA */
+function normalizeProfile(){
+  const p=S.profile;
+  ['loved','liked','disliked','hatedGenres'].forEach(k=>{ if(!Array.isArray(p[k])) p[k]=[]; });
+  ['genreScore','artistScore'].forEach(k=>{ if(!p[k] || typeof p[k]!=='object') p[k]={}; });
+  if(typeof p.seed!=='string') p.seed='';
+  // rebuild scores from buckets if they're empty but we have songs (e.g. after import)
+  if(Object.keys(p.genreScore).length===0){
+    p.loved.forEach(t=>{ if(t.genre){ p.genreScore[t.genre]=(p.genreScore[t.genre]||0)+3; } });
+    p.liked.forEach(t=>{ if(t.genre){ p.genreScore[t.genre]=(p.genreScore[t.genre]||0)+1; } });
+  }
+}
 function loadLocal(){
   try{
     const raw = localStorage.getItem('resonance_profile');
     if(raw){ const p = JSON.parse(raw); Object.assign(S.profile, p);
-      (p.loved||[]).concat(p.liked||[],p.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
+      normalizeProfile();
+      (S.profile.loved||[]).concat(S.profile.liked||[],S.profile.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
       return true; }
   }catch(e){}
+  normalizeProfile();
   return false;
 }
 function exportProfile(){
@@ -498,6 +514,7 @@ async function askGemini(n){
     S.model='gemini-flash-latest'; toast('Model retired · switched to gemini-flash-latest');
     res = await call(S.model);
   }
+  if(res.status===429){ S.geminiQuotaOut=true; throw new Error('GEMINI_QUOTA'); }
   if(!res.ok){ const t=await res.text(); throw new Error('Gemini '+res.status+': '+t.slice(0,180)); }
   const data = await res.json();
   let txt = (data.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
@@ -531,25 +548,30 @@ async function resolveVideoIdRaw(cand, allowSeen){
   if(cand.youtubeId && /^[\w-]{11}$/.test(cand.youtubeId) && (allowSeen||!S.seenIds.has(cand.youtubeId))) return cand.youtubeId;
   return null;
 }
-/* when YouTube discovery can't proceed, stop looping and offer favorites */
+/* when discovery can't proceed (YouTube OR Gemini quota), stop and offer favorites */
 function quotaStop(){
   clearInterval(S.progTimer);
   const canHearts = S.profile.loved.length>0;
-  setStatus('<b>YouTube daily quota is used up.</b> '+(canHearts?'You can still play your favorites.':'Add favorites, or a bigger key in Settings.'));
-  const box=$('quotaWall'); if(box){
-    box.classList.remove('hidden');
-    $('quotaFavBtn').style.display = canHearts ? '' : 'none';
-  }
+  const who = S.geminiQuotaOut ? 'Gemini' : 'YouTube';
+  const qt = $('quotaWall'); if(!qt) return;
+  qt.querySelector('.qw-t').textContent = who+"'s daily quota is used up";
+  qt.querySelector('.qw-s').textContent = 'It resets daily. Until then you can play your favorites'+(canHearts?'':' (heart some songs first)')+', or add a different key in Settings.';
+  setStatus('<b>'+who+' daily quota is used up.</b> '+(canHearts?'You can still play your favorites.':'Add favorites, or a new key in Settings.'));
+  qt.classList.remove('hidden');
+  $('quotaFavBtn').style.display = canHearts ? '' : 'none';
 }
 
 /* ============================================================
    QUEUE MANAGEMENT  — always keep 2 ahead
 ============================================================ */
 async function refillCandidates(){
-  if(S.candidates.length>=3 || S.thinking) return;
+  if(S.candidates.length>=3 || S.thinking || S.geminiQuotaOut) return;
   S.thinking=true; renderQueue();
   try{ const got=await askGemini(6); S.candidates.push(...got); }
-  catch(e){ setStatus('<b>Recommendation error.</b> '+String(e.message||e).slice(0,120)); }
+  catch(e){
+    if(String(e.message).includes('GEMINI_QUOTA')){ S.geminiQuotaOut=true; }
+    else setStatus('<b>Recommendation error.</b> '+String(e.message||e).slice(0,120));
+  }
   S.thinking=false;
 }
 async function ensureQueue(){
@@ -557,7 +579,7 @@ async function ensureQueue(){
   try{
     let guard=0;
     while(S.queue.length<2 && guard++<14){
-      if(S.ytQuotaOut) break;   // quota gone — stop trying
+      if(S.ytQuotaOut || S.geminiQuotaOut) break;   // a quota is gone — stop trying
       if(S.candidates.length===0){ await refillCandidates(); if(S.candidates.length===0) break; }
       const cand=S.candidates.shift();
       if(cand.genre && S.profile.hatedGenres.map(g=>g.toLowerCase()).includes((cand.genre||'').toLowerCase())) continue;
@@ -567,8 +589,8 @@ async function ensureQueue(){
         if(res.videoId) S.seenIds.add(res.videoId); S.seenKeys.add(key(cand)); }
     }
   } finally { S.resolving=false; renderQueue(); updateQCount(); }
-  if(S.ytQuotaOut && !S.queue.length && S.mode!=='hearts'){ quotaStop(); return; }
-  if(S.candidates.length<3 && !S.ytQuotaOut) refillCandidates();
+  if((S.ytQuotaOut||S.geminiQuotaOut) && !S.queue.length && S.mode!=='hearts'){ quotaStop(); return; }
+  if(S.candidates.length<3 && !S.ytQuotaOut && !S.geminiQuotaOut) refillCandidates();
 }
 
 /* ============================================================
@@ -953,22 +975,29 @@ function updateQCount(){
   }
 }
 function renderModel(){
-  const p=S.profile, el=$('model');
-  const lovedArtists=[...new Set(p.loved.map(x=>x.artist))].slice(0,8);
-  const likedGenres=topKeys(p.genreScore,8).filter(g=>!p.hatedGenres.includes(g));
+  const p=S.profile, el=$('model'); if(!el) return;
+  normalizeProfile();
+  const lovedArtists=[...new Set(p.loved.map(x=>x.artist).filter(Boolean))].slice(0,8);
+  let likedGenres=topKeys(p.genreScore,8).filter(g=>!p.hatedGenres.includes(g));
+  // fallback: if no genre scores yet, show top artists from liked songs so the panel is never bare
+  let likeLabel='you like', likeItems=likedGenres;
+  if(!likeItems.length){
+    const artists=[...new Set(p.liked.map(x=>x.artist).filter(Boolean))].slice(0,8);
+    if(artists.length){ likeLabel='liked artists'; likeItems=artists; }
+  }
   const parts=[];
   parts.push(grp('#E0524B','favorites', p.loved.length? lovedArtists.map(a=>chip(a,'love')).join('') : emptyChip()));
-  parts.push(grp('#E8A24B','you like', likedGenres.length? likedGenres.map(g=>chip(g)).join('') : emptyChip()));
-  parts.push(grp('#4A4658','killed genres', p.hatedGenres.length? p.hatedGenres.map(g=>chip(g,'hate')).join('') : emptyChip('none yet')));
+  parts.push(grp('#E8A24B',likeLabel, likeItems.length? likeItems.map(g=>chip(g)).join('') : emptyChip()));
+  parts.push(grp('#4A4658','banned genres', p.hatedGenres.length? p.hatedGenres.map(g=>chip(g,'hate')).join('') : emptyChip('none yet')));
+  const total=p.loved.length+p.liked.length+p.disliked.length;
   el.innerHTML = parts.join('') +
-    `<button class="editbtn" id="editTgl">${S.editOpen?'▾ hide song list':'✎ edit / ▶ play my songs ('+(p.loved.length+p.liked.length+p.disliked.length)+')'}</button>
+    `<button class="editbtn" id="editTgl">${S.editOpen?'▾ hide song list':'✎ edit / ▶ play my songs ('+total+')'}</button>
      <div id="mlistWrap" class="${S.editOpen?'':'hidden'}"></div>
      <div class="model-actions"><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>`;
   $('editTgl').onclick=()=>{ S.editOpen=!S.editOpen; renderModel(); };
-  if(S.editOpen) renderMList();
+  if(S.editOpen){ try{ renderMList(); }catch(e){ $('mlistWrap').innerHTML='<div class="mlist-hint">could not list songs</div>'; } }
   $('exp').onclick=exportProfile;
   $('rst').onclick=()=>{ if(confirm('Wipe everything Resonance has learned?')){ S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],genreScore:{},artistScore:{},seed:S.profile.seed}; S.seenKeys.clear(); saveLocal(); renderModel(); toast('Model reset'); } };
-  const total=p.loved.length+p.liked.length+p.disliked.length;
   $('mcount').textContent = total? (total+' signals') : '';
 }
 function renderMList(){
@@ -1076,8 +1105,8 @@ function addAnchors(){
 $('importBtn').onclick=()=>$('importFile').click();
 $('importFile').onchange=e=>{
   const f=e.target.files[0]; if(!f) return; const r=new FileReader();
-  r.onload=()=>{ try{ const p=JSON.parse(r.result); Object.assign(S.profile,p);
-    (p.loved||[]).concat(p.liked||[],p.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
+  r.onload=()=>{ try{ const p=JSON.parse(r.result); Object.assign(S.profile,p); normalizeProfile();
+    (S.profile.loved||[]).concat(S.profile.liked||[],S.profile.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
     $('setupNote').textContent='Imported '+((p.loved||[]).length+(p.liked||[]).length+(p.disliked||[]).length)+' signals.'; toast('Profile imported'); renderModel();
   }catch(err){ toast('Bad profile file'); } };
   r.readAsText(f);
@@ -1126,7 +1155,11 @@ $('startBtn').onclick=async ()=>{
 
   try{
     await ensureQueue();
-    if(!S.queue.length){ if(!S.ytQuotaOut) setStatus('<b>Could not build a queue.</b> Check keys/model, then reload.'); return; }
+    if(!S.queue.length){
+      if(S.ytQuotaOut||S.geminiQuotaOut){ quotaStop(); }
+      else setStatus('<b>Could not build a queue.</b> Check keys/model, then reload.');
+      return;
+    }
     if(S.ytReady) beginPlayback();
     else setStatus('<b>Queue ready.</b> Waiting on the player…');
   }catch(e){ setStatus('<b>Startup failed:</b> '+String(e.message||e).slice(0,140)); }
