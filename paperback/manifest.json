@@ -1,13 +1,13 @@
 {
-  "name": "Reel \u2014 a critic that learns",
-  "short_name": "Reel",
+  "name": "Paperback \u2014 a shelf that learns",
+  "short_name": "Paperback",
   "description": "AI music player that learns your taste and plans two songs ahead",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0E0D12",
-  "theme_color": "#0E0D12",
+  "theme_color": "#0C0B10",
   "icons": [
     {
       "src": "icon-192.png",

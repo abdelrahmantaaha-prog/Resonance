@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0C0B10">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Reel — a critic that learns your taste</title>
+<title>Paperback — a shelf that learns your taste</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
     --bg:#0C0B10; --panel:#151319; --panel-2:#1C1922; --line:#282430;
     --ink:#ECE7DE; --muted:#8A8397; --faint:#5C566B;
     --gold:#E7B44C;    /* love / masterpiece */
-    --teal:#4CC0A8;    /* like */
+    --teal:#9B8FD4;    /* like */
     --rust:#C8583F;    /* dislike / never */
     --violet:#8A7BD8;  /* accent */
     --r:14px;
@@ -175,18 +175,19 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="brand"><span class="dot"></span><h1>Reel</h1><span class="sub">a critic that learns · 2 ahead</span></div>
+    <div class="brand"><span class="dot"></span><h1>Paperback</h1><span class="sub">a shelf that learns · 2 ahead</span></div>
     <div class="hdr-actions">
       <a class="homebtn" href="../" title="Rewind home">⏮</a>
       <div class="appswitch" role="tablist" aria-label="Switch app">
         <a class="seg" href="../cassette/" title="Music"><span class="ic">🎵</span><span class="tx">Cassette</span></a>
-        <span class="seg on" aria-current="page"><span class="ic">🎬</span><span class="tx">Reel</span></span>
-        <a class="seg" href="../paperback/" title="Books"><span class="ic">📖</span><span class="tx">Paperback</span></a>
+        <a class="seg" href="../reel/" title="Film"><span class="ic">🎬</span><span class="tx">Reel</span></a>
+        <span class="seg on" aria-current="page"><span class="ic">📖</span><span class="tx">Paperback</span></span>
       </div>
-      <button class="pill" id="favPill" title="Play only your all-time favorites">★ favorites</button>
+      </div>
+      <button class="pill" id="favPill" title="Cycle your shelf-changers">★ shelf</button>
       <button class="pill" id="gearBtn" title="Keys & settings">⚙</button>
     </div>
-    <div class="status" id="status">Add a Gemini + TMDB key to begin.</div>
+    <div class="status" id="status">Add a Gemini key to begin — book data is free.</div>
   </header>
 
   <!-- SETTINGS -->
@@ -195,27 +196,16 @@
       <div class="sheet-h"><span id="setupTitle">Setup</span><button class="xbtn" id="closeSettings">✕</button></div>
       <div class="sheet-body">
         <div class="field">
-          <label>Gemini API key(s) <span class="hint">— required · one per line for auto-rotation</span></label>
+          <label>Gemini API key(s) <span class="hint">— required · one per line for auto-rotation · shared with Cassette &amp; Reel</span></label>
           <textarea id="geminiKey" class="keybox" placeholder="AIza… key 1&#10;AIza… key 2 (optional)" spellcheck="false"></textarea>
         </div>
         <div class="field">
-          <label>TMDB API key <span class="hint">— required · themoviedb.org/settings/api (v3 key)</span></label>
-          <input id="tmdbKey" type="password" placeholder="TMDB v3 API key" autocomplete="off">
+          <label>Book data <span class="hint">— Open Library · free, no key needed</span></label>
+          <input type="text" value="Open Library (openlibrary.org) — no key required" disabled style="opacity:.55">
         </div>
         <div class="field">
-          <label>OMDb API key <span class="hint">— optional · omdbapi.com · enables real IMDb + Rotten Tomatoes scores</span></label>
-          <input id="omdbKey" type="password" placeholder="OMDb key (blank = TMDB score + IMDb link only)" autocomplete="off">
-        </div>
-        <div class="field">
-          <label>Region <span class="hint">— for "where to watch"</span></label>
-          <select id="region">
-            <option value="EG">Egypt</option><option value="SA">Saudi Arabia</option><option value="AE">UAE</option>
-            <option value="US">United States</option><option value="GB">United Kingdom</option><option value="FR">France</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Seed — a film, director, or mood to start from</label>
-          <input id="seed" type="text" placeholder="e.g. slow-burn thrillers · Villeneuve · Egyptian new wave">
+          <label>Seed — a book, author, or field to start from</label>
+          <input id="seed" type="text" placeholder="e.g. political economy · Kahneman · deep work &amp; focus">
         </div>
         <div class="field">
           <label>Gemini model</label>
@@ -256,7 +246,7 @@
           <div class="quotaWall hidden" id="quotaWall">
             <div class="qw-t" id="qwT">Gemini's daily quota is used up</div>
             <div class="qw-s" id="qwS">It resets daily. Play your favorites, or add another key in Settings.</div>
-            <div><button class="btn sm" id="quotaFavBtn">★ Play my favorites</button> <button class="btn ghost sm" id="quotaSettingsBtn">⚙ Settings</button></div>
+            <div><button class="btn sm" id="quotaFavBtn">★ Open my shelf-changers</button> <button class="btn ghost sm" id="quotaSettingsBtn">⚙ Settings</button></div>
           </div>
           <h2 class="mv-title" id="mvTitle">—</h2>
           <div class="mv-meta" id="mvMeta"></div>
@@ -264,10 +254,10 @@
           <div class="chiprow" id="mvGenres"></div>
           <div class="mv-overview" id="mvOverview"></div>
           <div class="actions" id="mvActions"></div>
-          <div class="watch"><div class="wl">where to watch <span id="regionLbl"></span></div><div class="provs" id="provs"></div></div>
+          <div class="watch"><div class="wl">read it</div><div class="provs" id="provs"></div></div>
           <div class="rate">
-            <button class="rb love" id="btnLove"><span class="ico">★</span><span class="lab">Masterpiece</span></button>
-            <button class="rb like" id="btnLike"><span class="ico">▲</span><span class="lab">Liked</span></button>
+            <button class="rb love" id="btnLove"><span class="ico">★</span><span class="lab">Shelf-changer</span></button>
+            <button class="rb like" id="btnLike"><span class="ico">▲</span><span class="lab">Worth it</span></button>
             <button class="rb meh" id="btnMeh"><span class="ico">▽</span><span class="lab">Not for me</span></button>
             <button class="rb never" id="btnNever"><span class="ico">⦸</span><span class="lab">Never</span></button>
           </div>
@@ -290,15 +280,15 @@
         <div class="panel-h">⬡ Taste DNA <span class="n" id="mcount"></span></div>
         <div class="model" id="model"></div>
         <div class="anchor">
-          <span class="tgl" id="anchorTgl">＋ add films manually</span>
+          <span class="tgl" id="anchorTgl">＋ add books manually</span>
           <div class="hidden" id="anchorForm">
-            <textarea id="anchorText" placeholder="One per line:&#10;The Nightingale&#10;Capernaum (2018)"></textarea>
+            <textarea id="anchorText" placeholder="One per line:&#10;Thinking, Fast and Slow — Kahneman&#10;Why Nations Fail (2012)"></textarea>
             <div class="row">
               <select id="anchorBucket">
-                <option value="loved">★ all-time favorites</option>
-                <option value="liked">films I liked</option>
+                <option value="loved">★ shelf-changers</option>
+                <option value="liked">books worth it</option>
                 <option value="disliked">not for me</option>
-                <option value="hatedGenres">banned genres (one per line)</option>
+                <option value="hatedGenres">banned topics (one per line)</option>
               </select>
               <button class="btn sm" id="anchorAdd">Add</button>
             </div>
@@ -309,9 +299,9 @@
   </div>
 
   <footer>
-    Reel learns only from your ratings. Data comes from TMDB &amp; your own Gemini key; nothing else leaves your browser.<br>
-    Masterpiece → all-time favorite · Liked → more like it · Not for me → steer away · Never → genre banned.<br>
-    <span id="buildStamp" style="opacity:.6"></span> · Movie data by TMDB (this product uses the TMDB API but is not endorsed by TMDB)
+    Paperback learns only from your ratings. Data comes from Open Library &amp; your own Gemini key; nothing else leaves your browser.<br>
+    Shelf-changer → all-time favorite · Worth it → more like it · Not for me → steer away · Never → genre banned.<br>
+    <span id="buildStamp" style="opacity:.6"></span> · Book data by Open Library (openlibrary.org), an Internet Archive project
   </footer>
 </div>
 <div class="toast" id="toast"></div>
@@ -319,14 +309,14 @@
 <script>
 const $=id=>document.getElementById(id);
 const S={
-  geminiKeys:[],gi:0,tmdb:'',omdb:'',region:'EG',model:'gemini-3.5-flash',
+  geminiKeys:[],gi:0,model:'gemini-3.5-flash',
   profile:{loved:[],liked:[],disliked:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:''},
   seen:new Set(), candidates:[], queue:[], current:null, history:[],
   started:false,resolving:false,thinking:false,mode:'discover',favQueue:[],
-  geminiQuotaOut:false,tab:'now',editOpen:true,imgBase:'https://image.tmdb.org/t/p/'
+  geminiQuotaOut:false,tab:'now',editOpen:true
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Reel build 6 · 2026-07-14 · Paperback';
+const BUILD='Paperback · build 2 · 2026-07-14';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -339,7 +329,7 @@ function topKeys(o,n){return Object.entries(o||{}).filter(([,v])=>v>0).sort((a,b
 function rotateGemini(){if(S.gi<S.geminiKeys.length-1){S.gi++;return true;}S.geminiQuotaOut=true;return false;}
 
 /* ---------- persistence ---------- */
-function saveLocal(){try{localStorage.setItem('reel_profile',JSON.stringify(S.profile));}catch(_){}}
+function saveLocal(){try{localStorage.setItem('paperback_profile',JSON.stringify(S.profile));}catch(_){}}
 function normalize(){
   const p=S.profile;
   ['loved','liked','disliked','hatedGenres','watchlist'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
@@ -350,51 +340,50 @@ function normalize(){
     p.liked.forEach(m=>(m.genres||[]).forEach(g=>bump(p.genreScore,g,1)));
   }
 }
-function loadLocal(){try{const r=localStorage.getItem('reel_profile');if(r){Object.assign(S.profile,JSON.parse(r));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked).forEach(m=>S.seen.add(mkey(m)));return true;}}catch(_){}normalize();return false;}
-/* ---- shared config: one key store both Cassette & Reel read (same origin) ---- */
+function loadLocal(){try{const r=(localStorage.getItem('paperback_profile')||localStorage.getItem('spine_profile'));if(r){Object.assign(S.profile,JSON.parse(r));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked).forEach(m=>S.seen.add(mkey(m)));return true;}}catch(_){}normalize();return false;}
+/* ---- shared config: one key store all Rewind apps read (same origin) ---- */
 function loadRewindConfig(){
   let c={};
   try{ c=JSON.parse(localStorage.getItem('rewind_config')||'null')||{}; }catch(_){}
   if(!c.geminiKeys){
     try{ const ck=JSON.parse(localStorage.getItem('cassette_keys')||localStorage.getItem('resonance_keys')||'null'); if(ck){ c.geminiKeys=ck.gk||(ck.g?[ck.g]:[]); c.ytKeys=ck.yk||[]; c.model=ck.m||c.model; c.dataSaver=ck.ds||'off'; c.cassetteSeed=ck.s||''; } }catch(_){}
-    try{ const rk=JSON.parse(localStorage.getItem('reel_keys')||'null'); if(rk){ if(!(c.geminiKeys&&c.geminiKeys.length)) c.geminiKeys=rk.gk||[]; c.tmdb=rk.t||''; c.omdb=rk.o||''; c.region=rk.r||'EG'; c.model=c.model||rk.m; c.reelSeed=rk.s||''; } }catch(_){}
+    try{ const rk=JSON.parse(localStorage.getItem('reel_keys')||'null'); if(rk){ if(!(c.geminiKeys&&c.geminiKeys.length)) c.geminiKeys=rk.gk||[]; c.model=c.model||rk.m; } }catch(_){}
   }
   c.geminiKeys=c.geminiKeys||[]; c.ytKeys=c.ytKeys||[]; c.region=c.region||'EG'; c.model=c.model||'gemini-3.5-flash'; c.dataSaver=c.dataSaver||'off';
   return c;
 }
 function saveRewindConfig(patch){ const c=Object.assign(loadRewindConfig(), patch||{}); try{ localStorage.setItem('rewind_config', JSON.stringify(c)); }catch(_){} return c; }
 
-function saveKeys(){ saveRewindConfig({geminiKeys:S.geminiKeys, tmdb:S.tmdb, omdb:S.omdb, region:S.region, model:S.model, reelSeed:S.profile.seed}); }
+function saveKeys(){ saveRewindConfig({geminiKeys:S.geminiKeys, model:S.model, paperbackSeed:S.profile.seed}); }
 function loadKeys(){try{
   const c=loadRewindConfig();
   S.geminiKeys=c.geminiKeys||[];
   $('geminiKey').value=S.geminiKeys.join('\n');
-  $('tmdbKey').value=c.tmdb||''; $('omdbKey').value=c.omdb||'';
-  if(c.region){$('region').value=c.region;} if(c.model)$('model').value=c.model; $('seed').value=c.reelSeed||'';
-  if(S.geminiKeys.length)$('setupNote').textContent=S.geminiKeys.length+' Gemini key(s) — shared with Cassette. Hit Start.';
+  if(c.model)$('model').value=c.model; $('seed').value=c.paperbackSeed||c.spineSeed||'';
+  if(S.geminiKeys.length)$('setupNote').textContent=S.geminiKeys.length+' Gemini key(s) — shared across Rewind. Hit Start.';
 }catch(_){}}
-function exportProfile(){const b=new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='reel-taste-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Exported');}
+function exportProfile(){const b=new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='paperback-taste-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Exported');}
 
 /* ---------- Gemini ---------- */
-const mdesc=m=>m.title+(m.year?(' ('+m.year+')'):'')+(m.director?(' — '+m.director):'');
+const mdesc=m=>m.title+(m.author||m.director?(' — '+(m.author||m.director)):'')+(m.year?(' ('+m.year+')'):'');
 async function askGemini(n){
   const p=S.profile;
   const avoid=[...S.seen].slice(-50).join('; ')||'none yet';
   const lines=[
-    'You are a precise film recommendation engine. Suggest '+n+' MOVIES to watch next for this viewer.',
+    'You are a precise BOOK recommendation engine with a strong lean toward NON-FICTION and books of ideas (politics, economics, history, science, psychology, craft, biography). Suggest '+n+' books to read next for this reader.',
     '',
-    'ALL-TIME FAVORITES (weight most): '+(p.loved.map(mdesc).join(' / ')||'none yet'),
-    'LIKED: '+(p.liked.slice(-25).map(mdesc).join(' / ')||'none yet'),
+    'SHELF-CHANGERS — all-time favorites (weight most): '+(p.loved.map(mdesc).join(' / ')||'none yet'),
+    'WORTH IT — liked: '+(p.liked.slice(-25).map(mdesc).join(' / ')||'none yet'),
     'NOT FOR ME (steer away): '+(p.disliked.slice(-25).map(mdesc).join(' / ')||'none yet'),
-    'BANNED GENRES (never suggest): '+(p.hatedGenres.join(', ')||'none'),
-    p.seed?('SEED / MOOD (strong early signal): '+p.seed):'',
+    'BANNED TOPICS (never suggest): '+(p.hatedGenres.join(', ')||'none'),
+    p.seed?('SEED / FIELD (strong early signal): '+p.seed):'',
     '',
-    'Already seen or queued — do NOT repeat: '+avoid,
+    'Already read or queued — do NOT repeat: '+avoid,
     '',
-    'Rules: real, findable films on TMDB. Prefer the viewer\'s favorite directors, moods, and eras. Never a banned genre. Mostly safe picks, at most one exploration. Vary directors.',
+    'Rules: real, well-regarded books. Favor the reader\'s favorite authors, fields, and eras. Fiction only if it clearly serves the reader\'s idea-driven taste. Never a banned topic. Mostly safe picks, at most one exploration. Vary authors.',
     '',
     'Return ONLY a raw JSON array, no markdown:',
-    '[{"title":"","year":"YYYY","director":"","reason":"max 14 words, why THIS viewer"}]'
+    '[{"title":"","author":"","year":"YYYY first published","topics":["2-4 topic tags"],"blurb":"2 sentences, what the book argues and why it matters","reason":"max 14 words, why THIS reader"}]'
   ].filter(Boolean).join('\n');
   const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(S.gemini),
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:lines}]}],generationConfig:{temperature:1.0}})});
@@ -412,45 +401,46 @@ async function askGemini(n){
   return JSON.parse(t.slice(a,b+1)).filter(x=>x&&x.title);
 }
 
-/* ---------- TMDB ---------- */
-async function tmdbResolve(cand){
-  if(!S.tmdb) return null;
+/* ---------- Open Library (free, no key). Designed to degrade gracefully:
+   if OL's JSON is unreachable (CORS varies), the Gemini-supplied metadata
+   carries the pick; cover images always load (image requests aren't CORS-bound). ---------- */
+async function olResolve(cand){
+  // returns an enrichment object or null; NEVER blocks a pick on OL availability
   try{
-    let u='https://api.themoviedb.org/3/search/movie?api_key='+encodeURIComponent(S.tmdb)+'&query='+encodeURIComponent(cand.title);
-    if(cand.year) u+='&year='+encodeURIComponent(cand.year);
-    const r=await fetch(u); if(!r.ok){ if(r.status===401){toast('TMDB key rejected');} return null; }
-    const d=await r.json(); const hit=(d.results||[])[0]; if(!hit) return null;
-    if(S.seen.has(mkey({title:hit.title,year:(hit.release_date||'').slice(0,4)}))) return null;
-    return hit.id;
+    let u='https://openlibrary.org/search.json?limit=3&fields=key,title,author_name,first_publish_year,cover_i,subject,number_of_pages_median,ratings_average,ratings_count,ia&title='+encodeURIComponent(cand.title);
+    if(cand.author) u+='&author='+encodeURIComponent(cand.author);
+    const r=await fetch(u); if(!r.ok) return null;
+    const d=await r.json(); const hit=(d.docs||[])[0]; if(!hit) return null;
+    return {
+      olKey:hit.key||'', coverId:hit.cover_i||0,
+      olYear:hit.first_publish_year?String(hit.first_publish_year):'',
+      pages:hit.number_of_pages_median||0,
+      olRating:hit.ratings_average?hit.ratings_average.toFixed(1):'',
+      olRatingCount:hit.ratings_count||0,
+      subjects:(hit.subject||[]).slice(0,5),
+      borrowable:Array.isArray(hit.ia)&&hit.ia.length>0
+    };
   }catch(_){ return null; }
 }
-async function tmdbDetails(id){
-  const u='https://api.themoviedb.org/3/movie/'+id+'?api_key='+encodeURIComponent(S.tmdb)+'&append_to_response=videos,watch/providers,credits,external_ids';
-  const r=await fetch(u); if(!r.ok) return null; const d=await r.json();
-  const trailer=(d.videos&&d.videos.results||[]).find(v=>v.site==='YouTube'&&v.type==='Trailer')||(d.videos&&d.videos.results||[]).find(v=>v.site==='YouTube');
-  const dir=((d.credits&&d.credits.crew)||[]).find(c=>c.job==='Director');
-  const prov=(d['watch/providers']&&d['watch/providers'].results&&d['watch/providers'].results[S.region])||null;
-  const imdbId=(d.external_ids&&d.external_ids.imdb_id)||d.imdb_id||'';
+async function bookDetails(cand){
+  // build the displayable book primarily from Gemini's metadata, enriched by OL when reachable
   const det={
-    id:d.id, title:d.title, year:(d.release_date||'').slice(0,4),
-    genres:(d.genres||[]).map(g=>g.name), director:dir?dir.name:'',
-    overview:d.overview||'', poster:d.poster_path?(S.imgBase+'w500'+d.poster_path):'',
-    rating:d.vote_average?d.vote_average.toFixed(1):'', runtime:d.runtime||0,
-    trailer:trailer?('https://www.youtube.com/watch?v='+trailer.key):'',
-    tmdbUrl:'https://www.themoviedb.org/movie/'+d.id,
-    imdbId, imdbUrl:imdbId?('https://www.imdb.com/title/'+imdbId+'/'):'',
-    imdbRating:'', rtRating:'',
-    providers:prov, provLink:prov?prov.link:''
+    title:cand.title, author:cand.author||'', year:cand.year||'',
+    genres:cand.topics||[], director:cand.author||'',   // director field doubles as author for the DNA engine
+    overview:cand.blurb||'', reason:cand.reason||'',
+    poster:'', rating:'', pages:0, olUrl:'', borrowable:false,
+    goodreadsUrl:'https://www.goodreads.com/search?q='+encodeURIComponent(cand.title+' '+(cand.author||'')),
+    olSearchUrl:'https://openlibrary.org/search?q='+encodeURIComponent(cand.title+' '+(cand.author||''))
   };
-  // real IMDb (and Rotten Tomatoes) rating via OMDb, only if a key is set
-  if(S.omdb && imdbId){
-    try{
-      const or=await fetch('https://www.omdbapi.com/?apikey='+encodeURIComponent(S.omdb)+'&i='+imdbId);
-      if(or.ok){ const od=await or.json();
-        if(od && od.imdbRating && od.imdbRating!=='N/A') det.imdbRating=od.imdbRating;
-        const rt=(od.Ratings||[]).find(x=>x.Source==='Rotten Tomatoes'); if(rt) det.rtRating=rt.Value;
-      }
-    }catch(_){}
+  const ol=await olResolve(cand);
+  if(ol){
+    if(ol.coverId) det.poster='https://covers.openlibrary.org/b/id/'+ol.coverId+'-L.jpg';
+    if(ol.olRating) det.rating=ol.olRating+(ol.olRatingCount?(' ('+ol.olRatingCount+')'):'');
+    if(ol.pages) det.pages=ol.pages;
+    if(ol.olYear && !det.year) det.year=ol.olYear;
+    if(ol.olKey) det.olUrl='https://openlibrary.org'+ol.olKey;
+    if(ol.subjects && ol.subjects.length && !det.genres.length) det.genres=ol.subjects;
+    det.borrowable=ol.borrowable;
   }
   return det;
 }
@@ -472,8 +462,7 @@ async function ensureQueue(){
       if(!S.candidates.length){await refill(); if(!S.candidates.length)break;}
       const c=S.candidates.shift();
       if(S.seen.has(mkey({title:c.title,year:c.year})))continue;
-      const id=await tmdbResolve(c); if(!id)continue;
-      const det=await tmdbDetails(id); if(!det)continue;
+      const det=await bookDetails(c); if(!det)continue;
       if(det.genres.some(gn=>S.profile.hatedGenres.map(x=>x.toLowerCase()).includes(gn.toLowerCase())))continue;
       det.reason=c.reason||''; S.queue.push(det); S.seen.add(mkey(det));
     }
@@ -495,48 +484,46 @@ function showMovie(m,pushHist){
   S.current=m;
   $('posterPh').classList.add('hidden');
   const img=$('poster');
-  if(m.poster){img.src=m.poster;img.classList.remove('hidden');}else img.classList.add('hidden');
+  if(m.poster){img.src=m.poster;img.onerror=()=>img.classList.add('hidden');img.classList.remove('hidden');}else img.classList.add('hidden');
   $('mvTitle').textContent=m.title;
-  const bits=[m.year,m.runtime?(m.runtime+' min'):'',m.director?('dir. '+m.director):''].filter(Boolean).join(' · ');
+  const bits=[m.author||m.director,m.year,m.pages?(m.pages+' pp'):''].filter(Boolean).join(' · ');
   const rt=[];
-  if(m.rating)rt.push('<span class="tmdb">★ '+m.rating+' TMDB</span>');
-  if(m.imdbRating)rt.push('<span class="imdb">IMDb '+esc(m.imdbRating)+'</span>');
-  if(m.rtRating)rt.push('<span class="rt">🍅 '+esc(m.rtRating)+'</span>');
+  if(m.rating)rt.push('<span class="tmdb">★ '+esc(m.rating)+' OL</span>');
   $('mvMeta').innerHTML=esc(bits)+(rt.length?(' · '+rt.join(' · ')):'');
   $('mvReason').innerHTML=m.reason?('<b>picked because</b> '+esc(m.reason)):'';
   $('mvGenres').innerHTML=(m.genres||[]).map(g=>'<span class="gchip">'+esc(g)+'</span>').join('');
   $('mvOverview').textContent=m.overview||'';
   const acts=[];
-  if(m.trailer)acts.push('<a href="'+m.trailer+'" target="_blank" rel="noopener">▶ Trailer</a>');
-  if(m.imdbUrl)acts.push('<a href="'+m.imdbUrl+'" target="_blank" rel="noopener">IMDb</a>');
-  acts.push('<a href="'+m.tmdbUrl+'" target="_blank" rel="noopener">ⓘ TMDB</a>');
-  if(m.provLink)acts.push('<a href="'+m.provLink+'" target="_blank" rel="noopener">↗ Where to watch</a>');
+  if(m.goodreadsUrl)acts.push('<a href="'+m.goodreadsUrl+'" target="_blank" rel="noopener">Goodreads</a>');
+  if(m.olUrl)acts.push('<a href="'+m.olUrl+'" target="_blank" rel="noopener">ⓘ Open Library</a>');
+  else if(m.olSearchUrl)acts.push('<a href="'+m.olSearchUrl+'" target="_blank" rel="noopener">ⓘ Open Library</a>');
   const onList=S.profile.watchlist.some(x=>mkey(x)===mkey(m));
-  acts.push('<a id="wlBtn" style="cursor:pointer;'+(onList?'border-color:var(--gold);color:var(--gold)':'')+'">'+(onList?'✓ On watchlist':'＋ Watchlist')+'</a>');
+  acts.push('<a id="wlBtn" style="cursor:pointer;'+(onList?'border-color:var(--gold);color:var(--gold)':'')+'">'+(onList?'✓ On reading list':'＋ Reading list')+'</a>');
   $('mvActions').innerHTML=acts.join('');
   const wl=$('wlBtn'); if(wl) wl.onclick=addWatchlist;
   renderProviders(m);
   $('rank').classList.toggle('hidden', S.mode!=='fav');
-  $('mvMode').textContent = S.mode==='fav' ? '★ Close to my heart' : '◈ Recommended for you';
+  $('mvMode').textContent = S.mode==='fav' ? '★ Shelf-changers' : '◈ Recommended for you';
   $('btnLove').classList.toggle('on', S.profile.loved.some(x=>mkey(x)===mkey(m)));
-  setStatus(S.mode==='fav' ? ('<b>★ Favorites</b> · '+S.profile.loved.length+' on shuffle') : 'Curating · queue keeps 2 ready');
+  setStatus(S.mode==='fav' ? ('<b>★ Shelf-changers</b> · '+S.profile.loved.length+' on shuffle') : 'Curating · queue keeps 2 ready');
 }
 function renderProviders(m){
-  const box=$('provs'); const p=m.providers;
-  const flat=p&&(p.flatrate||p.free||p.ads)||[];
-  const rent=p&&(p.rent||p.buy)||[];
-  const all=[...flat,...rent].slice(0,6);
-  if(!all.length){ box.innerHTML='<span class="prov none">no streaming info for your region</span>'; return; }
-  box.innerHTML=all.map(pr=>'<span class="prov"><img src="'+S.imgBase+'w45'+pr.logo_path+'" alt="">'+esc(pr.provider_name)+'</span>').join('');
+  const box=$('provs');
+  const items=[];
+  const q=encodeURIComponent(m.title+' '+(m.author||m.director||''));
+  if(m.borrowable && m.olUrl) items.push('<a class="prov" href="'+m.olUrl+'" target="_blank" rel="noopener">📖 Borrow free (Open Library)</a>');
+  items.push('<a class="prov" href="https://search.worldcat.org/search?q='+q+'" target="_blank" rel="noopener">🏛 Find in a library</a>');
+  items.push('<a class="prov" href="https://www.google.com/search?q='+q+'%20book%20buy" target="_blank" rel="noopener">🛒 Find a copy</a>');
+  box.innerHTML=items.join('');
 }
 
 /* ---------- ratings ---------- */
-function love(){const m=S.current;if(!m)return;if(S.mode==='fav'){toast('Already a favorite ★');return;}addTo('loved',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,3));bump(S.profile.dirScore,m.director,3);flash('★ masterpiece · logged');after(m);}
-function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.profile.watchlist.some(x=>mkey(x)===k)){S.profile.watchlist=S.profile.watchlist.filter(x=>mkey(x)!==k);saveLocal();renderModel();toast('Removed from watchlist');const wl=$('wlBtn');if(wl){wl.textContent='＋ Watchlist';wl.style.color='';wl.style.borderColor='';}return;}S.profile.watchlist.push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,poster:m.poster});S.seen.add(k);saveLocal();renderModel();toast('＋ Saved to watchlist · advancing');advance();}
+function love(){const m=S.current;if(!m)return;if(S.mode==='fav'){toast('Already a shelf-changer ★');return;}addTo('loved',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,3));bump(S.profile.dirScore,m.director,3);flash('★ shelf-changer · logged');after(m);}
+function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.profile.watchlist.some(x=>mkey(x)===k)){S.profile.watchlist=S.profile.watchlist.filter(x=>mkey(x)!==k);saveLocal();renderModel();toast('Removed from reading list');const wl=$('wlBtn');if(wl){wl.textContent='＋ Reading list';wl.style.color='';wl.style.borderColor='';}return;}S.profile.watchlist.push({title:m.title,year:m.year,author:m.author||m.director,director:m.author||m.director,genres:m.genres,poster:m.poster});S.seen.add(k);saveLocal();renderModel();toast('＋ Saved to reading list · advancing');advance();}
 function like(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){advance();return;}addTo('liked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,1));bump(S.profile.dirScore,m.director,1);flash('liked · more like it');after(m);}
 function meh(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){toast('Still a favorite ★');advance();return;}addTo('disliked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-1));flash('noted · steering away');after(m);}
-function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}(m.genres||[]).forEach(g=>{if(!S.profile.hatedGenres.includes(g))S.profile.hatedGenres.push(g);S.profile.genreScore[g]=-999;});S.queue=S.queue.filter(q=>!(q.genres||[]).some(g=>S.profile.hatedGenres.includes(g)));flash('banned · '+((m.genres||[])[0]||'genre'));after(m);}
-function addTo(b,m){const k=mkey(m);['loved','liked','disliked'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,poster:m.poster});}
+function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}(m.genres||[]).forEach(g=>{if(!S.profile.hatedGenres.includes(g))S.profile.hatedGenres.push(g);S.profile.genreScore[g]=-999;});S.queue=S.queue.filter(q=>!(q.genres||[]).some(g=>S.profile.hatedGenres.includes(g)));flash('banned topic · '+((m.genres||[])[0]||'genre'));after(m);}
+function addTo(b,m){const k=mkey(m);['loved','liked','disliked'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,author:m.author||m.director,director:m.author||m.director,genres:m.genres,poster:m.poster});}
 function after(m){renderModel();saveLocal();advance();}
 function flash(msg){toast('<span class="k">learned</span> · '+msg);}
 function advance(){ if(S.mode==='fav'){nextFav();return;} if(!S.queue.length){ if(S.geminiQuotaOut){quotaStop();return;} setStatus('<b>Curating…</b>'); ensureQueue().then(()=>{if(S.queue.length)showMovie(S.queue.shift());else if(S.geminiQuotaOut)quotaStop();}); return;} showMovie(S.queue.shift()); ensureQueue(); }
@@ -548,15 +535,15 @@ async function nextFav(){
   if(!S.profile.loved.length){toast('No favorites yet');exitFav();return;}
   if(!S.favQueue.length)S.favQueue=shuffle(S.profile.loved);
   const f={...S.favQueue.shift()};
-  if(!f.overview||!f.genres){ // rehydrate from TMDB
-    const id=f.id||await tmdbResolve({title:f.title,year:f.year});
-    if(id){const det=await tmdbDetails(id);if(det)Object.assign(f,det);}
+  if(!f.overview||!f.genres){ // rehydrate from Open Library
+    const det=await bookDetails({title:f.title,author:f.author||f.director,year:f.year});
+    if(det)Object.assign(f,det);
   }
   f.reason='all-time favorite'; showMovie(f); renderQueue();
 }
 function enterFav(){if(!S.profile.loved.length){toast('Rate some films ★ first — or add them in Taste DNA');return;}S.mode='fav';S.favQueue=shuffle(S.profile.loved);updateFavPill();showTab('now');nextFav();}
 function exitFav(){S.mode='discover';updateFavPill();renderModel();advance();}
-function updateFavPill(){const b=$('favPill');if(S.mode==='fav'){b.style.borderColor='var(--gold)';b.style.color='var(--gold)';b.textContent='← discovery';}else{b.style.borderColor='';b.style.color='';b.textContent='★ favorites';}}
+function updateFavPill(){const b=$('favPill');if(S.mode==='fav'){b.style.borderColor='var(--gold)';b.style.color='var(--gold)';b.textContent='← discovery';}else{b.style.borderColor='';b.style.color='';b.textContent='★ shelf';}}
 function previous(){if(!S.history.length)return;showMovie(S.history.pop(),false);}
 
 /* ---------- render queue / model ---------- */
@@ -572,7 +559,7 @@ function renderModel(){
   const el=$('model');if(!el)return;
   try{renderModelInner();}catch(e){
     const all=[].concat(S.profile.loved||[],S.profile.liked||[],S.profile.disliked||[]);
-    el.innerHTML='<div class="mlist-hint">'+all.length+' films</div>'+all.slice(0,80).map((m,i)=>'<div class="mrow"><button class="mbtn" data-fp="'+i+'">▶</button><span class="txt">'+esc(m.title+(m.year?(' ('+m.year+')'):''))+'</span></div>').join('');
+    el.innerHTML='<div class="mlist-hint">'+all.length+' books</div>'+all.slice(0,80).map((m,i)=>'<div class="mrow"><button class="mbtn" data-fp="'+i+'">▶</button><span class="txt">'+esc(m.title+(m.year?(' ('+m.year+')'):''))+'</span></div>').join('');
     el.querySelectorAll('[data-fp]').forEach(b=>b.onclick=()=>playSpecific(all[+b.dataset.fp]));
     try{$('mcount').textContent=all.length+' rated';}catch(_){}
   }
@@ -586,30 +573,30 @@ function renderModelInner(){
   let genres=topKeys(p.genreScore,8).filter(g=>!p.hatedGenres.includes(g));
   const el=$('model');
   const parts=[];
-  parts.push(grp('#E7B44C','favorite directors', dirs.length?dirs.map(d=>chip(d,'love')).join(''):emptyChip()));
-  parts.push(grp('#4CC0A8','genres you like', genres.length?genres.map(g=>chip(g)).join(''):emptyChip()));
-  parts.push(grp('#5C566B','banned genres', p.hatedGenres.length?p.hatedGenres.map(g=>chip(g,'hate')).join(''):emptyChip('none yet')));
+  parts.push(grp('#E7B44C','favorite authors', dirs.length?dirs.map(d=>chip(d,'love')).join(''):emptyChip()));
+  parts.push(grp('#9B8FD4','fields you like', genres.length?genres.map(g=>chip(g)).join(''):emptyChip()));
+  parts.push(grp('#5C566B','banned topics', p.hatedGenres.length?p.hatedGenres.map(g=>chip(g,'hate')).join(''):emptyChip('none yet')));
   const total=p.loved.length+p.liked.length+p.disliked.length;
   el.innerHTML=parts.join('')+
-    '<button class="editbtn" id="editTgl">'+(S.editOpen?'▾ hide film list':'✎ edit / ▶ play my films ('+total+')')+'</button>'+
+    '<button class="editbtn" id="editTgl">'+(S.editOpen?'▾ hide book list':'✎ edit / ▶ open my books ('+total+')')+'</button>'+
     '<div id="mlistWrap" class="'+(S.editOpen?'':'hidden')+'"></div>'+
     '<div class="model-actions"><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>';
   $('editTgl').onclick=()=>{S.editOpen=!S.editOpen;renderModel();};
   if(S.editOpen){try{renderMList();}catch(_){}}
   $('exp').onclick=exportProfile;
-  $('rst').onclick=()=>{if(confirm('Wipe everything Reel has learned?')){S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:S.profile.seed};S.seen.clear();saveLocal();renderModel();toast('Reset');}};
+  $('rst').onclick=()=>{if(confirm('Wipe everything Paperback has learned?')){S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:S.profile.seed};S.seen.clear();saveLocal();renderModel();toast('Reset');}};
   $('mcount').textContent=total?(total+' rated'):'';
 }
 function renderMList(){
   const wrap=$('mlistWrap');if(!wrap)return;
   const sect=(b,label,ic)=>{const arr=S.profile[b];if(!arr.length)return '';let h='<div class="grp"><div class="h">'+label+'</div><div class="mlist">';arr.forEach((m,i)=>{h+='<div class="mrow"><button class="mbtn" data-play="'+b+':'+i+'">▶</button><span class="txt">'+ic+' '+esc(m.title+(m.year?(' ('+m.year+')'):''))+'</span><button class="mbtn" data-edit="'+b+':'+i+'">✎</button><button class="mbtn del" data-del="'+b+':'+i+'">✕</button></div>';});return h+'</div></div>';};
-  wrap.innerHTML='<div class="mlist-hint">▶ play · ✎ edit · ✕ remove</div>'+sect('watchlist','🔖 watchlist — not yet seen','🔖')+sect('loved','★ favorites','★')+sect('liked','liked','▲')+sect('disliked','not for me','▽');
+  wrap.innerHTML='<div class="mlist-hint">▶ play · ✎ edit · ✕ remove</div>'+sect('watchlist','🔖 reading list — not yet read','🔖')+sect('loved','★ favorites','★')+sect('liked','liked','▲')+sect('disliked','not for me','▽');
   wrap.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.play.split(':');playSpecific(S.profile[k][+i]);});
   wrap.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.del.split(':');const m=S.profile[k][+i];S.seen.delete(mkey(m));S.profile[k].splice(+i,1);saveLocal();renderModel();toast('Removed');});
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.edit.split(':');editEntry(k,+i);});
 }
 function editEntry(b,i){const m=S.profile[b][i];const nt=prompt('Edit "Title (Year)":',m.title+(m.year?(' ('+m.year+')'):''));if(nt===null)return;const mm=nt.match(/^(.*?)(?:\s*\((\d{4})\))?$/);S.seen.delete(mkey(m));m.title=(mm[1]||'').trim();m.year=mm[2]||'';delete m.id;delete m.overview;S.seen.add(mkey(m));saveLocal();renderModel();toast('Updated');}
-async function playSpecific(m){const c={...m,reason:'you chose this'};const id=c.id||await tmdbResolve({title:c.title,year:c.year});if(!id){toast('Not found on TMDB');return;}const det=await tmdbDetails(id);if(det){Object.assign(c,det);}showTab('now');showMovie(c);}
+async function playSpecific(m){const c={...m,reason:'you chose this'};const det=await bookDetails({title:c.title,author:c.author||c.director,year:c.year});if(det)Object.assign(c,det);showTab('now');showMovie(c);}
 
 /* ---------- manual anchor ---------- */
 function addAnchors(){
@@ -618,7 +605,8 @@ function addAnchors(){
   raw.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{
     if(bucket==='hatedGenres'){if(!S.profile.hatedGenres.some(g=>g.toLowerCase()===line.toLowerCase())){S.profile.hatedGenres.push(line);S.profile.genreScore[line]=-999;n++;}return;}
     const mm=line.match(/^(.*?)(?:\s*\((\d{4})\))?$/);
-    const m={title:(mm[1]||'').trim(),year:mm[2]||'',genres:[]};
+    const parts=(mm[1]||'').split(/\s+[—–]\s+|\s+-\s+|\s+by\s+/i);
+    const m={title:(parts[0]||'').trim(),author:(parts[1]||'').trim(),year:mm[2]||'',genres:[]};
     if(!m.title||S.seen.has(mkey(m)))return;
     S.profile[bucket].push(m);S.seen.add(mkey(m));n++;
   });
@@ -647,11 +635,9 @@ document.addEventListener('keydown',e=>{if(!S.started||['INPUT','SELECT','TEXTAR
 
 $('startBtn').onclick=async()=>{
   S.geminiKeys=parseKeys($('geminiKey').value);S.gi=0;S.geminiQuotaOut=false;
-  S.tmdb=$('tmdbKey').value.trim();S.omdb=$('omdbKey').value.trim();S.region=$('region').value;S.model=$('model').value;
-  $('regionLbl').textContent='· '+S.region;
+  S.model=$('model').value;
   const seed=$('seed').value.trim();if(seed)S.profile.seed=seed;
   if(!S.geminiKeys.length){toast('Gemini key required');return;}
-  if(!S.tmdb){toast('TMDB key required');return;}
   saveKeys();
   if(S.started){closeSettings();toast('Saved');return;}
   loadLocal();if(seed)S.profile.seed=seed;

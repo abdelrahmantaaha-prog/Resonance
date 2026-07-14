@@ -1,6 +1,6 @@
 /* Resonance service worker — network-first so new deploys land immediately.
    Falls back to cache only when offline. */
-const CACHE='rewind-v1';
+const CACHE='resonance-v9';
 self.addEventListener('install', e=>{ self.skipWaiting(); });
 self.addEventListener('activate', e=>{
   e.waitUntil((async()=>{

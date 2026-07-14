@@ -2,1224 +2,218 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0E0D12">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
+<title>Rewind — taste that learns you</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icon-180.png">
-<title>Cassette — a player that learns</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  /* ---- token system ----
-     warm = keep (amber / ember), cool = drop (slate). Feedback color IS meaning.
-     Fraunces (editorial, the human's taste) vs IBM Plex Mono (the machine, the model). */
   :root{
-    --bg:#0E0D12; --panel:#17151E; --panel-2:#1D1A26; --line:#2A2635;
+    --bg:#0E0D12; --panel:#17151E; --panel-2:#1C1922; --line:#282430;
     --ink:#ECE7DE; --muted:#8A8397; --faint:#5C566B;
-    --ember:#E0524B;   /* heart / all-time favorite */
-    --amber:#E8A24B;   /* primary accent / cool = liked / kept */
-    --slate:#6C7CA0;   /* skip / not my type */
-    --dim:#4A4658;     /* thumbs down / hated genre */
-    --ok:#7FB08A;
-    --r:14px;
-    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-    --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,sans-serif;
+    --gold:#E8AA46; --ember:#E0524B; --teal:#4CC0A8;
+    --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+    --sans:'IBM Plex Sans',system-ui,sans-serif;
     --disp:'Fraunces',Georgia,serif;
   }
   *{box-sizing:border-box}
-  html,body{margin:0}
+  html,body{margin:0;min-height:100%}
   body{
-    background:radial-gradient(1200px 700px at 78% -8%, #1a1626 0%, var(--bg) 55%) fixed, var(--bg);
-    color:var(--ink); font-family:var(--sans); line-height:1.5;
-    -webkit-font-smoothing:antialiased; min-height:100vh;
+    background:radial-gradient(1100px 700px at 50% -12%, #211a2e 0%, var(--bg) 58%) fixed, var(--bg);
+    color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:40px 20px;text-align:center;
   }
-  a{color:var(--amber)}
-  button{font-family:inherit; cursor:pointer}
-  .wrap{max-width:1180px; margin:0 auto; padding:26px 22px 60px}
-
-  /* header */
-  header{display:flex; align-items:baseline; justify-content:space-between; gap:18px; margin-bottom:22px; flex-wrap:wrap}
-  .brand{display:flex; align-items:baseline; gap:12px}
-  .brand h1{font-family:var(--disp); font-weight:900; font-size:30px; letter-spacing:-.02em; margin:0}
-  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 14px var(--amber);align-self:center;transition:.4s}
-  .brand .dot.live{background:var(--ember);box-shadow:0 0 16px var(--ember);animation:pulse 1.8s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
-  .brand span.sub{font-family:var(--mono);font-size:12px;color:var(--muted)}
-  .status{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right;max-width:340px}
-  .status b{color:var(--amber);font-weight:500}
-
-  /* setup panel */
-  .setup{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:22px}
-  .setup.done{padding:12px 18px}
-  .setup h2{font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 16px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  @media(max-width:720px){.grid{grid-template-columns:1fr}}
-  .field label{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:.04em}
-  .field .hint{color:var(--faint);font-size:10.5px}
-  .field input, .field select, .field textarea{
-    width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;
-    color:var(--ink);padding:11px 12px;font-family:var(--mono);font-size:13px;outline:none;transition:.15s;
-  }
-  .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--amber)}
-  .keybox{min-height:56px;resize:vertical;line-height:1.5}
-  .row-actions{display:flex;gap:12px;align-items:center;margin-top:18px;flex-wrap:wrap}
-  .btn{background:var(--amber);color:#211a0d;border:none;border-radius:10px;padding:12px 20px;font-weight:600;font-size:14px;letter-spacing:.01em;transition:.15s}
-  .btn:hover{filter:brightness(1.08)}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
-  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
-  .btn.ghost:hover{color:var(--ink);border-color:var(--faint)}
-  .btn.sm{padding:8px 13px;font-size:12px}
-  .pill{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:7px 14px;font-family:var(--mono);font-size:11.5px;transition:.15s}
-  .pill:hover{color:var(--ink);border-color:var(--faint)}
-  .pill.on{border-color:var(--ember);color:#f0a49f}
-  .hdr-actions{display:flex;gap:8px;align-items:center}
-  .nextneutral{margin-top:10px;width:100%;background:transparent;border:1px dashed var(--line);color:var(--muted);padding:10px;border-radius:10px;font-family:var(--mono);font-size:11.5px;transition:.15s}
-  .nextneutral:hover{border-color:var(--faint);color:var(--ink)}
-  .anchor{border-top:1px solid var(--line);padding:12px 18px 16px}
-  .anchor .tgl{font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-  .anchor .tgl:hover{color:var(--amber)}
-  .anchor textarea{width:100%;min-height:84px;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:10px;font-family:var(--mono);font-size:12px;outline:none;margin:10px 0 8px;resize:vertical}
-  .anchor .row{display:flex;gap:8px}
-  .anchor select{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:8px;font-family:var(--mono);font-size:12px}
-
-  /* main stage */
-  .stage{display:grid;grid-template-columns:1.55fr 1fr;gap:22px;align-items:start}
-  @media(max-width:900px){.stage{grid-template-columns:1fr}}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-  .now{padding:0}
-  .videoshell{position:relative;background:#000;aspect-ratio:16/9;width:100%}
-  #player{position:absolute;inset:0;width:100%;height:100%}
-  .videoshell.mini{aspect-ratio:auto;height:0;padding-bottom:0;overflow:hidden}
-  .videoshell.mini #player{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-  .lyricsPanel{border-top:1px solid var(--line);padding:12px 18px 12px}
-  .lyricsPanel .lh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-  .lyricsPanel .lh .t{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
-  .lyricsPanel .lh a{font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;text-decoration:none;margin-left:14px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;transition:.15s}
-  .lyricsPanel .lh a:hover{color:var(--amber);border-color:var(--amber)}
-  #lyricStat{font-family:var(--mono);font-size:10px;color:var(--faint);border:none;padding:0;margin-left:6px}
-  #lyricsBox{min-height:96px;max-height:150px;overflow-y:auto;padding:6px 2px;display:flex;flex-direction:column;justify-content:center;gap:2px;scrollbar-width:thin}
-  .lyc{font-size:15px;line-height:1.45;color:var(--faint);padding:2px 0;transition:color .3s,opacity .3s;text-align:center}
-  .lyc.prev,.lyc.next{opacity:.32;font-size:13px}
-  .lyc.active{opacity:1;position:relative;font-weight:600;font-size:19px;color:var(--faint);display:inline-block;margin:3px auto}
-  .lyc.active .base{color:var(--faint)}
-  .lyc.active .sweep{position:absolute;left:0;top:0;padding:3px 0;white-space:nowrap;overflow:hidden;width:0;color:var(--amber);text-shadow:0 0 18px rgba(232,162,75,.35);transition:width .12s linear}
-  .quotaWall{background:rgba(232,162,75,.08);border:1px solid rgba(232,162,75,.3);border-radius:12px;padding:20px;text-align:center;margin:8px 0 16px}
-  .quotaWall .qw-i{font-size:30px;color:var(--amber);margin-bottom:8px}
-  .quotaWall .qw-t{font-weight:600;font-size:16px;margin-bottom:6px}
-  .quotaWall .qw-s{color:var(--muted);font-size:13px;line-height:1.5;margin-bottom:14px}
-  .quotaWall .qw-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-  .srcswitch{display:flex;gap:6px}
-  .srcswitch button{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 11px;font-family:var(--mono);font-size:11px;transition:.15s}
-  .srcswitch button.on{border-color:var(--amber);color:var(--amber)}
-  .mrow{display:flex;align-items:center;gap:6px;margin-bottom:5px}
-  .mrow .txt{flex:1;font-family:var(--mono);font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .mrow .mbtn{background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:6px;width:24px;height:24px;font-size:12px;line-height:1;padding:0;transition:.15s;flex:none}
-  .mrow .mbtn:hover{color:var(--amber);border-color:var(--amber)}
-  .mrow .mbtn.del:hover{color:var(--ember);border-color:var(--ember)}
-  .mlist{max-height:150px;overflow-y:auto;margin-top:6px;scrollbar-width:thin}
-  .medit-tgl{font-family:var(--mono);font-size:10.5px;color:var(--faint);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
-  .medit-tgl:hover{color:var(--amber)}
-  .editbtn{display:block;width:100%;margin-top:14px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px;font-family:var(--mono);font-size:12px;cursor:pointer;transition:.15s}
-  .editbtn:hover{border-color:var(--amber);color:var(--amber)}
-  .mlist-hint{font-family:var(--mono);font-size:10px;color:var(--faint);text-align:center;margin:8px 0 4px}
-  .videoshell .placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--faint);font-family:var(--mono);font-size:12px;text-align:center;padding:24px}
-  .np-body{padding:20px 22px 22px}
-  .np-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:10px;display:flex;justify-content:space-between}
-  .np-eyebrow .src{color:var(--amber)}
-  .np-title{font-family:var(--disp);font-weight:600;font-size:29px;line-height:1.12;letter-spacing:-.015em;margin:0 0 4px}
-  .np-artist{color:var(--muted);font-size:15px;margin-bottom:6px}
-  .np-reason{font-size:13.5px;color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:11px;margin:12px 0 16px}
-  .np-reason b{color:var(--amber);font-style:normal;font-family:var(--mono);font-size:11px;letter-spacing:.06em}
-
-  /* progress — seekable */
-  .prog{position:relative;height:6px;background:var(--line);border-radius:99px;margin:4px 0 6px;cursor:pointer;touch-action:none}
-  .prog i{position:absolute;left:0;top:0;height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--ember));border-radius:99px;transition:width .12s linear}
-  .prog .knob{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(0,0,0,.5);transform:translate(-50%,-50%);left:0;opacity:0;transition:opacity .15s}
-  .prog:hover .knob,.prog.seeking .knob{opacity:1}
-  .prog::before{content:'';position:absolute;inset:-8px 0;} /* larger touch target */
-  .times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:16px}
-
-  /* feedback — compact icon buttons */
-  .feedback{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-  .fb{display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:9px 4px;transition:.14s;color:var(--muted)}
-  .fb:active{transform:scale(.94)}
-  .fb .ico{font-size:18px;line-height:1}
-  .fb .lab{font-weight:600;font-size:11px;color:var(--ink)}
-  .fb.skip:hover{border-color:var(--slate);box-shadow:0 0 0 1px var(--slate) inset}
-  .fb.heart:hover{border-color:var(--ember);box-shadow:0 0 0 1px var(--ember) inset}
-  .fb.heart.on{border-color:var(--ember);background:rgba(224,82,75,.14)}
-  .fb.heart.on .ico{color:var(--ember)}
-  .fb.down .ico{color:#9a94a8}
-  .fb.down:hover{border-color:var(--dim);box-shadow:0 0 0 1px var(--dim) inset}
-  .fb.play:hover{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
-  .fb .ico.amber{color:var(--amber)}
-  .ds-tag{font-family:var(--mono);font-size:10px;color:var(--amber);border:1px solid rgba(232,162,75,.4);border-radius:99px;padding:2px 9px}
-
-  /* tabs */
-  .tabbar{display:flex;gap:6px;margin-bottom:16px;position:sticky;top:0;z-index:20;background:var(--bg);padding:4px 0}
-  .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:11px;padding:11px 8px;font-family:var(--mono);font-size:12.5px;transition:.15s;position:relative}
-  .tab span{font-size:12.5px}
-  .tab.on{border-color:var(--amber);color:var(--amber);background:var(--panel-2)}
-  .tab .badge{position:absolute;top:6px;right:10px;min-width:16px;height:16px;border-radius:99px;background:var(--ember);color:#fff;font-size:9px;display:none;align-items:center;justify-content:center;padding:0 4px}
-  .tab .badge.show{display:flex}
-  .tabpane{display:none}
-  .tabpane.on{display:block;animation:fade .2s ease}
-  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-  @media(min-width:820px){
-    /* on wide screens: Now + Up-next side by side, DNA still its own tab */
-    .tab[data-tab="queue"]{display:none}
-    .stage.wide{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start}
-    .stage.wide #tabQueue{display:block}
-    .stage.wide #tabDNA.on{grid-column:1/-1}
-    .stage.wide #tabNow{display:block!important}
-  }
-
-  /* overlay */
-  .overlay{position:fixed;inset:0;background:rgba(6,5,10,.72);backdrop-filter:blur(4px);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px;overflow-y:auto}
-  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:100%;max-width:520px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
-  .sheet-h{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink)}
-  .xbtn{background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px}
-  .xbtn:hover{color:var(--ink)}
+  .mark{width:76px;height:76px;border-radius:20px;background:var(--panel);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;margin-bottom:22px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  .mark svg{width:40px;height:40px}
+  h1{font-family:var(--disp);font-weight:900;font-size:clamp(38px,11vw,60px);letter-spacing:-.03em;margin:0 0 8px;
+    background:linear-gradient(180deg,#f3ead9,#e8aa46);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .tag{font-family:var(--mono);font-size:13px;letter-spacing:.06em;color:var(--muted);margin-bottom:40px}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%;max-width:920px}
+  @media(max-width:820px){.cards{grid-template-columns:1fr;max-width:420px}}
+  .card{position:relative;display:block;text-decoration:none;background:var(--panel);border:1px solid var(--line);
+    border-radius:18px;padding:26px 22px;text-align:left;overflow:hidden;transition:.2s;color:var(--ink)}
+  .card:hover{transform:translateY(-4px);border-color:var(--faint)}
+  .card .ic{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:22px}
+  .card.music .ic{background:rgba(224,82,75,.14);color:var(--ember)}
+  .card.film .ic{background:rgba(76,192,168,.14);color:var(--teal)}
+  .card.book .ic{background:rgba(155,143,212,.14);color:#9B8FD4}
+  .card.book{border-top:2px solid rgba(155,143,212,.5)}
+  .card h2{font-family:var(--disp);font-weight:600;font-size:24px;margin:0 0 4px}
+  .card .sub{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:12px}
+  .card p{font-size:13.5px;color:var(--muted);line-height:1.5;margin:0 0 16px}
+  .card .go{font-family:var(--mono);font-size:12px;color:var(--gold);display:inline-flex;align-items:center;gap:6px;transition:.2s}
+  .card:hover .go{gap:10px}
+  .card.music{border-top:2px solid rgba(224,82,75,.5)}
+  .card.film{border-top:2px solid rgba(76,192,168,.5)}
+  .foot{margin-top:34px;font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.7;max-width:420px}
+  .install{margin-top:18px;font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--line);
+    border-radius:99px;padding:8px 16px;display:none}
+  .install.show{display:inline-block}
+  .install b{color:var(--gold)}
+  .gearbtn{margin:-24px 0 34px;background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:8px 16px;font-family:var(--mono);font-size:12px;cursor:pointer;transition:.15s}
+  .gearbtn:hover{color:var(--gold);border-color:var(--gold)}
+  .overlay{position:fixed;inset:0;background:rgba(6,5,10,.74);backdrop-filter:blur(4px);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:26px 16px;overflow-y:auto}
+  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:100%;max-width:520px;text-align:left;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .sheet-h{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  .xbtn{background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer}
   .sheet-body{padding:20px}
-  .sheet-body .field{margin-bottom:15px}
-  .sheet-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
-
-  /* right column (legacy, wide only) */
-  .side{display:flex;flex-direction:column;gap:22px}
-  .panel-h{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:16px 18px 0;display:flex;justify-content:space-between;align-items:center}
-  .panel-h .n{color:var(--amber)}
-
-  /* up next — the lookahead. this is the signature: you see it planning 2 ahead + why. */
-  .queue{padding:12px 14px 16px}
-  .qitem{display:flex;gap:12px;padding:11px;border-radius:10px;border:1px solid transparent;transition:.2s;position:relative}
-  .qitem+.qitem{margin-top:6px}
-  .qitem .pos{font-family:var(--mono);font-size:11px;color:var(--faint);width:26px;flex:none;padding-top:2px}
-  .qitem .meta .t{font-weight:600;font-size:14px;line-height:1.2}
-  .qitem .meta .a{color:var(--muted);font-size:12.5px}
-  .qitem .meta .why{color:var(--faint);font-size:11.5px;font-style:italic;margin-top:4px}
-  .qitem.first{background:var(--panel-2);border-color:var(--line)}
-  .qslot-empty{color:var(--faint);font-family:var(--mono);font-size:12px;padding:14px;text-align:center}
-  .thinking{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--amber)}
-  .thinking:after{content:'';animation:dots 1.4s steps(4,end) infinite}
-  @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
-
-  /* taste model */
-  .model{padding:12px 18px 18px}
-  .model .grp{margin-top:14px}
-  .model .grp:first-child{margin-top:6px}
-  .model .grp .h{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:7px}
-  .model .grp .h .sw{width:8px;height:8px;border-radius:2px}
-  .chips{display:flex;flex-wrap:wrap;gap:6px}
-  .chip{font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted);background:var(--bg)}
-  .chip.new{animation:flash 1s ease}
-  @keyframes flash{0%{background:var(--amber);color:#211a0d}100%{background:var(--bg)}}
-  .chip.love{border-color:rgba(224,82,75,.4);color:#f0a49f}
-  .chip.hate{border-color:var(--dim);color:var(--faint);text-decoration:line-through}
-  .empty-model{color:var(--faint);font-family:var(--mono);font-size:11.5px;font-style:italic}
-  .model-actions{display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
-  .model-actions a{font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-  .model-actions a:hover{color:var(--amber)}
-
-  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(30px);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 18px;font-family:var(--mono);font-size:12.5px;color:var(--ink);opacity:0;transition:.3s;pointer-events:none;z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.5)}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-  .toast .k{color:var(--amber)}
+  .sgroup{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .sgroup:first-child{margin-top:0}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px}
+  .field .hint{color:var(--faint);font-size:10px}
+  .field input,.field select,.field textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:11px 12px;font-family:var(--mono);font-size:13px;outline:none}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--gold)}
+  .keybox{min-height:52px;resize:vertical;line-height:1.5}
+  .sbtn{background:var(--gold);color:#221a0a;border:none;border-radius:10px;padding:12px 20px;font-weight:600;font-size:14px;cursor:pointer;margin-top:6px}
   .hidden{display:none!important}
-  .warnbar{background:rgba(224,82,75,.1);border:1px solid rgba(224,82,75,.35);color:#f0b0ab;border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:18px;font-family:var(--mono)}
-  .warnbar b{color:var(--ember)}
-  input[type=file]{display:none}
-  footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.7}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="brand">
-      <span class="dot" id="livedot"></span>
-      <h1>Cassette</h1>
-      <span class="sub">a player that learns · 2 ahead</span>
-    </div>
-    <div class="hdr-actions">
-      <button class="pill" id="modePill" title="Play only your all-time favorites">♥ favorites</button>
-      <button class="pill" id="gearBtn" title="API keys & settings">⚙</button>
-    </div>
-    <div class="status" id="status">Add a Gemini key and a seed to begin.</div>
-  </header>
-
-  <div id="sandboxWarn" class="warnbar hidden">
-    <b>Playback blocked here.</b> This preview sandbox is stopping YouTube's player script. Download this file and serve it locally (see below) — everything works there.
+  <div class="mark">
+    <svg viewBox="0 0 100 100" aria-label="Rewind">
+      <rect x="20" y="30" width="9" height="40" rx="3" fill="#E8AA46"/>
+      <polygon points="70,30 44,50 70,70" fill="#E8AA46"/>
+      <polygon points="92,30 66,50 92,70" fill="#E8AA46"/>
+    </svg>
   </div>
-  <div id="fileWarn" class="warnbar hidden">
-    <b>YouTube refuses to play from file:// (Error 153)</b> — it requires the page to be served over HTTP.<br><br>
-    <b>On a phone:</b> host this file free (drag it into app.netlify.com/drop, or GitHub Pages) and open the URL — then Add to Home Screen.<br>
-    <b>On a computer:</b> run <code>python -m http.server 8080</code> in this folder, open <b>http://localhost:8080/index.html</b>.
-  </div>
-  <script>
-    if(location.protocol==='file:'){ document.getElementById('fileWarn').classList.remove('hidden'); }
-  </script>
+  <h1>Rewind</h1>
+  <div class="tag">taste that learns you</div>
+  <button class="gearbtn" id="gearBtn" title="API settings">⚙ API settings</button>
 
-  <!-- SETTINGS OVERLAY -->
+  <div class="cards">
+    <a class="card music" href="./cassette/">
+      <div class="ic">🎵</div>
+      <div class="sub">Music</div>
+      <h2>Cassette</h2>
+      <p>An AI player that learns your ear from four signals and builds your queue two songs ahead.</p>
+      <span class="go">Open Cassette →</span>
+    </a>
+    <a class="card film" href="./reel/">
+      <div class="ic">🎬</div>
+      <div class="sub">Film</div>
+      <h2>Reel</h2>
+      <p>A critic that learns your taste, rates films with IMDb &amp; TMDB, and shows where to watch.</p>
+      <span class="go">Open Reel →</span>
+    </a>
+    <a class="card book" href="./paperback/">
+      <div class="ic">📖</div>
+      <div class="sub">Books · non-fiction</div>
+      <h2>Paperback</h2>
+      <p>A shelf that learns your mind — idea-driven book picks with free borrow &amp; library links. No extra keys.</p>
+      <span class="go">Open Paperback →</span>
+    </a>
+  </div>
+
+  <div class="install" id="install">Add <b>Rewind</b> to your home screen for one-tap access to both.</div>
+  <div class="foot">
+    Two apps, one taste engine. Everything runs in your browser with your own keys — nothing else leaves your device.
+    <br><span id="buildStamp" style="opacity:.6"></span>
+  </div>
+
   <div class="overlay hidden" id="settingsOverlay">
     <div class="sheet">
-      <div class="sheet-h"><span id="setupTitle">Setup</span><button class="xbtn" id="closeSettings">✕</button></div>
+      <div class="sheet-h"><span>API settings — shared by both apps</span><button class="xbtn" id="closeSettings">✕</button></div>
       <div class="sheet-body">
+        <div class="sgroup">Shared</div>
         <div class="field">
-          <label>Gemini API key(s) <span class="hint">— required · one per line for auto-rotation</span></label>
-          <textarea id="geminiKey" class="keybox" placeholder="AIza… key 1&#10;AIza… key 2 (optional)" autocomplete="off" spellcheck="false"></textarea>
+          <label>Gemini API key(s) <span class="hint">— required by both · one per line for auto-rotation</span></label>
+          <textarea id="geminiKey" class="keybox" placeholder="AIza… key 1&#10;AIza… key 2 (optional)" spellcheck="false"></textarea>
         </div>
         <div class="field">
-          <label>YouTube Data API key(s) <span class="hint">— recommended · one per line for auto-rotation</span></label>
-          <textarea id="ytKey" class="keybox" placeholder="AIza… key 1&#10;AIza… key 2 (optional)" autocomplete="off" spellcheck="false"></textarea>
-        </div>
-        <div class="field">
-          <label>Seed — an artist, song, or vibe to start from</label>
-          <input id="seed" type="text" placeholder="e.g. moody Arabic indie · Radiohead · late-night jazz">
-        </div>
-        <div class="field">
-          <label>Gemini model <span class="hint">— change if you hit a 404</span></label>
+          <label>Gemini model</label>
           <select id="model">
-            <option value="gemini-3.5-flash">gemini-3.5-flash (recommended)</option>
-            <option value="gemini-flash-latest">gemini-flash-latest (auto-updates)</option>
-            <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (cheapest)</option>
+            <option value="gemini-3.5-flash">gemini-3.5-flash</option>
+            <option value="gemini-flash-latest">gemini-flash-latest</option>
+            <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
             <option value="gemini-2.5-flash">gemini-2.5-flash</option>
           </select>
         </div>
+
+        <div class="sgroup">🎵 Cassette (music)</div>
         <div class="field">
-          <label>Data saver <span class="hint">— hides the video, plays audio only</span></label>
-          <select id="dataSaver">
-            <option value="off">off — show video</option>
-            <option value="on">on — audio only, less data</option>
+          <label>YouTube Data API key(s) <span class="hint">— recommended · one per line</span></label>
+          <textarea id="ytKey" class="keybox" placeholder="AIza… key 1&#10;AIza… key 2 (optional)" spellcheck="false"></textarea>
+        </div>
+
+        <div class="sgroup">🎬 Reel (film)</div>
+        <div class="field">
+          <label>TMDB API key <span class="hint">— required for Reel · themoviedb.org</span></label>
+          <input id="tmdbKey" type="password" placeholder="TMDB v3 API key" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>OMDb API key <span class="hint">— optional · real IMDb + Rotten Tomatoes scores</span></label>
+          <input id="omdbKey" type="password" placeholder="OMDb key (optional)" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Region <span class="hint">— for "where to watch"</span></label>
+          <select id="region">
+            <option value="EG">Egypt</option><option value="SA">Saudi Arabia</option><option value="AE">UAE</option>
+            <option value="US">United States</option><option value="GB">United Kingdom</option><option value="FR">France</option>
           </select>
         </div>
-        <div class="sheet-actions">
-          <button class="btn" id="startBtn">Start listening</button>
-          <button class="btn ghost sm" id="importBtn">Import profile</button>
-          <button class="btn ghost sm" id="exportBtn2">Export / back up</button>
-          <input type="file" id="importFile" accept="application/json">
-        </div>
-        <div id="setupNote" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:10px"></div>
+
+        <button class="sbtn" id="saveSettings">Save — applies to both apps</button>
+        <div id="saveNote" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:10px"></div>
       </div>
     </div>
   </div>
-
-  <!-- TAB BAR -->
-  <nav class="tabbar hidden" id="tabbar">
-    <button class="tab on" data-tab="now">▶ <span>Now</span></button>
-    <button class="tab" data-tab="queue">◷ <span>Up next</span><i class="badge" id="tabBadge"></i></button>
-    <button class="tab" data-tab="dna">⬡ <span>Sound DNA</span></button>
-  </nav>
-
-  <!-- STAGE -->
-  <div class="stage hidden" id="stage">
-
-    <!-- TAB: NOW PLAYING -->
-    <section class="tabpane on" id="tabNow">
-    <div class="card now">
-      <div class="videoshell">
-        <div id="player"></div>
-        <div class="placeholder" id="playerPh">building your first pick…</div>
-      </div>
-      <div class="np-body">
-        <div class="np-eyebrow"><span id="npMode">◈ Now playing</span><span id="dsTag" class="ds-tag hidden">♫ audio only</span></div>
-        <div class="quotaWall hidden" id="quotaWall">
-          <div class="qw-i">◔</div>
-          <div class="qw-t">YouTube's daily search quota is used up</div>
-          <div class="qw-s">It resets daily (Pacific midnight). Until then you can play your favorites, or add a bigger YouTube key in Settings.</div>
-          <div class="qw-btns">
-            <button class="btn sm" id="quotaFavBtn">♥ Play my favorites</button>
-            <button class="btn ghost sm" id="quotaSettingsBtn">⚙ Open settings</button>
-          </div>
-        </div>
-        <h3 class="np-title" id="npTitle">—</h3>
-        <div class="np-artist" id="npArtist"></div>
-        <div class="np-reason" id="npReason"></div>
-
-        <div class="prog" id="progBar"><i id="progFill"></i><span class="knob" id="progKnob"></span></div>
-        <div class="times"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
-
-        <div class="feedback">
-          <button class="fb play" id="btnPlay" title="Play / pause"><span class="ico amber" id="playIco">▶</span><span class="lab">Play</span></button>
-          <button class="fb heart" id="btnHeart" title="All-time favorite"><span class="ico">♥</span><span class="lab">Heart</span></button>
-          <button class="fb skip" id="btnSkip" title="Skip — not my type"><span class="ico">⏭</span><span class="lab">Skip</span></button>
-          <button class="fb down" id="btnDown" title="Never — ban this genre"><span class="ico">⦸</span><span class="lab">Never</span></button>
-        </div>
-        <button class="nextneutral" id="btnNext">next song — teaches nothing →</button>
-      </div>
-      <div class="lyricsPanel hidden" id="lyricsPanel">
-        <div class="lh">
-          <span class="t">♪ Lyrics <span id="lyricStat"></span></span>
-          <span><a id="trBtn" class="hidden">⇄ translate</a><a id="lyToggle">▲ hide</a></span>
-        </div>
-        <div id="lyricsBox"></div>
-      </div>
-    </div>
-    </section>
-
-    <!-- TAB: UP NEXT -->
-    <section class="tabpane" id="tabQueue">
-      <div class="card">
-        <div class="panel-h">◷ Up next <span class="n" id="qcount">planning…</span></div>
-        <div class="queue" id="queue"></div>
-      </div>
-    </section>
-
-    <!-- TAB: SOUND DNA -->
-    <section class="tabpane" id="tabDNA">
-      <div class="card">
-        <div class="panel-h">⬡ Sound DNA <span class="n" id="mcount"></span></div>
-        <div class="model" id="model"></div>
-        <div class="anchor">
-          <span class="tgl" id="anchorTgl">＋ add songs manually</span>
-          <div class="hidden" id="anchorForm">
-            <textarea id="anchorText" placeholder="One per line:&#10;Song Title — Artist&#10;Aicha - Cheb Khaled"></textarea>
-            <div class="row">
-              <select id="anchorBucket">
-                <option value="loved">♥ all-time favorites</option>
-                <option value="liked">songs I like</option>
-                <option value="disliked">not my type</option>
-                <option value="hatedGenres">banned genres (one per line)</option>
-              </select>
-              <button class="btn sm" id="anchorAdd">Add</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-  </div>
-
-  <footer>
-    Cassette learns only from your four signals. Nothing leaves your browser except calls to Google's Gemini and YouTube with your own keys.<br>
-    Finish → liked · Heart → favorite · Skip → not your type · Never → genre banned.<br>
-    <a href="./reel/" style="color:var(--gold)">🎬 Reel (movies)</a> · <span id="buildStamp" style="opacity:.6"></span>
-  </footer>
-</div>
-
-<div class="toast" id="toast"></div>
 
 <script>
-/* ============================================================
-   STATE
-============================================================ */
-const S = {
-  model:'gemini-3.5-flash',
-  profile: { loved:[], liked:[], disliked:[], hatedGenres:[], genreScore:{}, artistScore:{}, seed:'' },
-  seenKeys: new Set(),      // "artist|title" to avoid repeats
-  seenIds: new Set(),       // youtube ids used
-  candidates: [],           // Gemini suggestions not yet resolved
-  queue: [],                // resolved, playable {title,artist,genre,reason,videoId}
-  current: null,
-  player: null, ytReady:false, playing:false, resolving:false, thinking:false, started:false,
-  progTimer:null, mode:'discover', heartQueue:[], history:[], userPaused:false,
-  pendingTrack:null, dataSaver:'off', ytQuotaOut:false, geminiQuotaOut:false, tab:'now', seeking:false,
-  geminiKeys:[], gi:0, ytKeys:[], yi:0,
-  lyrics:null, lyricsLines:[], lyricIdx:-1, lyricsFor:'', lyricsOn:true, translated:false, editOpen:true,
-};
-
-/* ============================================================
-   PERSISTENCE  (memory-first; localStorage best-effort; JSON export/import)
-============================================================ */
-function saveLocal(){
-  try{ localStorage.setItem('cassette_profile', JSON.stringify(S.profile)); }catch(e){}
-}
-/* guarantee every field exists with the right type — profiles from older
-   versions or from export/import can be missing genreScore/artistScore,
-   which would otherwise crash renderModel and blank out Sound DNA */
-function normalizeProfile(){
-  const p=S.profile;
-  ['loved','liked','disliked','hatedGenres'].forEach(k=>{ if(!Array.isArray(p[k])) p[k]=[]; });
-  ['genreScore','artistScore'].forEach(k=>{ if(!p[k] || typeof p[k]!=='object') p[k]={}; });
-  if(typeof p.seed!=='string') p.seed='';
-  // rebuild scores from buckets if they're empty but we have songs (e.g. after import)
-  if(Object.keys(p.genreScore).length===0){
-    p.loved.forEach(t=>{ if(t.genre){ p.genreScore[t.genre]=(p.genreScore[t.genre]||0)+3; } });
-    p.liked.forEach(t=>{ if(t.genre){ p.genreScore[t.genre]=(p.genreScore[t.genre]||0)+1; } });
-  }
-}
-function loadLocal(){
-  try{
-    const raw = (localStorage.getItem('cassette_profile')||localStorage.getItem('resonance_profile'));
-    if(raw){ const p = JSON.parse(raw); Object.assign(S.profile, p);
-      normalizeProfile();
-      (S.profile.loved||[]).concat(S.profile.liked||[],S.profile.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
-      return true; }
-  }catch(e){}
-  normalizeProfile();
-  return false;
-}
-function exportProfile(){
-  const blob = new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='cassette-taste-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
-  toast('Profile exported');
-}
-function parseKeys(str){ return (str||'').split(/[\n,]+/).map(s=>s.trim()).filter(Boolean); }
-function saveKeys(){ try{ localStorage.setItem('cassette_keys', JSON.stringify({gk:S.geminiKeys,yk:S.ytKeys,m:S.model,s:S.profile.seed,ds:S.dataSaver})); }catch(_){}}
-function loadKeys(){
-  try{
-    const k=JSON.parse(localStorage.getItem('cassette_keys')||localStorage.getItem('resonance_keys')||'null'); if(!k) return;
-    // migrate old single-key format {g,y} → arrays
-    S.geminiKeys = k.gk || (k.g?[k.g]:[]);
-    S.ytKeys     = k.yk || (k.y?[k.y]:[]);
-    $('geminiKey').value=S.geminiKeys.join('\n'); $('ytKey').value=S.ytKeys.join('\n');
-    if(k.m) $('model').value=k.m; $('seed').value=k.s||'';
-    if(k.ds){ S.dataSaver=k.ds; const d=$('dataSaver'); if(d) d.value=k.ds; }
-    if(S.geminiKeys.length) $('setupNote').textContent=S.geminiKeys.length+' Gemini · '+S.ytKeys.length+' YouTube key(s) remembered. Hit Start.';
-  }catch(_){}
-}
-/* active key + rotation. rotateX() advances to the next key; returns false when all are spent. */
-function gKey(){ return S.geminiKeys[S.gi]||''; }
-function yKey(){ return S.ytKeys[S.yi]||''; }
-function rotateGemini(){ if(S.gi < S.geminiKeys.length-1){ S.gi++; return true; } S.geminiQuotaOut=true; return false; }
-function rotateYT(){ if(S.yi < S.ytKeys.length-1){ S.yi++; return true; } S.ytQuotaOut=true; return false; }
-/* back-compat shims so the rest of the code can read S.gemini / S.yt */
-Object.defineProperty(S,'gemini',{get(){return gKey();}, configurable:true});
-Object.defineProperty(S,'yt',{get(){return yKey();}, configurable:true});
-
-/* ============================================================
-   HELPERS
-============================================================ */
-const $ = id => document.getElementById(id);
-const key = t => ((t.artist||'')+'|'+(t.title||'')).toLowerCase().trim();
-function toast(msg){ const el=$('toast'); el.innerHTML=msg; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),2600); }
-function setStatus(html){ $('status').innerHTML=html; }
-function fmt(s){ s=Math.max(0,Math.floor(s||0)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
-function bump(obj,k,by){ if(!k) return; obj[k]=(obj[k]||0)+by; }
-function topKeys(obj,n){ return Object.entries(obj).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k])=>k); }
-
-/* ============================================================
-   GEMINI  — recommendation + learning
-============================================================ */
-async function askGemini(n){
-  const p = S.profile;
-  const avoid = [...S.seenKeys].slice(-45).join('; ') || 'none yet';
-  const lines = [
-    'You are a precise music recommendation engine. Suggest '+n+' songs to play NEXT for this listener.',
-    '',
-    'ALL-TIME FAVORITES (weight these the most): '+ (p.loved.map(desc).join(' / ')||'none yet'),
-    'LIKED — listened all the way through: '+ (p.liked.slice(-25).map(desc).join(' / ')||'none yet'),
-    'DISLIKED — skipped, steer away from these: '+ (p.disliked.slice(-25).map(desc).join(' / ')||'none yet'),
-    'BANNED GENRES — never suggest anything in these: '+ (p.hatedGenres.join(', ')||'none'),
-    p.seed ? 'STARTING MOOD/SEED (strong signal, especially early): '+p.seed : '',
-    '',
-    'Already played or queued — do NOT repeat any of these: '+avoid,
-    '',
-    'Rules:',
-    '- Real songs that exist on YouTube. Prefer official audio/video.',
-    '- Never suggest a banned genre. Steer clear of anything close to Disliked.',
-    '- Lean hard toward the mood of the Favorites and Liked list.',
-    '- Of the '+n+', make most of them safe/close picks and at most one a tasteful exploration.',
-    '- Vary artists; do not stack the same artist.',
-    '',
-    'Return ONLY a raw JSON array, no markdown, no commentary:',
-    '[{"title":"","artist":"","genre":"","reason":"max 12 words, why it fits THIS listener","searchQuery":"Artist Title official audio","youtubeId":"11-char id if you are confident, else empty string"}]'
-  ].filter(Boolean).join('\n');
-
-  const call = async(model)=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(gKey()),
-    {method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({contents:[{parts:[{text:lines}]}],generationConfig:{temperature:1.0}})});
-  let res;
-  while(true){
-    res = await call(S.model);
-    if(res.status===404 && S.model!=='gemini-flash-latest'){
-      S.model='gemini-flash-latest'; toast('Model retired · switched to gemini-flash-latest');
-      res = await call(S.model);
+  /* shared config store — same origin means Cassette (/cassette/) & Reel (/reel/) read the same keys */
+  function loadRewindConfig(){
+    let c={};
+    try{ c=JSON.parse(localStorage.getItem('rewind_config')||'null')||{}; }catch(_){}
+    if(!c.geminiKeys){
+      try{ const ck=JSON.parse(localStorage.getItem('cassette_keys')||localStorage.getItem('resonance_keys')||'null'); if(ck){ c.geminiKeys=ck.gk||(ck.g?[ck.g]:[]); c.ytKeys=ck.yk||[]; c.model=ck.m||c.model; c.dataSaver=ck.ds||'off'; c.cassetteSeed=ck.s||''; } }catch(_){}
+      try{ const rk=JSON.parse(localStorage.getItem('reel_keys')||'null'); if(rk){ if(!(c.geminiKeys&&c.geminiKeys.length)) c.geminiKeys=rk.gk||[]; c.tmdb=rk.t||''; c.omdb=rk.o||''; c.region=rk.r||'EG'; c.model=c.model||rk.m; c.reelSeed=rk.s||''; } }catch(_){}
     }
-    if(res.status===429){                       // this key is spent — rotate silently
-      if(rotateGemini()) continue;              // more keys → retry
-      throw new Error('GEMINI_QUOTA');          // all keys spent
-    }
-    break;
+    c.geminiKeys=c.geminiKeys||[]; c.ytKeys=c.ytKeys||[]; c.region=c.region||'EG'; c.model=c.model||'gemini-3.5-flash'; c.dataSaver=c.dataSaver||'off';
+    return c;
   }
-  if(!res.ok){ const t=await res.text(); throw new Error('Gemini '+res.status+': '+t.slice(0,180)); }
-  const data = await res.json();
-  let txt = (data.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
-  txt = txt.replace(/```json/gi,'').replace(/```/g,'').trim();
-  const start=txt.indexOf('['), end=txt.lastIndexOf(']');
-  if(start<0||end<0) throw new Error('Gemini returned no JSON array');
-  const arr = JSON.parse(txt.slice(start,end+1));
-  return arr.filter(x=>x && x.title && x.artist);
-}
-const desc = t => t.title+' — '+t.artist+(t.genre?(' ['+t.genre+']'):'');
+  function saveRewindConfig(patch){ const c=Object.assign(loadRewindConfig(), patch||{}); try{ localStorage.setItem('rewind_config', JSON.stringify(c)); }catch(_){} return c; }
+  const pk=s=>(s||'').split(/[\n,]+/).map(x=>x.trim()).filter(Boolean);
 
-/* ============================================================
-   RESOLVE  — title/artist -> playable YouTube videoId
-============================================================ */
-async function resolveVideoIdRaw(cand, allowSeen){
-  while(yKey() && !S.ytQuotaOut){
-    try{
-      const q = cand.searchQuery || (cand.artist+' '+cand.title+' official audio');
-      const u='https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=3&type=video&videoEmbeddable=true&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(yKey());
-      const r=await fetch(u);
-      if(r.ok){ const d=await r.json();
-        const hit=(d.items||[]).find(i=>i.id&&i.id.videoId&&(allowSeen||!S.seenIds.has(i.id.videoId)));
-        if(hit) return hit.id.videoId;
-        break; // valid response, just no usable hit — stop, use Gemini id fallback
-      } else if(r.status===403){
-        let reason=''; try{ const e=await r.json(); reason=(e.error&&e.error.errors&&e.error.errors[0]&&e.error.errors[0].reason)||''; }catch(_){}
-        if(reason==='quotaExceeded' || reason==='dailyLimitExceeded'){
-          if(rotateYT()) continue;     // spent key → try next silently
-          break;                       // all YT keys spent → fall through to Gemini-id guess
-        } else { S.ytBad=true; setStatus('<b>YouTube key issue.</b> Falling back to Gemini guesses.'); break; }
-      } else break;
-    }catch(e){ break; }
+  const g=id=>document.getElementById(id);
+  function openSettings(){
+    const c=loadRewindConfig();
+    g('geminiKey').value=(c.geminiKeys||[]).join('\n');
+    g('ytKey').value=(c.ytKeys||[]).join('\n');
+    g('tmdbKey').value=c.tmdb||''; g('omdbKey').value=c.omdb||'';
+    g('region').value=c.region||'EG'; g('model').value=c.model||'gemini-3.5-flash';
+    g('settingsOverlay').classList.remove('hidden');
   }
-  if(cand.youtubeId && /^[\w-]{11}$/.test(cand.youtubeId) && (allowSeen||!S.seenIds.has(cand.youtubeId))) return cand.youtubeId;
-  return null;
-}
-/* when discovery can't proceed (YouTube OR Gemini quota), stop and offer favorites */
-function quotaStop(){
-  clearInterval(S.progTimer);
-  const canHearts = S.profile.loved.length>0;
-  const who = S.geminiQuotaOut ? 'Gemini' : 'YouTube';
-  const qt = $('quotaWall'); if(!qt) return;
-  qt.querySelector('.qw-t').textContent = who+"'s daily quota is used up";
-  qt.querySelector('.qw-s').textContent = 'It resets daily. Until then you can play your favorites'+(canHearts?'':' (heart some songs first)')+', or add a different key in Settings.';
-  setStatus('<b>'+who+' daily quota is used up.</b> '+(canHearts?'You can still play your favorites.':'Add favorites, or a new key in Settings.'));
-  qt.classList.remove('hidden');
-  $('quotaFavBtn').style.display = canHearts ? '' : 'none';
-}
-
-/* ============================================================
-   QUEUE MANAGEMENT  — always keep 2 ahead
-============================================================ */
-async function refillCandidates(){
-  if(S.candidates.length>=3 || S.thinking || S.geminiQuotaOut) return;
-  S.thinking=true; renderQueue();
-  try{ const got=await askGemini(6); S.candidates.push(...got); }
-  catch(e){
-    if(String(e.message).includes('GEMINI_QUOTA')){ S.geminiQuotaOut=true; }
-    else setStatus('<b>Recommendation error.</b> '+String(e.message||e).slice(0,120));
-  }
-  S.thinking=false;
-}
-async function ensureQueue(){
-  if(S.resolving) return; S.resolving=true;
-  try{
-    let guard=0;
-    while(S.queue.length<2 && guard++<14){
-      if(S.ytQuotaOut || S.geminiQuotaOut) break;   // a quota is gone — stop trying
-      if(S.candidates.length===0){ await refillCandidates(); if(S.candidates.length===0) break; }
-      const cand=S.candidates.shift();
-      if(cand.genre && S.profile.hatedGenres.map(g=>g.toLowerCase()).includes((cand.genre||'').toLowerCase())) continue;
-      if(S.seenKeys.has(key(cand))) continue;
-      const res=await resolveTrack(cand, false);
-      if(res){ Object.assign(cand,res); S.queue.push(cand);
-        if(res.videoId) S.seenIds.add(res.videoId); S.seenKeys.add(key(cand)); }
-    }
-  } finally { S.resolving=false; renderQueue(); updateQCount(); }
-  if((S.ytQuotaOut||S.geminiQuotaOut) && !S.queue.length && S.mode!=='hearts'){ quotaStop(); return; }
-  if(S.candidates.length<3 && !S.ytQuotaOut && !S.geminiQuotaOut) refillCandidates();
-}
-
-/* ============================================================
-   PLAYBACK ENGINE — YouTube IFrame API (only viable free,
-   embeddable, in-browser source). Data-saver hides the video
-   but keeps audio; our own progress bar handles seeking.
-============================================================ */
-window.onYouTubeIframeAPIReady = ()=>{ S.ytReady=true; if(S.pendingTrack){ const t=S.pendingTrack; S.pendingTrack=null; playYT(t); } };
-(function loadYT(){
-  const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api';
-  s.onerror=showSandboxWarn; document.head.appendChild(s);
-  setTimeout(()=>{ if(!S.ytReady) showSandboxWarn(); }, 7000);
-})();
-function showSandboxWarn(){ if(!S.ytReady) $('sandboxWarn').classList.remove('hidden'); }
-
-async function resolveTrack(cand, allowSeen){
-  const id=await resolveVideoIdRaw(cand, allowSeen);
-  return id ? {videoId:id} : null;
-}
-
-/* ---- player accessors + controls ---- */
-function getTime(){ try{ return (S.player&&S.player.getCurrentTime)?S.player.getCurrentTime():0; }catch(_){ return 0; } }
-function getDur(){ try{ return (S.player&&S.player.getDuration)?S.player.getDuration():0; }catch(_){ return 0; } }
-function ctrlPlay(){ S.userPaused=false; try{ S.player.playVideo(); }catch(_){}}
-function ctrlPause(){ S.userPaused=true; try{ S.player.pauseVideo(); }catch(_){}}
-function ctrlSeek0(){ try{ S.player.seekTo(0,true); }catch(_){}}
-function seekToFrac(f){ try{ const d=getDur(); if(d) S.player.seekTo(Math.max(0,Math.min(1,f))*d, true); }catch(_){}}
-
-function startTrack(t, pushHistory){
-  if(pushHistory!==false && S.current) S.history.push(S.current);
-  S.current=t;
-  $('btnHeart').classList.toggle('on', S.profile.loved.some(x=>key(x)===key(t)));
-  $('playerPh').classList.add('hidden');
-  playYT(t);
-  S.playing=true; renderNow(); startProg();
-}
-function playYT(t){
-  if(!S.ytReady){ S.pendingTrack=t; return; }
-  if(!S.player){
-    S.player=new YT.Player('player',{
-      videoId:t.videoId,
-      playerVars:{autoplay:1,controls:1,rel:0,playsinline:1,modestbranding:1},
-      events:{
-        onReady:e=>{ e.target.playVideo(); S.playing=true; renderNow(); startProg();
-          setTimeout(()=>{ try{ if(S.player.getPlayerState()!==YT.PlayerState.PLAYING){ toast('Tap play to start — phone autoplay rule'); } }catch(_){}} ,2500); },
-        onStateChange:onState,
-        onError:onErr
-      }
+  g('gearBtn').onclick=openSettings;
+  g('closeSettings').onclick=()=>g('settingsOverlay').classList.add('hidden');
+  g('settingsOverlay').addEventListener('click',e=>{ if(e.target.id==='settingsOverlay') g('settingsOverlay').classList.add('hidden'); });
+  g('saveSettings').onclick=()=>{
+    saveRewindConfig({
+      geminiKeys:pk(g('geminiKey').value), ytKeys:pk(g('ytKey').value),
+      tmdb:g('tmdbKey').value.trim(), omdb:g('omdbKey').value.trim(),
+      region:g('region').value, model:g('model').value
     });
-  } else S.player.loadVideoById(t.videoId);
-}
-
-function beginPlayback(){
-  if(!S.queue.length){ ensureQueue().then(()=>{ if(S.queue.length) beginPlayback(); else if(S.ytQuotaOut) quotaStop(); }); return; }
-  startTrack(S.queue.shift(), false);
-  ensureQueue();
-}
-function loadNext(){
-  if(S.mode==='hearts'){ nextHeart(); return; }
-  if(!S.queue.length){
-    if(S.ytQuotaOut){ quotaStop(); return; }
-    setStatus('<b>Building more…</b>'); ensureQueue().then(()=>{ if(S.queue.length) loadNext(); else if(S.ytQuotaOut) quotaStop(); }); return;
-  }
-  startTrack(S.queue.shift());
-  ensureQueue();
-}
-
-/* ---- Close to my heart mode ---- */
-function shuffleArr(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
-async function nextHeart(){
-  if(!S.profile.loved.length){ toast('No favorites yet — heart some songs first'); exitHearts(); return; }
-  if(!S.heartQueue.length) S.heartQueue = shuffleArr(S.profile.loved);
-  const t = {...S.heartQueue.shift()};
-  if(!(t.videoId && /^[\w-]{11}$/.test(t.videoId))){
-    const res = await resolveTrack({artist:t.artist, title:t.title}, true);
-    if(!res){ toast('Couldn\u2019t locate \u201c'+t.title+'\u201d'); return nextHeart(); }
-    Object.assign(t, res);
-  }
-  t.reason = 'all-time favorite';
-  startTrack(t); renderQueue();
-}
-function enterHearts(){
-  if(!S.profile.loved.length){ toast('Heart a few songs first — or add them in Sound DNA'); return; }
-  S.mode='hearts'; S.heartQueue = shuffleArr(S.profile.loved);
-  renderModel(); updateModePill(); setStatus('<b>\u2665 Close to my heart</b> \u00b7 favorites only, on shuffle');
-  showTab('now'); nextHeart();
-}
-function exitHearts(){
-  S.mode='discover'; $('btnHeart').classList.remove('on');
-  renderModel(); updateModePill(); setStatus('Back to discovery'); renderQueue(); loadNext();
-}
-function updateModePill(){
-  const b=$('modePill');
-  if(S.mode==='hearts'){ b.classList.add('on'); b.textContent='← discovery'; }
-  else { b.classList.remove('on'); b.textContent='♥ favorites'; }
-}
-function previousTrack(){
-  if(getTime() > 5){ ctrlSeek0(); return; }
-  if(!S.history.length){ ctrlSeek0(); return; }
-  startTrack(S.history.pop(), false);
-}
-function neutralNext(){ S.mode==='hearts' ? nextHeart() : loadNext(); }
-async function playSpecific(t){
-  const c={...t, reason:'you chose this'};
-  if(!(c.videoId && /^[\w-]{11}$/.test(c.videoId))){
-    toast('Finding it…');
-    const res=await resolveTrack({artist:c.artist,title:c.title}, true);
-    if(!res){ toast('Couldn\u2019t find it'); return; }
-    Object.assign(c,res);
-  }
-  showTab('now'); startTrack(c);
-}
-function applyDataSaver(){
-  const on = S.dataSaver==='on';
-  document.querySelector('.videoshell').classList.toggle('mini', on);
-  $('dsTag').classList.toggle('hidden', !on);
-}
-function onState(e){
-  if(e.data===YT.PlayerState.ENDED){ completed(); }
-  else if(e.data===YT.PlayerState.PLAYING){ S.playing=true; S.userPaused=false; syncPlayIco(); $('livedot').classList.add('live');
-    try{ navigator.mediaSession.playbackState='playing'; }catch(_){}
-  }
-  else if(e.data===YT.PlayerState.PAUSED){ S.playing=false; syncPlayIco(); $('livedot').classList.remove('live');
-    try{ navigator.mediaSession.playbackState='paused'; }catch(_){}
-  }
-}
-function onErr(){ // unavailable / not embeddable -> system skip, replace (does NOT count as user dislike)
-  toast('Track unavailable · swapping'); loadNext();
-}
-function startProg(){
-  clearInterval(S.progTimer);
-  S.progTimer=setInterval(()=>{
-    if(S.seeking) { lyricsTick(getTime(), getDur()); return; }  // don't fight the user's drag
-    const d=getDur(), c=getTime();
-    const pct = d?(c/d*100):0;
-    $('progFill').style.width=pct+'%';
-    $('progKnob').style.left=pct+'%';
-    $('tCur').textContent=fmt(c); $('tDur').textContent=fmt(d);
-    lyricsTick(c, d);
-  },300);
-}
-/* seekable progress bar (works even when video is hidden in data-saver) */
-(function initSeek(){
-  const bar=document.getElementById('progBar'); if(!bar) return;
-  const clientX=e=>{
-    if(e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientX;
-    if(e.touches && e.touches.length) return e.touches[0].clientX;
-    return e.clientX;
+    g('saveNote').textContent='Saved. Cassette and Reel will use these keys.';
+    refreshGearLabel();
+    setTimeout(()=>g('settingsOverlay').classList.add('hidden'),700);
   };
-  const fracFromEvent=e=>{ const r=bar.getBoundingClientRect(); return Math.max(0,Math.min(1,(clientX(e)-r.left)/r.width)); };
-  const preview=f=>{ $('progFill').style.width=(f*100)+'%'; $('progKnob').style.left=(f*100)+'%'; const d=getDur(); if(d) $('tCur').textContent=fmt(f*d); };
-  const down=e=>{ if(!S.current) return; S.seeking=true; bar.classList.add('seeking'); preview(fracFromEvent(e)); e.preventDefault(); };
-  const move=e=>{ if(!S.seeking) return; preview(fracFromEvent(e)); e.preventDefault(); };
-  const up=e=>{ if(!S.seeking) return; seekToFrac(fracFromEvent(e)); S.seeking=false; bar.classList.remove('seeking'); };
-  bar.addEventListener('mousedown',down); window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
-  bar.addEventListener('touchstart',down,{passive:false}); window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
-})();
-function syncPlayIco(){ $('playIco').textContent = S.playing?'❚❚':'▶'; $('btnPlay').querySelector('.lab').textContent = S.playing?'Pause':'Play'; }
+  function refreshGearLabel(){ const c=loadRewindConfig(); g('gearBtn').textContent = (c.geminiKeys&&c.geminiKeys.length) ? ('⚙ API settings · '+c.geminiKeys.length+' key(s) set') : '⚙ API settings'; }
+  refreshGearLabel();
 
-/* ============================================================
-   LYRICS — line-synced captions (LRCLib, free/no-key), active
-   line highlighted, word-sweep across it, optional translation
-   for non-English/Arabic via Gemini.
-============================================================ */
-async function loadLyrics(t){
-  const id=key(t); if(S.lyricsFor===id) return; S.lyricsFor=id;
-  S.lyrics=null; S.lyricsLines=[]; S.lyricIdx=-1; S.translated=false; S.transReady=false;
-  $('trBtn').classList.add('hidden');
-  renderLyrics();
-  if(!S.lyricsOn){ return; }   // box collapsed, but header/panel stays visible & reshowable
-  $('lyricStat').textContent='finding lyrics…';
-  try{
-    const dur=Math.round(getDur())||0;
-    let url='https://lrclib.net/api/get?artist_name='+encodeURIComponent(t.artist||'')+'&track_name='+encodeURIComponent(t.title||'');
-    if(dur) url+='&duration='+dur;
-    let r=await fetch(url);
-    if(!r.ok){ // fall back to fuzzy search
-      const sr=await fetch('https://lrclib.net/api/search?q='+encodeURIComponent(((t.artist||'')+' '+(t.title||'')).trim()));
-      if(sr.ok){ const arr=await sr.json(); if(arr && arr[0]){ r={ok:true,json:async()=>arr[0]}; } }
-    }
-    if(!r.ok){ $('lyricStat').textContent='no lyrics found'; return; }
-    const d=await r.json();
-    if(S.lyricsFor!==id) return; // track changed while fetching
-    if(d.syncedLyrics){ S.lyricsLines=parseLRC(d.syncedLyrics); S.lyrics='synced'; }
-    else if(d.plainLyrics){ S.lyricsLines=d.plainLyrics.split('\n').map(x=>({t:-1,txt:x})); S.lyrics='plain'; }
-    else { $('lyricStat').textContent='instrumental — no lyrics'; return; }
-    $('lyricStat').textContent = S.lyrics==='synced' ? '' : 'unsynced lyrics (no timing available)';
-    renderLyrics();
-    maybeTranslate(d);
-  }catch(e){ $('lyricStat').textContent='lyrics unavailable'; }
-}
-function parseLRC(txt){
-  const out=[];
-  txt.split('\n').forEach(line=>{
-    const m=line.match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)$/);
-    if(m){ const t=parseInt(m[1])*60+parseFloat(m[2]); out.push({t, txt:m[3].trim()}); }
-  });
-  return out.filter(l=>l.txt.length).sort((a,b)=>a.t-b.t);
-}
-function lyricsTick(cur){
-  if(!S.lyricsOn || S.lyrics!=='synced' || !S.lyricsLines.length) return;
-  let idx=-1;
-  for(let i=0;i<S.lyricsLines.length;i++){ if(cur >= S.lyricsLines[i].t - 0.15) idx=i; else break; }
-  if(idx!==S.lyricIdx){ S.lyricIdx=idx; paintLyrics(); }
-  else if(idx>=0){ sweepWord(cur, idx); }  // word-sweep within the active line
-}
-function sweepWord(cur, idx){
-  const line=S.lyricsLines[idx]; const next=S.lyricsLines[idx+1];
-  const start=line.t, end=next?next.t:start+4;
-  const frac=Math.max(0,Math.min(1,(cur-start)/Math.max(0.5,end-start)));
-  const el=document.querySelector('.lyc.active .sweep');
-  if(el) el.style.width=(frac*100)+'%';
-}
-function paintLyrics(){
-  const box=$('lyricsBox'); if(!box) return;
-  const src = S.translated && S.lyricsTrans ? S.lyricsTrans : S.lyricsLines;
-  if(!src.length){ box.innerHTML=''; return; }
-  if(S.lyrics==='synced'){
-    // compact window: previous (faint) · current (bright, sweeping) · next (faint)
-    const i=S.lyricIdx;
-    const prev = i>0 ? src[i-1] : null;
-    const cur  = i>=0 ? src[i] : {txt:'♪'};
-    const nxt  = (i+1<src.length) ? src[i+1] : null;
-    const ct = escapeHtml(cur.txt||'♪');
-    box.innerHTML =
-      (prev?`<div class="lyc prev">${escapeHtml(prev.txt)}</div>`:'')+
-      `<div class="lyc active"><span class="base">${ct}</span><span class="sweep">${ct}</span></div>`+
-      (nxt?`<div class="lyc next">${escapeHtml(nxt.txt)}</div>`:'');
-  } else {
-    // unsynced: plain scrollable text, no highlight, no auto-scroll
-    box.innerHTML = src.map(l=>`<div class="lyc">${escapeHtml(l.txt||'')}</div>`).join('');
+  const BUILD='Rewind · build 4 · 2026-07-14 · Paperback';
+  try{document.getElementById('buildStamp').textContent=BUILD;}catch(_){}
+  // show install hint where PWA install is plausible
+  try{ if(matchMedia('(display-mode: browser)').matches) document.getElementById('install').classList.add('show'); }catch(_){}
+  if('serviceWorker' in navigator && location.protocol==='https:'){
+    navigator.serviceWorker.register('sw.js').then(r=>{try{r.update();}catch(_){}}).catch(()=>{});
   }
-}
-function renderLyrics(){
-  const panel=$('lyricsPanel'); if(!panel) return;
-  // panel (with its header) is visible whenever a track is playing — the box collapses, not the panel
-  panel.classList.toggle('hidden', !S.current);
-  $('lyricsBox').classList.toggle('hidden', !S.lyricsOn);
-  $('lyToggle').textContent = S.lyricsOn ? '▲ hide' : '▼ show';
-  if(!S.lyricsLines.length){ $('lyricsBox').innerHTML=''; }
-  else paintLyrics();
-}
-/* translate to English if lyrics aren't English or Arabic */
-async function maybeTranslate(d){
-  if(!S.gemini) return;
-  const sample=(S.lyricsLines.slice(0,6).map(l=>l.txt).join(' ')).slice(0,300);
-  if(!sample) return;
-  // quick heuristic: has Arabic? treat as fine. mostly-latin? treat as maybe-English, ask Gemini to judge+translate.
-  const hasArabic=/[\u0600-\u06FF]/.test(sample);
-  if(hasArabic){ $('trBtn').classList.add('hidden'); return; }  // Arabic — no translation per spec
-  $('trBtn').classList.remove('hidden');
-  S.transReady=false;
-  try{
-    const lines=S.lyricsLines.map(l=>l.txt);
-    const prompt='These are song lyric lines. If they are already in English, reply exactly with the single word: ENGLISH. Otherwise, translate EACH line to English, preserving line count and order, and return ONLY a JSON array of strings, one per input line, no commentary.\n\nLines:\n'+JSON.stringify(lines);
-    const res=await geminiRaw(prompt);
-    if(/^\s*ENGLISH\s*$/i.test(res)){ $('trBtn').classList.add('hidden'); return; }
-    const a=JSON.parse(res.slice(res.indexOf('['), res.lastIndexOf(']')+1));
-    S.lyricsTrans=S.lyricsLines.map((l,i)=>({t:l.t, txt:a[i]||l.txt}));
-    S.transReady=true; $('trBtn').textContent='show translation';
-  }catch(_){ $('trBtn').classList.add('hidden'); }
-}
-async function geminiRaw(text){
-  const url='https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(gKey());
-  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text}]}]})});
-  if(!r.ok) throw new Error('gemini'); const d=await r.json();
-  return (d.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('').replace(/```json/gi,'').replace(/```/g,'').trim();
-}
-function toggleTranslation(){
-  if(!S.transReady){ toast('Translation still loading…'); return; }
-  S.translated=!S.translated; $('trBtn').textContent=S.translated?'show original':'show translation';
-  paintLyrics();
-}
-
-/* ============================================================
-   MEDIA SESSION — best effort. The YouTube iframe owns the OS
-   media session in most mobile browsers (play/pause from car and
-   lock screen route to it directly). We register handlers and
-   metadata for environments that let the page claim the session
-   (works on desktop Chrome; varies on Android).
-============================================================ */
-function initMediaSession(){
-  if(!('mediaSession' in navigator)) return;
-  const ms = navigator.mediaSession;
-  const safe=(n,f)=>{ try{ ms.setActionHandler(n,f); }catch(_){} };
-  safe('play',  ()=>{ S.userPaused=false; try{S.player.playVideo()}catch(_){} });
-  safe('pause', ()=>{ S.userPaused=true;  try{S.player.pauseVideo()}catch(_){} });
-  safe('nexttrack',     ()=>neutralNext());   // car "next" = just move on, teaches NOTHING (protects the model)
-  safe('previoustrack', ()=>previousTrack());
-}
-function updateMediaMeta(){
-  if(!('mediaSession' in navigator) || !S.current) return;
-  try{
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: S.current.title, artist: S.current.artist,
-      album: S.mode==='hearts' ? 'Close to my heart ♥' : 'Cassette',
-      artwork: [{src:'https://i.ytimg.com/vi/'+S.current.videoId+'/hqdefault.jpg', sizes:'480x360', type:'image/jpeg'}]
-    });
-  }catch(_){}
-}
-
-/* ============================================================
-   FEEDBACK  → the four signals
-============================================================ */
-function completed(){                     // listened to the end = COOL (liked) → advance
-  const t=S.current; if(!t) return;
-  if(S.mode==='hearts'){ nextHeart(); return; }   // favorites mode: no learning, just next
-  if(S.profile.loved.some(x=>key(x)===key(t))){ loadNext(); return; }  // already hearted — verdict given, don't demote to "liked"
-  addTo('liked',t); bump(S.profile.genreScore,t.genre,1); bump(S.profile.artistScore,t.artist,1);
-  flash('liked '+(t.genre||'it')); afterFeedback(t,true);
-}
-function skip(){                          // not my type (disliked)
-  const t=S.current; if(!t) return;
-  if(S.mode==='hearts'){ nextHeart(); return; }   // skipping a favorite ≠ disliking it
-  if(S.profile.loved.some(x=>key(x)===key(t))){ toast('Still a favorite ♥ · just moving on'); loadNext(); return; }
-  addTo('disliked',t); bump(S.profile.genreScore,t.genre,-1); bump(S.profile.artistScore,t.artist,-1);
-  flash('skipped · steering away'); afterFeedback(t,true);
-}
-function heart(){                         // all-time favorite (keeps playing)
-  const t=S.current; if(!t) return;
-  if(S.mode==='hearts'){ toast('Already a favorite ♥'); return; }
-  addTo('loved',t); bump(S.profile.genreScore,t.genre,3); bump(S.profile.artistScore,t.artist,3);
-  $('btnHeart').classList.add('on'); flash('❤ favorite locked in'); renderModel(); saveLocal();
-}
-function down(){                          // discovery: kill genre · hearts: remove from favorites
-  const t=S.current; if(!t) return;
-  if(S.mode==='hearts'){
-    S.profile.loved = S.profile.loved.filter(x=>key(x)!==key(t));
-    saveLocal(); renderModel(); toast('Removed from favorites'); nextHeart(); return;
-  }
-  if(t.genre && !S.profile.hatedGenres.includes(t.genre)) S.profile.hatedGenres.push(t.genre);
-  S.profile.genreScore[t.genre]=-999;
-  // purge anything of this genre already queued
-  S.queue = S.queue.filter(q=>(q.genre||'').toLowerCase()!==(t.genre||'').toLowerCase());
-  S.candidates = S.candidates.filter(q=>(q.genre||'').toLowerCase()!==(t.genre||'').toLowerCase());
-  flash('killed genre · '+t.genre); afterFeedback(t,true);
-}
-function addTo(bucket,t){
-  const k=key(t);
-  ['loved','liked','disliked'].forEach(b=>{ S.profile[b]=S.profile[b].filter(x=>key(x)!==k); });
-  S.profile[bucket].push({title:t.title,artist:t.artist,genre:t.genre,videoId:t.videoId});  // keep videoId → instant replay in hearts mode
-}
-function afterFeedback(t,advance){
-  renderModel(); saveLocal();
-  if(advance) loadNext();
-}
-function flash(msg){ toast('<span class="k">learned</span> · '+msg); }
-
-/* ============================================================
-   RENDER
-============================================================ */
-function renderNow(){
-  const t=S.current; if(!t) return;
-  $('npTitle').textContent=t.title;
-  $('npArtist').textContent=t.artist + (t.genre?(' · '+t.genre):'');
-  $('npReason').innerHTML = t.reason ? '<b>picked because</b> '+escapeHtml(t.reason) : '';
-  syncPlayIco(); updateMediaMeta();
-  loadLyrics(t);
-  $('npMode').textContent = S.mode==='hearts' ? '♥ Close to my heart' : '◈ Now playing';
-  setStatus(S.mode==='hearts'
-    ? '<b>♥ Close to my heart</b> · '+S.profile.loved.length+' favorites on shuffle'
-    : 'Playing · <b>'+escapeHtml(t.genre||'—')+'</b> · queue keeps 2 ready');
-}
-function renderQueue(){
-  const el=$('queue');
-  const items = S.mode==='hearts' ? S.heartQueue.slice(0,2) : S.queue.slice(0,2);
-  let html='';
-  items.forEach((t,i)=>{
-    html+=`<div class="qitem ${i===0?'first':''}"><div class="pos">${i===0?'next':'then'}</div>
-      <div class="meta"><div class="t">${escapeHtml(t.title)}</div>
-      <div class="a">${escapeHtml(t.artist)}${t.genre?(' · '+escapeHtml(t.genre)):''}</div>
-      <div class="why">${S.mode==='hearts'?'all-time favorite ♥':escapeHtml(t.reason||'')}</div></div></div>`;
-  });
-  for(let i=items.length;i<2;i++){
-    html+=`<div class="qslot-empty">${S.thinking||S.resolving?'<span class="thinking">thinking</span>':'slot open'}</div>`;
-  }
-  el.innerHTML=html; updateQCount();
-}
-function updateQCount(){
-  const n = S.mode==='hearts' ? S.heartQueue.length : S.queue.length;
-  $('qcount').textContent = S.mode==='hearts' ? '♥ favorites' : ((S.thinking||S.resolving) ? 'planning…' : (S.queue.length+' ready'));
-  const badge=$('tabBadge');
-  if(badge){
-    const show = S.tab!=='queue' && n>0 && !S.mode.includes('hearts');
-    badge.textContent = Math.min(n,2);
-    badge.classList.toggle('show', show);
-  }
-}
-function renderModel(){
-  const el=$('model'); if(!el) return;
-  try{ renderModelInner(); }
-  catch(e){
-    // last-resort: never leave Sound DNA blank
-    const p=S.profile||{}; const all=[].concat(p.loved||[],p.liked||[],p.disliked||[]);
-    el.innerHTML='<div class="mlist-hint">'+all.length+' songs</div>'+
-      all.slice(0,60).map((t,i)=>`<div class="mrow"><button class="mbtn" data-fp="${i}">▶</button><span class="txt">${escapeHtml((t.title||'')+(t.artist?(' — '+t.artist):''))}</span></div>`).join('');
-    el.querySelectorAll('[data-fp]').forEach(b=>b.onclick=()=>playSpecific(all[+b.dataset.fp]));
-    try{ $('mcount').textContent=all.length+' signals'; }catch(_){}
-  }
-}
-function renderModelInner(){
-  const p=S.profile, el=$('model');
-  normalizeProfile();
-  const lovedArtists=[...new Set(p.loved.map(x=>x.artist).filter(Boolean))].slice(0,8);
-  let likedGenres=topKeys(p.genreScore,8).filter(g=>!p.hatedGenres.includes(g));
-  let likeLabel='you like', likeItems=likedGenres;
-  if(!likeItems.length){
-    const artists=[...new Set(p.liked.map(x=>x.artist).filter(Boolean))].slice(0,8);
-    if(artists.length){ likeLabel='liked artists'; likeItems=artists; }
-  }
-  const parts=[];
-  parts.push(grp('#E0524B','favorites', p.loved.length? lovedArtists.map(a=>chip(a,'love')).join('') : emptyChip()));
-  parts.push(grp('#E8A24B',likeLabel, likeItems.length? likeItems.map(g=>chip(g)).join('') : emptyChip()));
-  parts.push(grp('#4A4658','banned genres', p.hatedGenres.length? p.hatedGenres.map(g=>chip(g,'hate')).join('') : emptyChip('none yet')));
-  const total=p.loved.length+p.liked.length+p.disliked.length;
-  el.innerHTML = parts.join('') +
-    `<button class="editbtn" id="editTgl">${S.editOpen?'▾ hide song list':'✎ edit / ▶ play my songs ('+total+')'}</button>
-     <div id="mlistWrap" class="${S.editOpen?'':'hidden'}"></div>
-     <div class="model-actions"><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>`;
-  $('editTgl').onclick=()=>{ S.editOpen=!S.editOpen; renderModel(); };
-  if(S.editOpen){ try{ renderMList(); }catch(e){ $('mlistWrap').innerHTML='<div class="mlist-hint">could not list songs</div>'; } }
-  $('exp').onclick=exportProfile;
-  $('rst').onclick=()=>{ if(confirm('Wipe everything Cassette has learned?')){ S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],genreScore:{},artistScore:{},seed:S.profile.seed}; S.seenKeys.clear(); saveLocal(); renderModel(); toast('Model reset'); } };
-  $('mcount').textContent = total? (total+' signals') : '';
-}
-function renderMList(){
-  const wrap=$('mlistWrap'); if(!wrap) return;
-  const sect=(bucket,label,icon)=>{
-    const arr=S.profile[bucket]; if(!arr.length) return '';
-    let h=`<div class="grp"><div class="h">${label}</div><div class="mlist">`;
-    arr.forEach((t,i)=>{
-      h+=`<div class="mrow">
-        <button class="mbtn" data-play="${bucket}:${i}" title="Play now">▶</button>
-        <span class="txt">${icon} ${escapeHtml(t.title||'')}${t.artist?(' — '+escapeHtml(t.artist)):''}</span>
-        <button class="mbtn" data-edit="${bucket}:${i}" title="Edit">✎</button>
-        <button class="mbtn del" data-del="${bucket}:${i}" title="Remove">✕</button>
-      </div>`;
-    });
-    return h+'</div></div>';
-  };
-  wrap.innerHTML = `<div class="mlist-hint">▶ play any song · ✎ edit · ✕ remove</div>` +
-    sect('loved','♥ favorites','♥') + sect('liked','you like','♪') + sect('disliked','not my type','·');
-  wrap.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{ const [bk,i]=b.dataset.play.split(':'); playSpecific(S.profile[bk][+i]); });
-  wrap.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const [bk,i]=b.dataset.del.split(':'); const t=S.profile[bk][+i]; S.seenKeys.delete(key(t)); S.profile[bk].splice(+i,1); saveLocal(); renderModel(); toast('Removed'); });
-  wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{ const [bk,i]=b.dataset.edit.split(':'); editEntry(bk,+i); });
-}
-function editEntry(bucket,i){
-  const t=S.profile[bucket][i];
-  const nt=prompt('Edit — "Title — Artist":', (t.title||'')+(t.artist?(' — '+t.artist):''));
-  if(nt===null) return;
-  const parts=nt.split(/\s+[—–]\s+|\s+-\s+|\s+by\s+/i);
-  S.seenKeys.delete(key(t));
-  t.title=(parts[0]||'').trim(); t.artist=(parts[1]||'').trim(); delete t.videoId; delete t.streamUrl;
-  S.seenKeys.add(key(t)); saveLocal(); renderModel(); toast('Updated');
-}
-function grp(sw,label,inner){ return `<div class="grp"><div class="h"><span class="sw" style="background:${sw}"></span>${label}</div><div class="chips">${inner}</div></div>`; }
-function chip(txt,cls){ return `<span class="chip ${cls||''}">${escapeHtml(txt)}</span>`; }
-function emptyChip(txt){ return `<span class="empty-model">${txt||'learning as you listen'}</span>`; }
-function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-
-/* ============================================================
-   CONTROLS
-============================================================ */
-$('btnPlay').onclick=()=>{ if(!S.player) return; S.playing?ctrlPause():ctrlPlay(); };
-$('lyToggle').onclick=()=>{
-  S.lyricsOn=!S.lyricsOn;
-  $('lyToggle').textContent = S.lyricsOn ? '▲ hide' : '▼ show';
-  $('lyricsBox').classList.toggle('hidden', !S.lyricsOn);
-  $('trBtn').classList.toggle('hidden', !S.lyricsOn || !S.transReady);
-  if(S.lyricsOn && S.current){ S.lyricsFor=''; loadLyrics(S.current); }
-};
-$('trBtn').onclick=toggleTranslation;
-$('quotaFavBtn').onclick=()=>{ $('quotaWall').classList.add('hidden'); enterHearts(); };
-$('quotaSettingsBtn').onclick=()=>{ $('quotaWall').classList.add('hidden'); openSettings(); };
-$('btnHeart').onclick=heart;
-$('btnSkip').onclick=skip;
-$('btnDown').onclick=down;
-$('btnNext').onclick=neutralNext;
-$('exportBtn2').onclick=exportProfile;
-$('anchorTgl').onclick=()=>$('anchorForm').classList.toggle('hidden');
-$('anchorAdd').onclick=addAnchors;
-
-/* ---- tabs ---- */
-function showTab(name){
-  S.tab=name;
-  const paneId = {now:'tabNow', queue:'tabQueue', dna:'tabDNA'}[name];
-  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
-  document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on', p.id===paneId));
-  if(name==='queue'){ $('tabBadge').classList.remove('show'); }
-  if(name==='dna'){ renderModel(); }
-}
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
-
-document.addEventListener('keydown',e=>{
-  if(!S.started||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
-  if(e.code==='Space'){e.preventDefault();$('btnPlay').click();}
-  if(e.key==='ArrowRight')skip();
-  if(e.key==='ArrowLeft')previousTrack();
-  if(e.key.toLowerCase()==='n')neutralNext();
-  if(e.key.toLowerCase()==='h')heart();
-});
-
-/* ---- manual anchoring ---- */
-function addAnchors(){
-  const raw=$('anchorText').value.trim(); if(!raw){ toast('Nothing to add'); return; }
-  const bucket=$('anchorBucket').value;
-  let n=0;
-  raw.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{
-    if(bucket==='hatedGenres'){
-      if(!S.profile.hatedGenres.some(g=>g.toLowerCase()===line.toLowerCase())){
-        S.profile.hatedGenres.push(line); S.profile.genreScore[line]=-999; n++;
-      }
-      return;
-    }
-    const parts=line.split(/\s+[—–]\s+|\s+-\s+|\s+by\s+/i);
-    const t={title:(parts[0]||'').trim(), artist:(parts[1]||'').trim(), genre:''};
-    if(!t.title || S.seenKeys.has(key(t))) return;
-    S.profile[bucket].push(t); S.seenKeys.add(key(t)); n++;
-  });
-  saveLocal(); renderModel(); $('anchorText').value='';
-  if(bucket==='loved' && S.mode==='hearts') S.heartQueue=shuffleArr(S.profile.loved);
-  toast('Added '+n+' — Gemini will use these from the next batch');
-}
-
-/* ============================================================
-   START / SETTINGS OVERLAY
-============================================================ */
-$('importBtn').onclick=()=>$('importFile').click();
-$('importFile').onchange=e=>{
-  const f=e.target.files[0]; if(!f) return; const r=new FileReader();
-  r.onload=()=>{ try{ const p=JSON.parse(r.result); Object.assign(S.profile,p); normalizeProfile();
-    (S.profile.loved||[]).concat(S.profile.liked||[],S.profile.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
-    $('setupNote').textContent='Imported '+((p.loved||[]).length+(p.liked||[]).length+(p.disliked||[]).length)+' signals.'; toast('Profile imported'); renderModel();
-  }catch(err){ toast('Bad profile file'); } };
-  r.readAsText(f);
-};
-
-function openSettings(){
-  $('setupTitle').textContent = S.started ? 'Settings' : 'Setup';
-  $('startBtn').textContent = S.started ? 'Save & close' : 'Start listening';
-  $('settingsOverlay').classList.remove('hidden');
-}
-function closeSettings(){ $('settingsOverlay').classList.add('hidden'); }
-$('gearBtn').onclick=openSettings;
-$('closeSettings').onclick=closeSettings;
-$('settingsOverlay').addEventListener('click',e=>{ if(e.target.id==='settingsOverlay') closeSettings(); });
-
-$('modePill').onclick=()=>{
-  if(!S.started){ toast('Start listening first'); return; }
-  S.mode==='hearts' ? exitHearts() : enterHearts();
-};
-
-$('startBtn').onclick=async ()=>{
-  S.geminiKeys=parseKeys($('geminiKey').value); S.gi=0; S.geminiQuotaOut=false;
-  S.ytKeys=parseKeys($('ytKey').value); S.yi=0; S.ytQuotaOut=false;
-  S.model=$('model').value;
-  S.dataSaver=$('dataSaver').value;
-  applyDataSaver();
-  const seedVal=$('seed').value.trim();
-  if(!S.gemini){ toast('Gemini key required'); return; }
-  if(seedVal) S.profile.seed=seedVal;
-  saveKeys();
-
-  if(S.started){ closeSettings(); toast('Settings saved'); return; }
-
-  initMediaSession();
-  loadLocal();
-  if(seedVal) S.profile.seed=seedVal;
-  if(!S.profile.seed && S.profile.loved.length+S.profile.liked.length===0){ toast('Give it a seed to start from'); $('seed').focus(); return; }
-
-  S.started=true;
-  closeSettings();
-  $('tabbar').classList.remove('hidden');
-  $('stage').classList.remove('hidden');
-  applyWide();
-  renderModel(); renderQueue(); updateModePill(); showTab('now');
-  setStatus('<b>Warming up…</b> Gemini is choosing your first tracks.');
-
-  try{
-    await ensureQueue();
-    if(!S.queue.length){
-      if(S.ytQuotaOut||S.geminiQuotaOut){ quotaStop(); }
-      else setStatus('<b>Could not build a queue.</b> Check keys/model, then reload.');
-      return;
-    }
-    if(S.ytReady) beginPlayback();
-    else setStatus('<b>Queue ready.</b> Waiting on the player…');
-  }catch(e){ setStatus('<b>Startup failed:</b> '+String(e.message||e).slice(0,140)); }
-};
-
-/* wide-screen: show Now + Up-next together; keep DNA a tab */
-function applyWide(){ $('stage').classList.toggle('wide', window.innerWidth>=820); }
-window.addEventListener('resize',()=>{ if(S.started) applyWide(); });
-
-/* on load: prefill remembered keys, show existing profile, open setup */
-const BUILD='Cassette · build 11 · 2026-07-14';
-try{ $('buildStamp').textContent=BUILD; }catch(_){}
-loadKeys();
-loadLocal();
-openSettings();
-
-/* PWA: network-first SW so new builds land immediately (no stale cache) */
-if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('sw.js').then(reg=>{ try{ reg.update(); }catch(_){}}).catch(()=>{});
-}
 </script>
 </body>
 </html>

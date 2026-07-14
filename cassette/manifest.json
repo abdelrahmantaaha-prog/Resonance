@@ -1,6 +1,6 @@
 {
-  "name": "Reel \u2014 a critic that learns",
-  "short_name": "Reel",
+  "name": "Cassette \u2014 a player that learns",
+  "short_name": "Cassette",
   "description": "AI music player that learns your taste and plans two songs ahead",
   "start_url": ".",
   "scope": ".",
