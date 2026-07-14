@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0C0B10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Reel — a critic that learns your taste</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0C0B10; --panel:#151319; --panel-2:#1C1922; --line:#282430;
+    --ink:#ECE7DE; --muted:#8A8397; --faint:#5C566B;
+    --gold:#E7B44C;    /* love / masterpiece */
+    --teal:#4CC0A8;    /* like */
+    --rust:#C8583F;    /* dislike / never */
+    --violet:#8A7BD8;  /* accent */
+    --r:14px;
+    --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,sans-serif;
+    --disp:'Fraunces',Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:radial-gradient(1100px 650px at 80% -10%, #1a1526 0%, var(--bg) 55%) fixed, var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+  a{color:var(--gold)}
+  button{font-family:inherit;cursor:pointer}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+  .brand{display:flex;align-items:baseline;gap:11px}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 14px var(--gold);align-self:center}
+  .brand h1{font-family:var(--disp);font-weight:900;font-size:29px;letter-spacing:-.02em;margin:0}
+  .brand .sub{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .hdr-actions{margin-left:auto;display:flex;gap:8px}
+  .pill{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:8px 14px;font-family:var(--mono);font-size:11.5px;transition:.15s}
+  .pill:hover{color:var(--ink);border-color:var(--faint)}
+  .status{width:100%;font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .status b{color:var(--gold);font-weight:500}
+
+  .overlay{position:fixed;inset:0;background:rgba(6,5,10,.74);backdrop-filter:blur(4px);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:26px 16px;overflow-y:auto}
+  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:100%;max-width:520px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .sheet-h{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  .xbtn{background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer}
+  .sheet-body{padding:20px}
+  .field{margin-bottom:15px}
+  .field label{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px}
+  .field .hint{color:var(--faint);font-size:10.5px}
+  .field input,.field select,.field textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:11px 12px;font-family:var(--mono);font-size:13px;outline:none}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--gold)}
+  .keybox{min-height:52px;resize:vertical;line-height:1.5}
+  .btn{background:var(--gold);color:#221a0a;border:none;border-radius:10px;padding:12px 20px;font-weight:600;font-size:14px;transition:.15s}
+  .btn:hover{filter:brightness(1.08)}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .btn.sm{padding:8px 13px;font-size:12px}
+  .sheet-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px}
+  input[type=file]{display:none}
+
+  .tabbar{display:flex;gap:6px;margin-bottom:16px;position:sticky;top:0;z-index:20;background:var(--bg);padding:4px 0}
+  .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:11px;padding:11px 8px;font-family:var(--mono);font-size:12.5px;transition:.15s}
+  .tab.on{border-color:var(--gold);color:var(--gold);background:var(--panel-2)}
+  .tabpane{display:none}
+  .tabpane.on{display:block;animation:fade .2s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .poster-wrap{position:relative;width:100%;aspect-ratio:2/3;max-height:60vh;background:#000}
+  .poster-wrap img{width:100%;height:100%;object-fit:contain;background:#000}
+  .poster-wrap .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--faint);font-family:var(--mono);font-size:12px}
+  .rank{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.7);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-family:var(--mono);font-size:12px}
+  .rank b{color:var(--gold)}
+  .mv-body{padding:18px 20px 20px}
+  .mv-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  .mv-title{font-family:var(--disp);font-weight:600;font-size:26px;line-height:1.15;margin:0 0 2px}
+  .mv-meta{color:var(--muted);font-size:13px;margin-bottom:10px}
+  .mv-meta .tmdb{color:var(--teal)}
+  .mv-reason{font-size:13.5px;color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:11px;margin:10px 0 14px}
+  .mv-reason b{color:var(--gold);font-style:normal;font-family:var(--mono);font-size:11px}
+  .mv-overview{font-size:13.5px;color:var(--muted);margin-bottom:14px;max-height:120px;overflow-y:auto}
+  .chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .gchip{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+  .actions{display:flex;gap:10px;margin-bottom:12px}
+  .actions a{flex:1;text-align:center;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px;font-family:var(--mono);font-size:12px;text-decoration:none;transition:.15s}
+  .actions a:hover{border-color:var(--gold);color:var(--gold)}
+  .watch{margin-bottom:14px}
+  .watch .wl{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-bottom:7px;text-transform:uppercase;letter-spacing:.08em}
+  .provs{display:flex;flex-wrap:wrap;gap:8px}
+  .prov{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12px}
+  .prov img{width:20px;height:20px;border-radius:5px}
+  .prov.none{color:var(--faint);font-family:var(--mono);font-size:11.5px}
+
+  .rate{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .rb{display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 4px;color:var(--muted);transition:.14s}
+  .rb:active{transform:scale(.94)}
+  .rb .ico{font-size:17px}
+  .rb .lab{font-weight:600;font-size:11px;color:var(--ink)}
+  .rb.love:hover{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+  .rb.love .ico{color:var(--gold)}
+  .rb.like:hover{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal) inset}
+  .rb.like .ico{color:var(--teal)}
+  .rb.meh:hover{border-color:var(--muted);box-shadow:0 0 0 1px var(--muted) inset}
+  .rb.never:hover{border-color:var(--rust);box-shadow:0 0 0 1px var(--rust) inset}
+  .rb.never .ico{color:var(--rust)}
+  .nextneutral{margin-top:10px;width:100%;background:transparent;border:1px dashed var(--line);color:var(--muted);padding:10px;border-radius:10px;font-family:var(--mono);font-size:11.5px;transition:.15s}
+  .nextneutral:hover{border-color:var(--faint);color:var(--ink)}
+
+  .panel-h{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:16px 18px 0;display:flex;justify-content:space-between}
+  .panel-h .n{color:var(--gold)}
+  .queue{padding:12px 14px 16px}
+  .qitem{display:flex;gap:12px;padding:11px;border-radius:10px;border:1px solid transparent}
+  .qitem+.qitem{margin-top:6px}
+  .qitem.first{background:var(--panel-2);border-color:var(--line)}
+  .qitem .pos{font-family:var(--mono);font-size:11px;color:var(--faint);width:34px;flex:none;padding-top:2px}
+  .qitem .t{font-weight:600;font-size:14px}
+  .qitem .a{color:var(--muted);font-size:12.5px}
+  .qitem .why{color:var(--faint);font-size:11.5px;font-style:italic;margin-top:4px}
+  .qslot-empty{color:var(--faint);font-family:var(--mono);font-size:12px;padding:14px;text-align:center}
+  .thinking:after{content:'';animation:dots 1.4s steps(4,end) infinite}
+  @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+
+  .model{padding:12px 18px 18px}
+  .grp{margin-top:14px}
+  .grp:first-child{margin-top:4px}
+  .grp .h{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:7px}
+  .grp .h .sw{width:8px;height:8px;border-radius:2px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+  .chip.love{border-color:rgba(231,180,76,.4);color:var(--gold)}
+  .chip.hate{border-color:var(--line);color:var(--faint);text-decoration:line-through}
+  .empty-model{color:var(--faint);font-family:var(--mono);font-size:11.5px;font-style:italic}
+  .editbtn{display:block;width:100%;margin-top:14px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px;font-family:var(--mono);font-size:12px;transition:.15s}
+  .editbtn:hover{border-color:var(--gold);color:var(--gold)}
+  .mlist{max-height:220px;overflow-y:auto;margin-top:6px}
+  .mlist-hint{font-family:var(--mono);font-size:10px;color:var(--faint);text-align:center;margin:8px 0 4px}
+  .mrow{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+  .mrow .txt{flex:1;font-family:var(--mono);font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mbtn{background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:6px;width:24px;height:24px;font-size:12px;padding:0;transition:.15s;flex:none}
+  .mbtn:hover{color:var(--gold);border-color:var(--gold)}
+  .mbtn.del:hover{color:var(--rust);border-color:var(--rust)}
+  .model-actions{display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .model-actions a{font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .model-actions a:hover{color:var(--gold)}
+  .anchor{border-top:1px solid var(--line);padding:12px 18px 16px}
+  .anchor .tgl{font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .anchor textarea{width:100%;min-height:80px;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:10px;font-family:var(--mono);font-size:12px;margin:10px 0 8px;resize:vertical}
+  .anchor .row{display:flex;gap:8px}
+  .anchor select{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:8px;font-family:var(--mono);font-size:12px}
+
+  .stage.wide{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start}
+  @media(max-width:819px){ .stage.wide{display:block} .tab[data-tab="queue"]{display:flex} }
+  @media(min-width:820px){ .tab[data-tab="queue"]{display:none} .stage.wide #tabQueue{display:block} .stage.wide #tabDNA.on{grid-column:1/-1} .stage.wide #tabNow{display:block!important} }
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(30px);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 18px;font-family:var(--mono);font-size:12.5px;opacity:0;transition:.3s;pointer-events:none;z-index:70;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast .k{color:var(--gold)}
+  .quotaWall{background:rgba(231,180,76,.08);border:1px solid rgba(231,180,76,.3);border-radius:12px;padding:18px;text-align:center;margin:8px 0 14px}
+  .quotaWall .qw-t{font-weight:600;font-size:15px;margin-bottom:6px}
+  .quotaWall .qw-s{color:var(--muted);font-size:12.5px;margin-bottom:12px}
+  .hidden{display:none!important}
+  footer{margin-top:30px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="dot"></span><h1>Reel</h1><span class="sub">a critic that learns · 2 ahead</span></div>
+    <div class="hdr-actions">
+      <button class="pill" id="favPill" title="Play only your all-time favorites">★ favorites</button>
+      <button class="pill" id="gearBtn" title="Keys & settings">⚙</button>
+    </div>
+    <div class="status" id="status">Add a Gemini + TMDB key to begin.</div>
+  </header>
+
+  <!-- SETTINGS -->
+  <div class="overlay hidden" id="settingsOverlay">
+    <div class="sheet">
+      <div class="sheet-h"><span id="setupTitle">Setup</span><button class="xbtn" id="closeSettings">✕</button></div>
+      <div class="sheet-body">
+        <div class="field">
+          <label>Gemini API key(s) <span class="hint">— required · one per line for auto-rotation</span></label>
+          <textarea id="geminiKey" class="keybox" placeholder="AIza… key 1&#10;AIza… key 2 (optional)" spellcheck="false"></textarea>
+        </div>
+        <div class="field">
+          <label>TMDB API key <span class="hint">— required · themoviedb.org/settings/api (v3 key)</span></label>
+          <input id="tmdbKey" type="password" placeholder="TMDB v3 API key" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Region <span class="hint">— for "where to watch"</span></label>
+          <select id="region">
+            <option value="EG">Egypt</option><option value="SA">Saudi Arabia</option><option value="AE">UAE</option>
+            <option value="US">United States</option><option value="GB">United Kingdom</option><option value="FR">France</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Seed — a film, director, or mood to start from</label>
+          <input id="seed" type="text" placeholder="e.g. slow-burn thrillers · Villeneuve · Egyptian new wave">
+        </div>
+        <div class="field">
+          <label>Gemini model</label>
+          <select id="model">
+            <option value="gemini-3.5-flash">gemini-3.5-flash</option>
+            <option value="gemini-flash-latest">gemini-flash-latest</option>
+            <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
+          </select>
+        </div>
+        <div class="sheet-actions">
+          <button class="btn" id="startBtn">Start</button>
+          <button class="btn ghost sm" id="importBtn">Import</button>
+          <button class="btn ghost sm" id="exportBtn">Export / back up</button>
+          <input type="file" id="importFile" accept="application/json">
+        </div>
+        <div id="setupNote" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="tabbar hidden" id="tabbar">
+    <button class="tab on" data-tab="now">▶ <span>Now</span></button>
+    <button class="tab" data-tab="queue">◷ <span>Up next</span></button>
+    <button class="tab" data-tab="dna">⬡ <span>Taste DNA</span></button>
+  </nav>
+
+  <div class="stage hidden" id="stage">
+    <!-- NOW -->
+    <section class="tabpane on" id="tabNow">
+      <div class="card">
+        <div class="poster-wrap">
+          <img id="poster" class="hidden" alt="">
+          <div class="ph" id="posterPh">finding your first pick…</div>
+          <div class="rank hidden" id="rank"></div>
+        </div>
+        <div class="mv-body">
+          <div class="mv-eyebrow" id="mvMode">◈ Recommended for you</div>
+          <div class="quotaWall hidden" id="quotaWall">
+            <div class="qw-t" id="qwT">Gemini's daily quota is used up</div>
+            <div class="qw-s" id="qwS">It resets daily. Play your favorites, or add another key in Settings.</div>
+            <div><button class="btn sm" id="quotaFavBtn">★ Play my favorites</button> <button class="btn ghost sm" id="quotaSettingsBtn">⚙ Settings</button></div>
+          </div>
+          <h2 class="mv-title" id="mvTitle">—</h2>
+          <div class="mv-meta" id="mvMeta"></div>
+          <div class="mv-reason" id="mvReason"></div>
+          <div class="chiprow" id="mvGenres"></div>
+          <div class="mv-overview" id="mvOverview"></div>
+          <div class="actions" id="mvActions"></div>
+          <div class="watch"><div class="wl">where to watch <span id="regionLbl"></span></div><div class="provs" id="provs"></div></div>
+          <div class="rate">
+            <button class="rb love" id="btnLove"><span class="ico">★</span><span class="lab">Masterpiece</span></button>
+            <button class="rb like" id="btnLike"><span class="ico">▲</span><span class="lab">Liked</span></button>
+            <button class="rb meh" id="btnMeh"><span class="ico">▽</span><span class="lab">Not for me</span></button>
+            <button class="rb never" id="btnNever"><span class="ico">⦸</span><span class="lab">Never</span></button>
+          </div>
+          <button class="nextneutral" id="btnNext">next — teaches nothing →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUEUE -->
+    <section class="tabpane" id="tabQueue">
+      <div class="card">
+        <div class="panel-h">◷ Up next <span class="n" id="qcount">planning…</span></div>
+        <div class="queue" id="queue"></div>
+      </div>
+    </section>
+
+    <!-- DNA -->
+    <section class="tabpane" id="tabDNA">
+      <div class="card">
+        <div class="panel-h">⬡ Taste DNA <span class="n" id="mcount"></span></div>
+        <div class="model" id="model"></div>
+        <div class="anchor">
+          <span class="tgl" id="anchorTgl">＋ add films manually</span>
+          <div class="hidden" id="anchorForm">
+            <textarea id="anchorText" placeholder="One per line:&#10;The Nightingale&#10;Capernaum (2018)"></textarea>
+            <div class="row">
+              <select id="anchorBucket">
+                <option value="loved">★ all-time favorites</option>
+                <option value="liked">films I liked</option>
+                <option value="disliked">not for me</option>
+                <option value="hatedGenres">banned genres (one per line)</option>
+              </select>
+              <button class="btn sm" id="anchorAdd">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    Reel learns only from your ratings. Data comes from TMDB &amp; your own Gemini key; nothing else leaves your browser.<br>
+    Masterpiece → all-time favorite · Liked → more like it · Not for me → steer away · Never → genre banned.<br>
+    <a href="../" style="color:var(--gold)">🎵 Cassette (music)</a> · <span id="buildStamp" style="opacity:.6"></span> · Movie data by TMDB (this product uses the TMDB API but is not endorsed by TMDB)
+  </footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const S={
+  geminiKeys:[],gi:0,tmdb:'',region:'EG',model:'gemini-3.5-flash',
+  profile:{loved:[],liked:[],disliked:[],hatedGenres:[],genreScore:{},dirScore:{},seed:''},
+  seen:new Set(), candidates:[], queue:[], current:null, history:[],
+  started:false,resolving:false,thinking:false,mode:'discover',favQueue:[],
+  geminiQuotaOut:false,tab:'now',editOpen:true,imgBase:'https://image.tmdb.org/t/p/'
+};
+Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
+const BUILD='Reel build 1 · 2026-07-14';
+
+/* ---------- utils ---------- */
+function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
+function setStatus(h){$('status').innerHTML=h;}
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+const mkey=m=>((m.title||'')+'|'+(m.year||'')).toLowerCase().trim();
+function parseKeys(s){return (s||'').split(/[\n,]+/).map(x=>x.trim()).filter(Boolean);}
+function bump(o,k,by){if(k)o[k]=(o[k]||0)+by;}
+function topKeys(o,n){return Object.entries(o||{}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k])=>k);}
+function rotateGemini(){if(S.gi<S.geminiKeys.length-1){S.gi++;return true;}S.geminiQuotaOut=true;return false;}
+
+/* ---------- persistence ---------- */
+function saveLocal(){try{localStorage.setItem('reel_profile',JSON.stringify(S.profile));}catch(_){}}
+function normalize(){
+  const p=S.profile;
+  ['loved','liked','disliked','hatedGenres'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
+  ['genreScore','dirScore'].forEach(k=>{if(!p[k]||typeof p[k]!=='object')p[k]={};});
+  if(typeof p.seed!=='string')p.seed='';
+  if(Object.keys(p.genreScore).length===0){
+    p.loved.forEach(m=>(m.genres||[]).forEach(g=>bump(p.genreScore,g,3)));
+    p.liked.forEach(m=>(m.genres||[]).forEach(g=>bump(p.genreScore,g,1)));
+  }
+}
+function loadLocal(){try{const r=localStorage.getItem('reel_profile');if(r){Object.assign(S.profile,JSON.parse(r));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked).forEach(m=>S.seen.add(mkey(m)));return true;}}catch(_){}normalize();return false;}
+function saveKeys(){try{localStorage.setItem('reel_keys',JSON.stringify({gk:S.geminiKeys,t:S.tmdb,r:S.region,m:S.model,s:S.profile.seed}));}catch(_){}}
+function loadKeys(){try{const k=JSON.parse(localStorage.getItem('reel_keys')||'null');if(!k)return;S.geminiKeys=k.gk||[];$('geminiKey').value=S.geminiKeys.join('\n');$('tmdbKey').value=k.t||'';if(k.r){$('region').value=k.r;}if(k.m)$('model').value=k.m;$('seed').value=k.s||'';if(S.geminiKeys.length)$('setupNote').textContent=S.geminiKeys.length+' Gemini key(s) remembered. Hit Start.';}catch(_){}}
+function exportProfile(){const b=new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='reel-taste-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Exported');}
+
+/* ---------- Gemini ---------- */
+const mdesc=m=>m.title+(m.year?(' ('+m.year+')'):'')+(m.director?(' — '+m.director):'');
+async function askGemini(n){
+  const p=S.profile;
+  const avoid=[...S.seen].slice(-50).join('; ')||'none yet';
+  const lines=[
+    'You are a precise film recommendation engine. Suggest '+n+' MOVIES to watch next for this viewer.',
+    '',
+    'ALL-TIME FAVORITES (weight most): '+(p.loved.map(mdesc).join(' / ')||'none yet'),
+    'LIKED: '+(p.liked.slice(-25).map(mdesc).join(' / ')||'none yet'),
+    'NOT FOR ME (steer away): '+(p.disliked.slice(-25).map(mdesc).join(' / ')||'none yet'),
+    'BANNED GENRES (never suggest): '+(p.hatedGenres.join(', ')||'none'),
+    p.seed?('SEED / MOOD (strong early signal): '+p.seed):'',
+    '',
+    'Already seen or queued — do NOT repeat: '+avoid,
+    '',
+    'Rules: real, findable films on TMDB. Prefer the viewer\'s favorite directors, moods, and eras. Never a banned genre. Mostly safe picks, at most one exploration. Vary directors.',
+    '',
+    'Return ONLY a raw JSON array, no markdown:',
+    '[{"title":"","year":"YYYY","director":"","reason":"max 14 words, why THIS viewer"}]'
+  ].filter(Boolean).join('\n');
+  const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(S.gemini),
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:lines}]}],generationConfig:{temperature:1.0}})});
+  let res;
+  while(true){
+    res=await call();
+    if(res.status===404&&S.model!=='gemini-flash-latest'){S.model='gemini-flash-latest';res=await call();}
+    if(res.status===429){ if(rotateGemini())continue; throw new Error('GEMINI_QUOTA'); }
+    break;
+  }
+  if(!res.ok)throw new Error('Gemini '+res.status);
+  const d=await res.json();
+  let t=(d.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('').replace(/```json/gi,'').replace(/```/g,'').trim();
+  const a=t.indexOf('['),b=t.lastIndexOf(']'); if(a<0||b<0)throw new Error('no JSON');
+  return JSON.parse(t.slice(a,b+1)).filter(x=>x&&x.title);
+}
+
+/* ---------- TMDB ---------- */
+async function tmdbResolve(cand){
+  if(!S.tmdb) return null;
+  try{
+    let u='https://api.themoviedb.org/3/search/movie?api_key='+encodeURIComponent(S.tmdb)+'&query='+encodeURIComponent(cand.title);
+    if(cand.year) u+='&year='+encodeURIComponent(cand.year);
+    const r=await fetch(u); if(!r.ok){ if(r.status===401){toast('TMDB key rejected');} return null; }
+    const d=await r.json(); const hit=(d.results||[])[0]; if(!hit) return null;
+    if(S.seen.has(mkey({title:hit.title,year:(hit.release_date||'').slice(0,4)}))) return null;
+    return hit.id;
+  }catch(_){ return null; }
+}
+async function tmdbDetails(id){
+  const u='https://api.themoviedb.org/3/movie/'+id+'?api_key='+encodeURIComponent(S.tmdb)+'&append_to_response=videos,watch/providers,credits';
+  const r=await fetch(u); if(!r.ok) return null; const d=await r.json();
+  const trailer=(d.videos&&d.videos.results||[]).find(v=>v.site==='YouTube'&&v.type==='Trailer')||(d.videos&&d.videos.results||[]).find(v=>v.site==='YouTube');
+  const dir=((d.credits&&d.credits.crew)||[]).find(c=>c.job==='Director');
+  const prov=(d['watch/providers']&&d['watch/providers'].results&&d['watch/providers'].results[S.region])||null;
+  return {
+    id:d.id, title:d.title, year:(d.release_date||'').slice(0,4),
+    genres:(d.genres||[]).map(g=>g.name), director:dir?dir.name:'',
+    overview:d.overview||'', poster:d.poster_path?(S.imgBase+'w500'+d.poster_path):'',
+    rating:d.vote_average?d.vote_average.toFixed(1):'', runtime:d.runtime||0,
+    trailer:trailer?('https://www.youtube.com/watch?v='+trailer.key):'',
+    tmdbUrl:'https://www.themoviedb.org/movie/'+d.id,
+    providers:prov, provLink:prov?prov.link:''
+  };
+}
+
+/* ---------- queue ---------- */
+async function refill(){
+  if(S.candidates.length>=3||S.thinking||S.geminiQuotaOut)return;
+  S.thinking=true;renderQueue();
+  try{S.candidates.push(...await askGemini(6));}
+  catch(e){ if(String(e.message).includes('GEMINI_QUOTA')){S.geminiQuotaOut=true;} else setStatus('<b>Recommendation error.</b> '+esc(String(e.message).slice(0,90))); }
+  S.thinking=false;
+}
+async function ensureQueue(){
+  if(S.resolving)return; S.resolving=true;
+  try{
+    let g=0;
+    while(S.queue.length<2 && g++<16){
+      if(S.geminiQuotaOut)break;
+      if(!S.candidates.length){await refill(); if(!S.candidates.length)break;}
+      const c=S.candidates.shift();
+      if(S.seen.has(mkey({title:c.title,year:c.year})))continue;
+      const id=await tmdbResolve(c); if(!id)continue;
+      const det=await tmdbDetails(id); if(!det)continue;
+      if(det.genres.some(gn=>S.profile.hatedGenres.map(x=>x.toLowerCase()).includes(gn.toLowerCase())))continue;
+      det.reason=c.reason||''; S.queue.push(det); S.seen.add(mkey(det));
+    }
+  } finally { S.resolving=false; renderQueue(); }
+  if((S.geminiQuotaOut)&&!S.queue.length&&S.mode!=='fav'){ quotaStop(); return; }
+  if(S.candidates.length<3&&!S.geminiQuotaOut)refill();
+}
+function quotaStop(){
+  const can=S.profile.loved.length>0;
+  $('qwT').textContent="Gemini's daily quota is used up";
+  $('qwS').textContent=can?'Play your favorites, or add another Gemini key in Settings.':'Add favorites, or another key in Settings.';
+  $('quotaWall').classList.remove('hidden'); $('quotaFavBtn').style.display=can?'':'none';
+  setStatus('<b>Gemini quota used up.</b> '+(can?'Play your favorites.':'Add a key in Settings.'));
+}
+
+/* ---------- playback of pick ---------- */
+function showMovie(m,pushHist){
+  if(pushHist!==false && S.current)S.history.push(S.current);
+  S.current=m;
+  $('posterPh').classList.add('hidden');
+  const img=$('poster');
+  if(m.poster){img.src=m.poster;img.classList.remove('hidden');}else img.classList.add('hidden');
+  $('mvTitle').textContent=m.title;
+  const bits=[m.year,m.runtime?(m.runtime+' min'):'',m.director?('dir. '+m.director):''].filter(Boolean).join(' · ');
+  $('mvMeta').innerHTML=esc(bits)+(m.rating?(' · <span class="tmdb">★ '+m.rating+' TMDB</span>'):'');
+  $('mvReason').innerHTML=m.reason?('<b>picked because</b> '+esc(m.reason)):'';
+  $('mvGenres').innerHTML=(m.genres||[]).map(g=>'<span class="gchip">'+esc(g)+'</span>').join('');
+  $('mvOverview').textContent=m.overview||'';
+  const acts=[];
+  if(m.trailer)acts.push('<a href="'+m.trailer+'" target="_blank" rel="noopener">▶ Trailer</a>');
+  acts.push('<a href="'+m.tmdbUrl+'" target="_blank" rel="noopener">ⓘ TMDB</a>');
+  if(m.provLink)acts.push('<a href="'+m.provLink+'" target="_blank" rel="noopener">↗ Where to watch</a>');
+  $('mvActions').innerHTML=acts.join('');
+  renderProviders(m);
+  $('rank').classList.toggle('hidden', S.mode!=='fav');
+  $('mvMode').textContent = S.mode==='fav' ? '★ Close to my heart' : '◈ Recommended for you';
+  $('btnLove').classList.toggle('on', S.profile.loved.some(x=>mkey(x)===mkey(m)));
+  setStatus(S.mode==='fav' ? ('<b>★ Favorites</b> · '+S.profile.loved.length+' on shuffle') : 'Curating · queue keeps 2 ready');
+}
+function renderProviders(m){
+  const box=$('provs'); const p=m.providers;
+  const flat=p&&(p.flatrate||p.free||p.ads)||[];
+  const rent=p&&(p.rent||p.buy)||[];
+  const all=[...flat,...rent].slice(0,6);
+  if(!all.length){ box.innerHTML='<span class="prov none">no streaming info for your region</span>'; return; }
+  box.innerHTML=all.map(pr=>'<span class="prov"><img src="'+S.imgBase+'w45'+pr.logo_path+'" alt="">'+esc(pr.provider_name)+'</span>').join('');
+}
+
+/* ---------- ratings ---------- */
+function love(){const m=S.current;if(!m)return;if(S.mode==='fav'){toast('Already a favorite ★');return;}addTo('loved',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,3));bump(S.profile.dirScore,m.director,3);$('btnLove').classList.add('on');flash('★ favorite locked in');renderModel();saveLocal();}
+function like(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){advance();return;}addTo('liked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,1));bump(S.profile.dirScore,m.director,1);flash('liked · more like it');after(m);}
+function meh(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){toast('Still a favorite ★');advance();return;}addTo('disliked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-1));flash('noted · steering away');after(m);}
+function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}(m.genres||[]).forEach(g=>{if(!S.profile.hatedGenres.includes(g))S.profile.hatedGenres.push(g);S.profile.genreScore[g]=-999;});S.queue=S.queue.filter(q=>!(q.genres||[]).some(g=>S.profile.hatedGenres.includes(g)));flash('banned · '+((m.genres||[])[0]||'genre'));after(m);}
+function addTo(b,m){const k=mkey(m);['loved','liked','disliked'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,poster:m.poster});}
+function after(m){renderModel();saveLocal();advance();}
+function flash(msg){toast('<span class="k">learned</span> · '+msg);}
+function advance(){ if(S.mode==='fav'){nextFav();return;} if(!S.queue.length){ if(S.geminiQuotaOut){quotaStop();return;} setStatus('<b>Curating…</b>'); ensureQueue().then(()=>{if(S.queue.length)showMovie(S.queue.shift());else if(S.geminiQuotaOut)quotaStop();}); return;} showMovie(S.queue.shift()); ensureQueue(); }
+function neutralNext(){ S.mode==='fav'?nextFav():advance(); }
+
+/* ---------- favorites mode ---------- */
+function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+async function nextFav(){
+  if(!S.profile.loved.length){toast('No favorites yet');exitFav();return;}
+  if(!S.favQueue.length)S.favQueue=shuffle(S.profile.loved);
+  const f={...S.favQueue.shift()};
+  if(!f.overview||!f.genres){ // rehydrate from TMDB
+    const id=f.id||await tmdbResolve({title:f.title,year:f.year});
+    if(id){const det=await tmdbDetails(id);if(det)Object.assign(f,det);}
+  }
+  f.reason='all-time favorite'; showMovie(f); renderQueue();
+}
+function enterFav(){if(!S.profile.loved.length){toast('Rate some films ★ first — or add them in Taste DNA');return;}S.mode='fav';S.favQueue=shuffle(S.profile.loved);updateFavPill();showTab('now');nextFav();}
+function exitFav(){S.mode='discover';updateFavPill();renderModel();advance();}
+function updateFavPill(){const b=$('favPill');if(S.mode==='fav'){b.style.borderColor='var(--gold)';b.style.color='var(--gold)';b.textContent='← discovery';}else{b.style.borderColor='';b.style.color='';b.textContent='★ favorites';}}
+function previous(){if(!S.history.length)return;showMovie(S.history.pop(),false);}
+
+/* ---------- render queue / model ---------- */
+function renderQueue(){
+  const el=$('queue'); const items=(S.mode==='fav'?S.favQueue:S.queue).slice(0,2);
+  let h='';
+  items.forEach((m,i)=>{h+='<div class="qitem '+(i===0?'first':'')+'"><div class="pos">'+(i===0?'next':'then')+'</div><div><div class="t">'+esc(m.title)+'</div><div class="a">'+esc([m.year,m.director].filter(Boolean).join(' · '))+'</div><div class="why">'+esc(S.mode==='fav'?'all-time favorite ★':(m.reason||''))+'</div></div></div>';});
+  for(let i=items.length;i<2;i++)h+='<div class="qslot-empty">'+((S.thinking||S.resolving)?'<span class="thinking">thinking</span>':'slot open')+'</div>';
+  el.innerHTML=h;
+  $('qcount').textContent=S.mode==='fav'?'★ favorites':((S.thinking||S.resolving)?'planning…':(S.queue.length+' ready'));
+}
+function renderModel(){
+  const el=$('model');if(!el)return;
+  try{renderModelInner();}catch(e){
+    const all=[].concat(S.profile.loved||[],S.profile.liked||[],S.profile.disliked||[]);
+    el.innerHTML='<div class="mlist-hint">'+all.length+' films</div>'+all.slice(0,80).map((m,i)=>'<div class="mrow"><button class="mbtn" data-fp="'+i+'">▶</button><span class="txt">'+esc(m.title+(m.year?(' ('+m.year+')'):''))+'</span></div>').join('');
+    el.querySelectorAll('[data-fp]').forEach(b=>b.onclick=()=>playSpecific(all[+b.dataset.fp]));
+    try{$('mcount').textContent=all.length+' rated';}catch(_){}
+  }
+}
+function grp(sw,label,inner){return '<div class="grp"><div class="h"><span class="sw" style="background:'+sw+'"></span>'+label+'</div><div class="chips">'+inner+'</div></div>';}
+function chip(t,c){return '<span class="chip '+(c||'')+'">'+esc(t)+'</span>';}
+function emptyChip(t){return '<span class="empty-model">'+(t||'learning as you rate')+'</span>';}
+function renderModelInner(){
+  const p=S.profile;normalize();
+  const dirs=topKeys(p.dirScore,6);
+  let genres=topKeys(p.genreScore,8).filter(g=>!p.hatedGenres.includes(g));
+  const el=$('model');
+  const parts=[];
+  parts.push(grp('#E7B44C','favorite directors', dirs.length?dirs.map(d=>chip(d,'love')).join(''):emptyChip()));
+  parts.push(grp('#4CC0A8','genres you like', genres.length?genres.map(g=>chip(g)).join(''):emptyChip()));
+  parts.push(grp('#5C566B','banned genres', p.hatedGenres.length?p.hatedGenres.map(g=>chip(g,'hate')).join(''):emptyChip('none yet')));
+  const total=p.loved.length+p.liked.length+p.disliked.length;
+  el.innerHTML=parts.join('')+
+    '<button class="editbtn" id="editTgl">'+(S.editOpen?'▾ hide film list':'✎ edit / ▶ play my films ('+total+')')+'</button>'+
+    '<div id="mlistWrap" class="'+(S.editOpen?'':'hidden')+'"></div>'+
+    '<div class="model-actions"><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>';
+  $('editTgl').onclick=()=>{S.editOpen=!S.editOpen;renderModel();};
+  if(S.editOpen){try{renderMList();}catch(_){}}
+  $('exp').onclick=exportProfile;
+  $('rst').onclick=()=>{if(confirm('Wipe everything Reel has learned?')){S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],genreScore:{},dirScore:{},seed:S.profile.seed};S.seen.clear();saveLocal();renderModel();toast('Reset');}};
+  $('mcount').textContent=total?(total+' rated'):'';
+}
+function renderMList(){
+  const wrap=$('mlistWrap');if(!wrap)return;
+  const sect=(b,label,ic)=>{const arr=S.profile[b];if(!arr.length)return '';let h='<div class="grp"><div class="h">'+label+'</div><div class="mlist">';arr.forEach((m,i)=>{h+='<div class="mrow"><button class="mbtn" data-play="'+b+':'+i+'">▶</button><span class="txt">'+ic+' '+esc(m.title+(m.year?(' ('+m.year+')'):''))+'</span><button class="mbtn" data-edit="'+b+':'+i+'">✎</button><button class="mbtn del" data-del="'+b+':'+i+'">✕</button></div>';});return h+'</div></div>';};
+  wrap.innerHTML='<div class="mlist-hint">▶ play · ✎ edit · ✕ remove</div>'+sect('loved','★ favorites','★')+sect('liked','liked','▲')+sect('disliked','not for me','▽');
+  wrap.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.play.split(':');playSpecific(S.profile[k][+i]);});
+  wrap.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.del.split(':');const m=S.profile[k][+i];S.seen.delete(mkey(m));S.profile[k].splice(+i,1);saveLocal();renderModel();toast('Removed');});
+  wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.edit.split(':');editEntry(k,+i);});
+}
+function editEntry(b,i){const m=S.profile[b][i];const nt=prompt('Edit "Title (Year)":',m.title+(m.year?(' ('+m.year+')'):''));if(nt===null)return;const mm=nt.match(/^(.*?)(?:\s*\((\d{4})\))?$/);S.seen.delete(mkey(m));m.title=(mm[1]||'').trim();m.year=mm[2]||'';delete m.id;delete m.overview;S.seen.add(mkey(m));saveLocal();renderModel();toast('Updated');}
+async function playSpecific(m){const c={...m,reason:'you chose this'};const id=c.id||await tmdbResolve({title:c.title,year:c.year});if(!id){toast('Not found on TMDB');return;}const det=await tmdbDetails(id);if(det){Object.assign(c,det);}showTab('now');showMovie(c);}
+
+/* ---------- manual anchor ---------- */
+function addAnchors(){
+  const raw=$('anchorText').value.trim();if(!raw){toast('Nothing to add');return;}
+  const bucket=$('anchorBucket').value;let n=0;
+  raw.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{
+    if(bucket==='hatedGenres'){if(!S.profile.hatedGenres.some(g=>g.toLowerCase()===line.toLowerCase())){S.profile.hatedGenres.push(line);S.profile.genreScore[line]=-999;n++;}return;}
+    const mm=line.match(/^(.*?)(?:\s*\((\d{4})\))?$/);
+    const m={title:(mm[1]||'').trim(),year:mm[2]||'',genres:[]};
+    if(!m.title||S.seen.has(mkey(m)))return;
+    S.profile[bucket].push(m);S.seen.add(mkey(m));n++;
+  });
+  saveLocal();renderModel();$('anchorText').value='';
+  if(bucket==='loved'&&S.mode==='fav')S.favQueue=shuffle(S.profile.loved);
+  toast('Added '+n+' — used from the next batch');
+}
+
+/* ---------- tabs / settings ---------- */
+function showTab(name){S.tab=name;const pane={now:'tabNow',queue:'tabQueue',dna:'tabDNA'}[name];document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='dna')renderModel();}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+function openSettings(){$('setupTitle').textContent=S.started?'Settings':'Setup';$('startBtn').textContent=S.started?'Save & close':'Start';$('settingsOverlay').classList.remove('hidden');}
+function closeSettings(){$('settingsOverlay').classList.add('hidden');}
+$('gearBtn').onclick=openSettings;$('closeSettings').onclick=closeSettings;
+$('settingsOverlay').addEventListener('click',e=>{if(e.target.id==='settingsOverlay')closeSettings();});
+$('favPill').onclick=()=>{if(!S.started){toast('Start first');return;}S.mode==='fav'?exitFav():enterFav();};
+$('btnLove').onclick=love;$('btnLike').onclick=like;$('btnMeh').onclick=meh;$('btnNever').onclick=never;$('btnNext').onclick=neutralNext;
+$('quotaFavBtn').onclick=()=>{$('quotaWall').classList.add('hidden');enterFav();};
+$('quotaSettingsBtn').onclick=()=>{$('quotaWall').classList.add('hidden');openSettings();};
+$('exportBtn').onclick=exportProfile;
+$('anchorTgl').onclick=()=>$('anchorForm').classList.toggle('hidden');
+$('anchorAdd').onclick=addAnchors;
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{Object.assign(S.profile,JSON.parse(r.result));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked).forEach(m=>S.seen.add(mkey(m)));toast('Imported');renderModel();}catch(_){toast('Bad file');}};r.readAsText(f);};
+document.addEventListener('keydown',e=>{if(!S.started||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;if(e.key==='ArrowRight')meh();if(e.key==='ArrowLeft')previous();if(e.key.toLowerCase()==='n')neutralNext();if(e.key.toLowerCase()==='l')love();});
+
+$('startBtn').onclick=async()=>{
+  S.geminiKeys=parseKeys($('geminiKey').value);S.gi=0;S.geminiQuotaOut=false;
+  S.tmdb=$('tmdbKey').value.trim();S.region=$('region').value;S.model=$('model').value;
+  $('regionLbl').textContent='· '+S.region;
+  const seed=$('seed').value.trim();if(seed)S.profile.seed=seed;
+  if(!S.geminiKeys.length){toast('Gemini key required');return;}
+  if(!S.tmdb){toast('TMDB key required');return;}
+  saveKeys();
+  if(S.started){closeSettings();toast('Saved');return;}
+  loadLocal();if(seed)S.profile.seed=seed;
+  if(!S.profile.seed&&S.profile.loved.length+S.profile.liked.length===0){toast('Give it a seed to start');$('seed').focus();return;}
+  S.started=true;closeSettings();
+  $('tabbar').classList.remove('hidden');$('stage').classList.remove('hidden');$('stage').classList.add('wide');
+  renderModel();renderQueue();updateFavPill();showTab('now');
+  setStatus('<b>Warming up…</b> Gemini is choosing your first films.');
+  try{
+    await ensureQueue();
+    if(!S.queue.length){if(S.geminiQuotaOut)quotaStop();else setStatus('<b>Could not build a queue.</b> Check keys, then reload.');return;}
+    showMovie(S.queue.shift());ensureQueue();
+  }catch(e){setStatus('<b>Startup failed:</b> '+esc(String(e.message).slice(0,120)));}
+};
+
+try{$('buildStamp').textContent=BUILD;}catch(_){}
+loadKeys();loadLocal();openSettings();
+if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('sw.js').then(r=>{try{r.update();}catch(_){}}).catch(()=>{});}
+</script>
+</body>
+</html>
