@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icon-180.png">
-<title>Resonance — a player that learns</title>
+<title>Cassette — a player that learns</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -62,11 +62,12 @@
   @media(max-width:720px){.grid{grid-template-columns:1fr}}
   .field label{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:.04em}
   .field .hint{color:var(--faint);font-size:10.5px}
-  .field input, .field select{
+  .field input, .field select, .field textarea{
     width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;
     color:var(--ink);padding:11px 12px;font-family:var(--mono);font-size:13px;outline:none;transition:.15s;
   }
-  .field input:focus, .field select:focus{border-color:var(--amber)}
+  .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--amber)}
+  .keybox{min-height:56px;resize:vertical;line-height:1.5}
   .row-actions{display:flex;gap:12px;align-items:center;margin-top:18px;flex-wrap:wrap}
   .btn{background:var(--amber);color:#211a0d;border:none;border-radius:10px;padding:12px 20px;font-weight:600;font-size:14px;letter-spacing:.01em;transition:.15s}
   .btn:hover{filter:brightness(1.08)}
@@ -240,7 +241,7 @@
   <header>
     <div class="brand">
       <span class="dot" id="livedot"></span>
-      <h1>Resonance</h1>
+      <h1>Cassette</h1>
       <span class="sub">a player that learns · 2 ahead</span>
     </div>
     <div class="hdr-actions">
@@ -256,7 +257,7 @@
   <div id="fileWarn" class="warnbar hidden">
     <b>YouTube refuses to play from file:// (Error 153)</b> — it requires the page to be served over HTTP.<br><br>
     <b>On a phone:</b> host this file free (drag it into app.netlify.com/drop, or GitHub Pages) and open the URL — then Add to Home Screen.<br>
-    <b>On a computer:</b> run <code>python -m http.server 8080</code> in this folder, open <b>http://localhost:8080/resonance.html</b>.
+    <b>On a computer:</b> run <code>python -m http.server 8080</code> in this folder, open <b>http://localhost:8080/index.html</b>.
   </div>
   <script>
     if(location.protocol==='file:'){ document.getElementById('fileWarn').classList.remove('hidden'); }
@@ -268,12 +269,12 @@
       <div class="sheet-h"><span id="setupTitle">Setup</span><button class="xbtn" id="closeSettings">✕</button></div>
       <div class="sheet-body">
         <div class="field">
-          <label>Gemini API key <span class="hint">— required · aistudio.google.com</span></label>
-          <input id="geminiKey" type="password" placeholder="AIza…" autocomplete="off">
+          <label>Gemini API key(s) <span class="hint">— required · one per line for auto-rotation</span></label>
+          <textarea id="geminiKey" class="keybox" placeholder="AIza… key 1&#10;AIza… key 2 (optional)" autocomplete="off" spellcheck="false"></textarea>
         </div>
         <div class="field">
-          <label>YouTube Data API key <span class="hint">— recommended · reliable search</span></label>
-          <input id="ytKey" type="password" placeholder="AIza… (blank = Gemini-guess mode)" autocomplete="off">
+          <label>YouTube Data API key(s) <span class="hint">— recommended · one per line for auto-rotation</span></label>
+          <textarea id="ytKey" class="keybox" placeholder="AIza… key 1&#10;AIza… key 2 (optional)" autocomplete="off" spellcheck="false"></textarea>
         </div>
         <div class="field">
           <label>Seed — an artist, song, or vibe to start from</label>
@@ -393,7 +394,7 @@
   </div>
 
   <footer>
-    Resonance learns only from your four signals. Nothing leaves your browser except calls to Google's Gemini and YouTube with your own keys.<br>
+    Cassette learns only from your four signals. Nothing leaves your browser except calls to Google's Gemini and YouTube with your own keys.<br>
     Finish → liked · Heart → favorite · Skip → not your type · Never → genre banned.<br>
     <span id="buildStamp" style="opacity:.6"></span>
   </footer>
@@ -406,7 +407,7 @@
    STATE
 ============================================================ */
 const S = {
-  gemini:'', yt:'', model:'gemini-3.5-flash',
+  model:'gemini-3.5-flash',
   profile: { loved:[], liked:[], disliked:[], hatedGenres:[], genreScore:{}, artistScore:{}, seed:'' },
   seenKeys: new Set(),      // "artist|title" to avoid repeats
   seenIds: new Set(),       // youtube ids used
@@ -416,6 +417,7 @@ const S = {
   player: null, ytReady:false, playing:false, resolving:false, thinking:false, started:false,
   progTimer:null, mode:'discover', heartQueue:[], history:[], userPaused:false,
   pendingTrack:null, dataSaver:'off', ytQuotaOut:false, geminiQuotaOut:false, tab:'now', seeking:false,
+  geminiKeys:[], gi:0, ytKeys:[], yi:0,
   lyrics:null, lyricsLines:[], lyricIdx:-1, lyricsFor:'', lyricsOn:true, translated:false, editOpen:true,
 };
 
@@ -423,7 +425,7 @@ const S = {
    PERSISTENCE  (memory-first; localStorage best-effort; JSON export/import)
 ============================================================ */
 function saveLocal(){
-  try{ localStorage.setItem('resonance_profile', JSON.stringify(S.profile)); }catch(e){}
+  try{ localStorage.setItem('cassette_profile', JSON.stringify(S.profile)); }catch(e){}
 }
 /* guarantee every field exists with the right type — profiles from older
    versions or from export/import can be missing genreScore/artistScore,
@@ -441,7 +443,7 @@ function normalizeProfile(){
 }
 function loadLocal(){
   try{
-    const raw = localStorage.getItem('resonance_profile');
+    const raw = (localStorage.getItem('cassette_profile')||localStorage.getItem('resonance_profile'));
     if(raw){ const p = JSON.parse(raw); Object.assign(S.profile, p);
       normalizeProfile();
       (S.profile.loved||[]).concat(S.profile.liked||[],S.profile.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
@@ -453,19 +455,31 @@ function loadLocal(){
 function exportProfile(){
   const blob = new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='resonance-taste-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  a.download='cassette-taste-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
   toast('Profile exported');
 }
-function saveKeys(){ try{ localStorage.setItem('resonance_keys', JSON.stringify({g:S.gemini,y:S.yt,m:S.model,s:S.profile.seed,ds:S.dataSaver})); }catch(_){}}
+function parseKeys(str){ return (str||'').split(/[\n,]+/).map(s=>s.trim()).filter(Boolean); }
+function saveKeys(){ try{ localStorage.setItem('cassette_keys', JSON.stringify({gk:S.geminiKeys,yk:S.ytKeys,m:S.model,s:S.profile.seed,ds:S.dataSaver})); }catch(_){}}
 function loadKeys(){
   try{
-    const k=JSON.parse(localStorage.getItem('resonance_keys')||'null'); if(!k) return;
-    $('geminiKey').value=k.g||''; $('ytKey').value=k.y||'';
+    const k=JSON.parse(localStorage.getItem('cassette_keys')||localStorage.getItem('resonance_keys')||'null'); if(!k) return;
+    // migrate old single-key format {g,y} → arrays
+    S.geminiKeys = k.gk || (k.g?[k.g]:[]);
+    S.ytKeys     = k.yk || (k.y?[k.y]:[]);
+    $('geminiKey').value=S.geminiKeys.join('\n'); $('ytKey').value=S.ytKeys.join('\n');
     if(k.m) $('model').value=k.m; $('seed').value=k.s||'';
     if(k.ds){ S.dataSaver=k.ds; const d=$('dataSaver'); if(d) d.value=k.ds; }
-    if(k.g) $('setupNote').textContent='Keys remembered on this device. Just hit Start.';
+    if(S.geminiKeys.length) $('setupNote').textContent=S.geminiKeys.length+' Gemini · '+S.ytKeys.length+' YouTube key(s) remembered. Hit Start.';
   }catch(_){}
 }
+/* active key + rotation. rotateX() advances to the next key; returns false when all are spent. */
+function gKey(){ return S.geminiKeys[S.gi]||''; }
+function yKey(){ return S.ytKeys[S.yi]||''; }
+function rotateGemini(){ if(S.gi < S.geminiKeys.length-1){ S.gi++; return true; } S.geminiQuotaOut=true; return false; }
+function rotateYT(){ if(S.yi < S.ytKeys.length-1){ S.yi++; return true; } S.ytQuotaOut=true; return false; }
+/* back-compat shims so the rest of the code can read S.gemini / S.yt */
+Object.defineProperty(S,'gemini',{get(){return gKey();}, configurable:true});
+Object.defineProperty(S,'yt',{get(){return yKey();}, configurable:true});
 
 /* ============================================================
    HELPERS
@@ -506,16 +520,22 @@ async function askGemini(n){
     '[{"title":"","artist":"","genre":"","reason":"max 12 words, why it fits THIS listener","searchQuery":"Artist Title official audio","youtubeId":"11-char id if you are confident, else empty string"}]'
   ].filter(Boolean).join('\n');
 
-  const call = async(model)=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(S.gemini),
+  const call = async(model)=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(gKey()),
     {method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({contents:[{parts:[{text:lines}]}],generationConfig:{temperature:1.0}})});
-  let res = await call(S.model);
-  if(res.status===404 && S.model!=='gemini-flash-latest'){
-    // model retired since this app was built — fall back to the auto-updating alias
-    S.model='gemini-flash-latest'; toast('Model retired · switched to gemini-flash-latest');
+  let res;
+  while(true){
     res = await call(S.model);
+    if(res.status===404 && S.model!=='gemini-flash-latest'){
+      S.model='gemini-flash-latest'; toast('Model retired · switched to gemini-flash-latest');
+      res = await call(S.model);
+    }
+    if(res.status===429){                       // this key is spent — rotate silently
+      if(rotateGemini()) continue;              // more keys → retry
+      throw new Error('GEMINI_QUOTA');          // all keys spent
+    }
+    break;
   }
-  if(res.status===429){ S.geminiQuotaOut=true; throw new Error('GEMINI_QUOTA'); }
   if(!res.ok){ const t=await res.text(); throw new Error('Gemini '+res.status+': '+t.slice(0,180)); }
   const data = await res.json();
   let txt = (data.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
@@ -531,20 +551,23 @@ const desc = t => t.title+' — '+t.artist+(t.genre?(' ['+t.genre+']'):'');
    RESOLVE  — title/artist -> playable YouTube videoId
 ============================================================ */
 async function resolveVideoIdRaw(cand, allowSeen){
-  if(S.yt && !S.ytQuotaOut){
+  while(yKey() && !S.ytQuotaOut){
     try{
       const q = cand.searchQuery || (cand.artist+' '+cand.title+' official audio');
-      const u='https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=3&type=video&videoEmbeddable=true&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(S.yt);
+      const u='https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=3&type=video&videoEmbeddable=true&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(yKey());
       const r=await fetch(u);
       if(r.ok){ const d=await r.json();
         const hit=(d.items||[]).find(i=>i.id&&i.id.videoId&&(allowSeen||!S.seenIds.has(i.id.videoId)));
         if(hit) return hit.id.videoId;
+        break; // valid response, just no usable hit — stop, use Gemini id fallback
       } else if(r.status===403){
         let reason=''; try{ const e=await r.json(); reason=(e.error&&e.error.errors&&e.error.errors[0]&&e.error.errors[0].reason)||''; }catch(_){}
-        if(reason==='quotaExceeded' || reason==='dailyLimitExceeded'){ S.ytQuotaOut=true; }
-        else { S.ytBad=true; setStatus('<b>YouTube key issue.</b> Falling back to Gemini guesses.'); }
-      }
-    }catch(e){}
+        if(reason==='quotaExceeded' || reason==='dailyLimitExceeded'){
+          if(rotateYT()) continue;     // spent key → try next silently
+          break;                       // all YT keys spent → fall through to Gemini-id guess
+        } else { S.ytBad=true; setStatus('<b>YouTube key issue.</b> Falling back to Gemini guesses.'); break; }
+      } else break;
+    }catch(e){ break; }
   }
   if(cand.youtubeId && /^[\w-]{11}$/.test(cand.youtubeId) && (allowSeen||!S.seenIds.has(cand.youtubeId))) return cand.youtubeId;
   return null;
@@ -855,7 +878,7 @@ async function maybeTranslate(d){
   }catch(_){ $('trBtn').classList.add('hidden'); }
 }
 async function geminiRaw(text){
-  const url='https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(S.gemini);
+  const url='https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(gKey());
   const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text}]}]})});
   if(!r.ok) throw new Error('gemini'); const d=await r.json();
   return (d.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('').replace(/```json/gi,'').replace(/```/g,'').trim();
@@ -887,7 +910,7 @@ function updateMediaMeta(){
   try{
     navigator.mediaSession.metadata = new MediaMetadata({
       title: S.current.title, artist: S.current.artist,
-      album: S.mode==='hearts' ? 'Close to my heart ♥' : 'Resonance',
+      album: S.mode==='hearts' ? 'Close to my heart ♥' : 'Cassette',
       artwork: [{src:'https://i.ytimg.com/vi/'+S.current.videoId+'/hqdefault.jpg', sizes:'480x360', type:'image/jpeg'}]
     });
   }catch(_){}
@@ -1014,7 +1037,7 @@ function renderModelInner(){
   $('editTgl').onclick=()=>{ S.editOpen=!S.editOpen; renderModel(); };
   if(S.editOpen){ try{ renderMList(); }catch(e){ $('mlistWrap').innerHTML='<div class="mlist-hint">could not list songs</div>'; } }
   $('exp').onclick=exportProfile;
-  $('rst').onclick=()=>{ if(confirm('Wipe everything Resonance has learned?')){ S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],genreScore:{},artistScore:{},seed:S.profile.seed}; S.seenKeys.clear(); saveLocal(); renderModel(); toast('Model reset'); } };
+  $('rst').onclick=()=>{ if(confirm('Wipe everything Cassette has learned?')){ S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],genreScore:{},artistScore:{},seed:S.profile.seed}; S.seenKeys.clear(); saveLocal(); renderModel(); toast('Model reset'); } };
   $('mcount').textContent = total? (total+' signals') : '';
 }
 function renderMList(){
@@ -1145,8 +1168,8 @@ $('modePill').onclick=()=>{
 };
 
 $('startBtn').onclick=async ()=>{
-  S.gemini=$('geminiKey').value.trim();
-  S.yt=$('ytKey').value.trim();
+  S.geminiKeys=parseKeys($('geminiKey').value); S.gi=0; S.geminiQuotaOut=false;
+  S.ytKeys=parseKeys($('ytKey').value); S.yi=0; S.ytQuotaOut=false;
   S.model=$('model').value;
   S.dataSaver=$('dataSaver').value;
   applyDataSaver();
@@ -1187,7 +1210,7 @@ function applyWide(){ $('stage').classList.toggle('wide', window.innerWidth>=820
 window.addEventListener('resize',()=>{ if(S.started) applyWide(); });
 
 /* on load: prefill remembered keys, show existing profile, open setup */
-const BUILD='build 9 · 2026-07-13';
+const BUILD='Cassette · build 11 · 2026-07-14';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
