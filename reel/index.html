@@ -83,6 +83,9 @@
   .rank{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.7);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-family:var(--mono);font-size:12px}
   .rank b{color:var(--gold)}
   .mv-body{padding:18px 20px 20px}
+  .mediaSwitch{display:flex;gap:6px;margin-bottom:10px}
+  .mchip{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:5px 12px;font-family:var(--mono);font-size:11px;transition:.15s}
+  .mchip.on{border-color:var(--gold);color:var(--gold)}
   .mv-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
   .mv-title{font-family:var(--disp);font-weight:600;font-size:26px;line-height:1.15;margin:0 0 2px}
   .mv-meta{color:var(--muted);font-size:13px;margin-bottom:10px}
@@ -255,6 +258,11 @@
           <div class="rank hidden" id="rank"></div>
         </div>
         <div class="mv-body">
+          <div class="mediaSwitch" id="mediaSwitch">
+            <button class="mchip on" data-m="movie">🎬 Films</button>
+            <button class="mchip" data-m="tv">📺 Series</button>
+            <button class="mchip" data-m="both">🔀 Both</button>
+          </div>
           <div class="mv-eyebrow" id="mvMode">◈ Recommended for you</div>
           <div class="quotaWall hidden" id="quotaWall">
             <div class="qw-t" id="qwT">Gemini's daily quota is used up</div>
@@ -302,6 +310,15 @@
         <div class="model" id="model"></div>
         <div class="anchor">
           <span class="tgl" id="anchorTgl">＋ add films manually</span>
+            &nbsp;·&nbsp; <span class="tgl" id="impTgl">⇪ import Letterboxd CSV</span>
+            <div class="hidden" id="impForm" style="margin-top:10px">
+              <div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:8px">
+                Upload <b>ratings.csv</b>, <b>diary.csv</b>, or <b>watchlist.csv</b> from your Letterboxd export (Settings → Import &amp; Export). Ratings map automatically: ★4.5+ → favorites, ★3–4 → liked, ★≤2.5 → not for me. Watchlist files go to your watchlist.
+              </div>
+              <button class="btn sm" id="impPick">Choose file</button>
+              <input type="file" id="impFile" accept=".csv,text/csv" style="display:none">
+              <div id="impNote" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:8px"></div>
+            </div>
           <div class="hidden" id="anchorForm">
             <textarea id="anchorText" placeholder="One per line:&#10;The Nightingale&#10;Capernaum (2018)"></textarea>
             <div class="row">
@@ -330,14 +347,14 @@
 <script>
 const $=id=>document.getElementById(id);
 const S={
-  geminiKeys:[],gi:0,tmdb:'',omdb:'',region:'EG',model:'gemini-3.5-flash',
+  geminiKeys:[],gi:0,tmdb:'',omdb:'',region:'EG',model:'gemini-3.5-flash',media:'movie',
   profile:{loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:''},
   seen:new Set(), seenT:new Set(), candidates:[], queue:[], current:null, history:[],
   started:false,resolving:false,thinking:false,mode:'discover',favQueue:[],
   geminiQuotaOut:false,tab:'now',editOpen:true,imgBase:'https://image.tmdb.org/t/p/'
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Reel · build 8 · 2026-07-15 · film-level-ban';
+const BUILD='Reel · build 9 · 2026-07-15 · tv+letterboxd';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -382,7 +399,7 @@ function loadKeys(){try{
   S.geminiKeys=c.geminiKeys||[];
   $('geminiKey').value=S.geminiKeys.join('\n');
   $('tmdbKey').value=c.tmdb||''; $('omdbKey').value=c.omdb||'';
-  if(c.region){$('region').value=c.region;} if(c.model)$('modelSel').value=c.model; $('seed').value=c.reelSeed||'';
+  if(c.region){$('region').value=c.region;} S.media=c.reelMedia||'movie'; if(c.model)$('modelSel').value=c.model; $('seed').value=c.reelSeed||'';
   if(S.geminiKeys.length)$('setupNote').textContent=S.geminiKeys.length+' Gemini key(s) — shared with Cassette. Hit Start.';
 }catch(_){}}
 function exportProfile(){const b=new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='reel-taste-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Exported');}
@@ -393,7 +410,11 @@ async function askGemini(n){
   const p=S.profile;
   const avoid=[...S.seen].slice(-50).join('; ')||'none yet';
   const lines=[
-    'You are a precise film recommendation engine. Suggest '+n+' MOVIES to watch next for this viewer.',
+    (S.media==='tv'
+   ? 'You are a precise TV recommendation engine. Suggest '+n+' TV SERIES to watch next for this viewer.'
+   : S.media==='both'
+   ? 'You are a precise screen recommendation engine. Suggest '+n+' titles — a MIX of movies and TV series — for this viewer.'
+   : 'You are a precise film recommendation engine. Suggest '+n+' MOVIES to watch next for this viewer.'),
     '',
     'ALL-TIME FAVORITES (weight most): '+(p.loved.map(mdesc).join(' / ')||'none yet'),
     'LIKED: '+(p.liked.slice(-25).map(mdesc).join(' / ')||'none yet'),
@@ -408,7 +429,7 @@ async function askGemini(n){
     'Rules: real, findable films on TMDB. Prefer the viewer\'s favorite directors, moods, and eras. Never a banned genre. Mostly safe picks, at most one exploration. Vary directors.',
     '',
     'Return ONLY a raw JSON array, no markdown:',
-    '[{"title":"","year":"YYYY","director":"","reason":"max 14 words, why THIS viewer"}]'
+    '[{"title":"","year":"YYYY","director":"creator if series","type":"movie or tv","reason":"max 14 words, why THIS viewer"}]'
   ].filter(Boolean).join('\n');
   const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(S.gemini),
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:lines}]}],generationConfig:{temperature:1.0}})});
@@ -429,29 +450,33 @@ async function askGemini(n){
 /* ---------- TMDB ---------- */
 async function tmdbResolve(cand){
   if(!S.tmdb) return null;
+  const tv = (cand.type==='tv');
   try{
-    let u='https://api.themoviedb.org/3/search/movie?api_key='+encodeURIComponent(S.tmdb)+'&query='+encodeURIComponent(cand.title);
-    if(cand.year) u+='&year='+encodeURIComponent(cand.year);
+    let u='https://api.themoviedb.org/3/search/'+(tv?'tv':'movie')+'?api_key='+encodeURIComponent(S.tmdb)+'&query='+encodeURIComponent(cand.title);
+    if(cand.year) u+= tv ? ('&first_air_date_year='+encodeURIComponent(cand.year)) : ('&year='+encodeURIComponent(cand.year));
     const r=await fetch(u); if(!r.ok){ if(r.status===401){toast('TMDB key rejected');} return null; }
     const d=await r.json(); const hit=(d.results||[])[0]; if(!hit) return null;
-    if(S.seen.has(mkey({title:hit.title,year:(hit.release_date||'').slice(0,4)}))) return null;
-    return hit.id;
+    const ht=tv?(hit.name||''):(hit.title||''); const hy=((tv?hit.first_air_date:hit.release_date)||'').slice(0,4);
+    if(S.seen.has(mkey({title:ht,year:hy}))) return null;
+    return {id:hit.id, type: tv?'tv':'movie'};
   }catch(_){ return null; }
 }
-async function tmdbDetails(id){
-  const u='https://api.themoviedb.org/3/movie/'+id+'?api_key='+encodeURIComponent(S.tmdb)+'&append_to_response=videos,watch/providers,credits,external_ids';
+async function tmdbDetails(id,type){
+  const tv=(type==='tv');
+  const u='https://api.themoviedb.org/3/'+(tv?'tv':'movie')+'/'+id+'?api_key='+encodeURIComponent(S.tmdb)+'&append_to_response=videos,watch/providers,credits,external_ids';
   const r=await fetch(u); if(!r.ok) return null; const d=await r.json();
   const trailer=(d.videos&&d.videos.results||[]).find(v=>v.site==='YouTube'&&v.type==='Trailer')||(d.videos&&d.videos.results||[]).find(v=>v.site==='YouTube');
-  const dir=((d.credits&&d.credits.crew)||[]).find(c=>c.job==='Director');
+  const dir= tv ? ((d.created_by||[])[0]||null) : ((d.credits&&d.credits.crew)||[]).find(c=>c.job==='Director');
   const prov=(d['watch/providers']&&d['watch/providers'].results&&d['watch/providers'].results[S.region])||null;
   const imdbId=(d.external_ids&&d.external_ids.imdb_id)||d.imdb_id||'';
   const det={
-    id:d.id, title:d.title, year:(d.release_date||'').slice(0,4),
+    id:d.id, type: tv?'tv':'movie', title: tv?d.name:d.title, year:((tv?d.first_air_date:d.release_date)||'').slice(0,4),
+    seasons: tv?(d.number_of_seasons||0):0,
     genres:(d.genres||[]).map(g=>g.name), director:dir?dir.name:'',
     overview:d.overview||'', poster:d.poster_path?(S.imgBase+'w500'+d.poster_path):'',
-    rating:d.vote_average?d.vote_average.toFixed(1):'', runtime:d.runtime||0,
+    rating:d.vote_average?d.vote_average.toFixed(1):'', runtime: tv?((d.episode_run_time||[])[0]||0):(d.runtime||0),
     trailer:trailer?('https://www.youtube.com/watch?v='+trailer.key):'',
-    tmdbUrl:'https://www.themoviedb.org/movie/'+d.id,
+    tmdbUrl:'https://www.themoviedb.org/'+(tv?'tv':'movie')+'/'+d.id,
     imdbId, imdbUrl:imdbId?('https://www.imdb.com/title/'+imdbId+'/'):'',
     imdbRating:'', rtRating:'',
     providers:prov, provLink:prov?prov.link:''
@@ -486,8 +511,8 @@ async function ensureQueue(){
       if(!S.candidates.length){await refill(); if(!S.candidates.length)break;}
       const c=S.candidates.shift();
       if(S.seen.has(mkey({title:c.title,year:c.year}))||S.seenT.has(tkey(c)))continue;
-      const id=await tmdbResolve(c); if(!id)continue;
-      const det=await tmdbDetails(id); if(!det)continue;
+      const hit=await tmdbResolve(c); if(!hit)continue;
+      const det=await tmdbDetails(hit.id,hit.type); if(!det)continue;
       if(det.genres.some(gn=>S.profile.hatedGenres.map(x=>x.toLowerCase()).includes(gn.toLowerCase())))continue;
       det.reason=c.reason||''; S.queue.push(det); S.seen.add(mkey(det)); S.seenT.add(tkey(det));
     }
@@ -511,7 +536,7 @@ function showMovie(m,pushHist){
   const img=$('poster');
   if(m.poster){img.src=m.poster;img.classList.remove('hidden');}else img.classList.add('hidden');
   $('mvTitle').textContent=m.title;
-  const bits=[m.year,m.runtime?(m.runtime+' min'):'',m.director?('dir. '+m.director):''].filter(Boolean).join(' · ');
+  const bits=[m.type==='tv'?'📺 series':'',m.year,m.seasons?(m.seasons+' season'+(m.seasons>1?'s':'')):'',m.runtime?(m.runtime+' min'+(m.type==='tv'?'/ep':'')):'',m.director?((m.type==='tv'?'by ':'dir. ')+m.director):''].filter(Boolean).join(' · ');
   const rt=[];
   if(m.rating)rt.push('<span class="tmdb">★ '+m.rating+' TMDB</span>');
   if(m.imdbRating)rt.push('<span class="imdb">IMDb '+esc(m.imdbRating)+'</span>');
@@ -546,11 +571,11 @@ function renderProviders(m){
 
 /* ---------- ratings ---------- */
 function love(){const m=S.current;if(!m)return;if(S.mode==='fav'){toast('Already a favorite ★');return;}addTo('loved',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,3));bump(S.profile.dirScore,m.director,3);flash('★ masterpiece · logged');after(m);}
-function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.profile.watchlist.some(x=>mkey(x)===k)){S.profile.watchlist=S.profile.watchlist.filter(x=>mkey(x)!==k);saveLocal();renderModel();toast('Removed from watchlist');const wl=$('wlBtn');if(wl){wl.textContent='＋ Watchlist';wl.style.color='';wl.style.borderColor='';}return;}S.profile.watchlist.push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,poster:m.poster});S.seen.add(k);S.seenT.add(tkey(m));saveLocal();renderModel();toast('＋ Saved to watchlist · advancing');advance();}
+function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.profile.watchlist.some(x=>mkey(x)===k)){S.profile.watchlist=S.profile.watchlist.filter(x=>mkey(x)!==k);saveLocal();renderModel();toast('Removed from watchlist');const wl=$('wlBtn');if(wl){wl.textContent='＋ Watchlist';wl.style.color='';wl.style.borderColor='';}return;}S.profile.watchlist.push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,type:m.type||'movie',poster:m.poster});S.seen.add(k);S.seenT.add(tkey(m));saveLocal();renderModel();toast('＋ Saved to watchlist · advancing');advance();}
 function like(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){advance();return;}addTo('liked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,1));bump(S.profile.dirScore,m.director,1);flash('liked · more like it');after(m);}
 function meh(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){toast('Still a favorite ★');advance();return;}addTo('disliked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-1));flash('noted · steering away');after(m);}
 function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}addTo('banned',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-2));S.queue=S.queue.filter(q=>mkey(q)!==mkey(m));S.candidates=S.candidates.filter(q=>tkey(q)!==tkey(m));flash('⦸ never again · this film only');after(m);}
-function addTo(b,m){const k=mkey(m);['loved','liked','disliked','banned'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,poster:m.poster});S.seen.add(k);S.seenT.add(tkey(m));}
+function addTo(b,m){const k=mkey(m);['loved','liked','disliked','banned'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,type:m.type||'movie',poster:m.poster,reason:m.reason||''});S.seen.add(k);S.seenT.add(tkey(m));}
 function after(m){renderModel();saveLocal();advance();}
 function flash(msg){toast('<span class="k">learned</span> · '+msg);}
 function advance(){ if(S.mode==='fav'){nextFav();return;} if(!S.queue.length){ if(S.geminiQuotaOut){quotaStop();return;} setStatus('<b>Curating…</b>'); ensureQueue().then(()=>{if(S.queue.length)showMovie(S.queue.shift());else if(S.geminiQuotaOut)quotaStop();}); return;} showMovie(S.queue.shift()); ensureQueue(); }
@@ -563,8 +588,8 @@ async function nextFav(){
   if(!S.favQueue.length)S.favQueue=shuffle(S.profile.loved);
   const f={...S.favQueue.shift()};
   if(!f.overview||!f.genres){ // rehydrate from TMDB
-    const id=f.id||await tmdbResolve({title:f.title,year:f.year});
-    if(id){const det=await tmdbDetails(id);if(det)Object.assign(f,det);}
+    const hit=f.id?{id:f.id,type:f.type||'movie'}:await tmdbResolve({title:f.title,year:f.year,type:f.type});
+    if(hit){const det=await tmdbDetails(hit.id,hit.type);if(det)Object.assign(f,det);}
   }
   f.reason='all-time favorite'; showMovie(f); renderQueue();
 }
@@ -618,10 +643,19 @@ function renderModelInner(){
   el.innerHTML=parts.join('')+
     '<button class="editbtn" id="editTgl">'+(S.editOpen?'▾ hide film list':'✎ edit / ▶ play my films ('+total+')')+'</button>'+
     '<div id="mlistWrap" class="'+(S.editOpen?'':'hidden')+'"></div>'+
-    '<div class="model-actions"><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>';
+    '<div id="tsumBox" class="mlist-hint" style="text-align:left;display:'+(S.profile.tasteSummary?'block':'none')+'">'+esc(S.profile.tasteSummary||'')+'</div>'+
+    '<div class="model-actions"><a id="tsum">🧠 what has it learned?</a><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>';
   $('editTgl').onclick=()=>{S.editOpen=!S.editOpen;renderModel();};
   el.querySelectorAll('[data-bg]').forEach(ch=>ch.onclick=()=>{const g=ch.dataset.bg;S.profile.hatedGenres=S.profile.hatedGenres.filter(x=>x!==g);delete S.profile.genreScore[g];saveLocal();renderModel();toast('genre unbanned · '+g);});
   if(S.editOpen){try{renderMList();}catch(_){}}
+  $('tsum').onclick=async()=>{
+    $('tsumBox').style.display='block'; $('tsumBox').textContent='thinking…';
+    try{
+      const p=S.profile;
+      const txt=await geminiText('In 2-3 plain sentences, describe this viewer\'s film/TV taste — moods, eras, directors, what they avoid. Be specific, no flattery. FAVORITES: '+p.loved.map(mdesc).join('; ')+'. LIKED: '+p.liked.slice(-15).map(mdesc).join('; ')+'. AVOIDS: '+p.disliked.slice(-8).map(m=>m.title).join('; ')+(p.hatedGenres.length?('. BANNED: '+p.hatedGenres.join(', ')):''));
+      S.profile.tasteSummary=txt; saveLocal(); $('tsumBox').textContent=txt;
+    }catch(e){ $('tsumBox').textContent='could not generate — check Gemini key/quota'; }
+  };
   $('exp').onclick=exportProfile;
   $('rst').onclick=()=>{if(confirm('Wipe everything Reel has learned?')){S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:S.profile.seed};S.seen.clear();saveLocal();renderModel();toast('Reset');}};
   $('mcount').textContent=total?(total+' rated'):'';
@@ -635,7 +669,7 @@ function renderMList(){
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.edit.split(':');editEntry(k,+i);});
 }
 function editEntry(b,i){const m=S.profile[b][i];const nt=prompt('Edit "Title (Year)":',m.title+(m.year?(' ('+m.year+')'):''));if(nt===null)return;const mm=nt.match(/^(.*?)(?:\s*\((\d{4})\))?$/);S.seen.delete(mkey(m));m.title=(mm[1]||'').trim();m.year=mm[2]||'';delete m.id;delete m.overview;S.seen.add(mkey(m));saveLocal();renderModel();toast('Updated');}
-async function playSpecific(m){const c={...m,reason:'you chose this'};const id=c.id||await tmdbResolve({title:c.title,year:c.year});if(!id){toast('Not found on TMDB');return;}const det=await tmdbDetails(id);if(det){Object.assign(c,det);}showTab('now');showMovie(c);}
+async function playSpecific(m){const c={...m,reason:'you chose this'};const hit=c.id?{id:c.id,type:c.type||'movie'}:await tmdbResolve({title:c.title,year:c.year,type:c.type});if(!hit){toast('Not found on TMDB');return;}const det=await tmdbDetails(hit.id,hit.type);if(det){Object.assign(c,det);}showTab('now');showMovie(c);}
 
 /* ---------- manual anchor ---------- */
 function addAnchors(){
@@ -660,11 +694,69 @@ function openSettings(){$('setupTitle').textContent=S.started?'Settings':'Setup'
 function closeSettings(){$('settingsOverlay').classList.add('hidden');}
 $('gearBtn').onclick=openSettings;$('closeSettings').onclick=closeSettings;
 $('settingsOverlay').addEventListener('click',e=>{if(e.target.id==='settingsOverlay')closeSettings();});
+document.querySelectorAll('.mchip').forEach(c=>c.onclick=()=>{
+  S.media=c.dataset.m; saveRewindConfig({reelMedia:S.media});
+  document.querySelectorAll('.mchip').forEach(x=>x.classList.toggle('on',x===c));
+  S.candidates=[]; toast(c.textContent.trim()+' · from the next picks');
+  if(S.started && !S.geminiQuotaOut) refill();
+});
+function syncMediaChips(){document.querySelectorAll('.mchip').forEach(x=>x.classList.toggle('on',x.dataset.m===S.media));}
 $('favPill').onclick=()=>{if(!S.started){toast('Start first');return;}S.mode==='fav'?exitFav():enterFav();};
 $('btnLove').onclick=love;$('btnLike').onclick=like;$('btnMeh').onclick=meh;$('btnNever').onclick=never;$('btnNext').onclick=neutralNext;
 $('quotaFavBtn').onclick=()=>{$('quotaWall').classList.add('hidden');enterFav();};
 $('quotaSettingsBtn').onclick=()=>{$('quotaWall').classList.add('hidden');openSettings();};
 $('exportBtn').onclick=exportProfile;
+function parseCSV(text){
+  const rows=[]; let row=[], cell='', q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else q=false; } else cell+=ch; }
+    else if(ch==='"') q=true;
+    else if(ch===','){ row.push(cell); cell=''; }
+    else if(ch==='\n'||ch==='\r'){ if(cell!==''||row.length){ row.push(cell); rows.push(row); row=[]; cell=''; } if(ch==='\r'&&text[i+1]==='\n')i++; }
+    else cell+=ch;
+  }
+  if(cell!==''||row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+function importLetterboxd(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    const rows=parseCSV(String(r.result||'')); if(rows.length<2){ $('impNote').textContent='Empty or unreadable file.'; return; }
+    const hdr=rows[0].map(h=>h.toLowerCase().trim());
+    const ni=hdr.indexOf('name'), yi=hdr.indexOf('year'), ri=hdr.indexOf('rating');
+    if(ni<0){ $('impNote').textContent='No "Name" column — is this a Letterboxd export?'; return; }
+    let counts={loved:0,liked:0,disliked:0,watchlist:0,skipped:0};
+    rows.slice(1).forEach(rw=>{
+      const title=(rw[ni]||'').trim(); if(!title){counts.skipped++;return;}
+      const year=yi>=0?(rw[yi]||'').trim():'';
+      const m={title,year,director:'',genres:[],type:'movie'};
+      if(S.seen.has(mkey(m))||S.seenT.has(tkey(m))){counts.skipped++;return;}
+      let bucket='watchlist';
+      if(ri>=0 && (rw[ri]||'').trim()!==''){
+        const rt=parseFloat(rw[ri]);
+        bucket = rt>=4.5?'loved' : rt>=3?'liked' : 'disliked';
+      }
+      S.profile[bucket].push(m); S.seen.add(mkey(m)); S.seenT.add(tkey(m)); counts[bucket]++;
+    });
+    saveLocal(); renderModel(); renderWatchlist();
+    $('impNote').textContent='Imported · ★ '+counts.loved+' favorites, ▲ '+counts.liked+' liked, ▽ '+counts.disliked+', 🔖 '+counts.watchlist+' watchlist'+(counts.skipped?(' · '+counts.skipped+' skipped'):'');
+    toast('⇪ Letterboxd imported');
+  };
+  r.readAsText(file);
+}
+async function geminiText(prompt){
+  const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(S.gemini),
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.7}})});
+  let res=await call();
+  if(res.status===429 && rotateGemini()) res=await call();
+  if(!res.ok) throw new Error('Gemini '+res.status);
+  const d=await res.json();
+  return (d.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('').trim();
+}
+$('impTgl').onclick=()=>$('impForm').classList.toggle('hidden');
+$('impPick').onclick=()=>$('impFile').click();
+$('impFile').onchange=e=>{ const f=e.target.files[0]; if(f) importLetterboxd(f); e.target.value=''; };
 $('anchorTgl').onclick=()=>$('anchorForm').classList.toggle('hidden');
 $('anchorAdd').onclick=addAnchors;
 $('importBtn').onclick=()=>$('importFile').click();
@@ -684,7 +776,7 @@ $('startBtn').onclick=async()=>{
   if(!S.profile.seed&&S.profile.loved.length+S.profile.liked.length===0){toast('Give it a seed to start');$('seed').focus();return;}
   S.started=true;closeSettings();
   $('tabbar').classList.remove('hidden');$('stage').classList.remove('hidden');
-  renderModel();renderQueue();updateFavPill();showTab('now');
+  renderModel();renderQueue();updateFavPill();syncMediaChips();showTab('now');
   setStatus('<b>Warming up…</b> Gemini is choosing your first films.');
   try{
     await ensureQueue();

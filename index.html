@@ -143,6 +143,10 @@
           <label>YouTube Data API key(s) <span class="hint">— recommended · one per line</span></label>
           <textarea id="ytKey" class="keybox" placeholder="AIza… key 1&#10;AIza… key 2 (optional)" spellcheck="false"></textarea>
         </div>
+        <div class="field">
+          <label>Last.fm API key <span class="hint">— optional · real listening-data similarity</span></label>
+          <input id="lastfmKey" type="password" placeholder="Last.fm key (optional)" autocomplete="off">
+        </div>
 
         <div class="sgroup">🎬 Reel (film)</div>
         <div class="field">
@@ -187,7 +191,7 @@
     const c=loadRewindConfig();
     g('geminiKey').value=(c.geminiKeys||[]).join('\n');
     g('ytKey').value=(c.ytKeys||[]).join('\n');
-    g('tmdbKey').value=c.tmdb||''; g('omdbKey').value=c.omdb||'';
+    g('tmdbKey').value=c.tmdb||''; g('omdbKey').value=c.omdb||''; g('lastfmKey').value=c.lastfm||'';
     g('region').value=c.region||'EG'; g('model').value=c.model||'gemini-3.5-flash';
     g('settingsOverlay').classList.remove('hidden');
   }
@@ -197,7 +201,7 @@
   g('saveSettings').onclick=()=>{
     saveRewindConfig({
       geminiKeys:pk(g('geminiKey').value), ytKeys:pk(g('ytKey').value),
-      tmdb:g('tmdbKey').value.trim(), omdb:g('omdbKey').value.trim(),
+      tmdb:g('tmdbKey').value.trim(), omdb:g('omdbKey').value.trim(), lastfm:g('lastfmKey').value.trim(),
       region:g('region').value, model:g('model').value
     });
     g('saveNote').textContent='Saved. Cassette and Reel will use these keys.';
@@ -207,7 +211,7 @@
   function refreshGearLabel(){ const c=loadRewindConfig(); g('gearBtn').textContent = (c.geminiKeys&&c.geminiKeys.length) ? ('⚙ API settings · '+c.geminiKeys.length+' key(s) set') : '⚙ API settings'; }
   refreshGearLabel();
 
-  const BUILD='Rewind · build 4 · 2026-07-14 · Paperback';
+  const BUILD='Rewind · build 5 · 2026-07-15 · lastfm';
   try{document.getElementById('buildStamp').textContent=BUILD;}catch(_){}
   // show install hint where PWA install is plausible
   try{ if(matchMedia('(display-mode: browser)').matches) document.getElementById('install').classList.add('show'); }catch(_){}

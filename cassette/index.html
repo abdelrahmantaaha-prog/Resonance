@@ -294,6 +294,10 @@
           <textarea id="ytKey" class="keybox" placeholder="AIza… key 1&#10;AIza… key 2 (optional)" autocomplete="off" spellcheck="false"></textarea>
         </div>
         <div class="field">
+          <label>Last.fm API key <span class="hint">— optional · real listening-data similarity · last.fm/api</span></label>
+          <input id="lastfmKey" type="password" placeholder="Last.fm key (blank = Gemini-only picks)" autocomplete="off">
+        </div>
+        <div class="field">
           <label>Seed — an artist, song, or vibe to start from</label>
           <input id="seed" type="text" placeholder="e.g. moody Arabic indie · Radiohead · late-night jazz">
         </div>
@@ -392,6 +396,21 @@
         <div class="model" id="model"></div>
         <div class="anchor">
           <span class="tgl" id="anchorTgl">＋ add songs manually</span>
+            &nbsp;·&nbsp; <span class="tgl" id="impTgl">⇪ import Spotify / CSV</span>
+            <div class="hidden" id="impForm" style="margin-top:10px">
+              <div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:8px">
+                Accepts an <b>Exportify</b> CSV of your Spotify playlist/likes, any CSV with title+artist columns, or a plain text file of "Title — Artist" lines.
+              </div>
+              <div class="row" style="display:flex;gap:8px">
+                <select id="impBucket" style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:8px;font-family:var(--mono);font-size:12px">
+                  <option value="liked">import as liked</option>
+                  <option value="loved">import as ♥ favorites</option>
+                </select>
+                <button class="btn sm" id="impPick">Choose file</button>
+              </div>
+              <input type="file" id="impFile" accept=".csv,.txt,text/csv,text/plain" style="display:none">
+              <div id="impNote" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:8px"></div>
+            </div>
           <div class="hidden" id="anchorForm">
             <textarea id="anchorText" placeholder="One per line:&#10;Song Title — Artist&#10;Aicha - Cheb Khaled"></textarea>
             <div class="row">
@@ -434,7 +453,7 @@ const S = {
   player: null, ytReady:false, playing:false, resolving:false, thinking:false, started:false,
   progTimer:null, mode:'discover', heartQueue:[], history:[], userPaused:false,
   pendingTrack:null, dataSaver:'off', ytQuotaOut:false, geminiQuotaOut:false, tab:'now', seeking:false,
-  geminiKeys:[], gi:0, ytKeys:[], yi:0,
+  geminiKeys:[], gi:0, ytKeys:[], yi:0, lastfm:'',
   lyrics:null, lyricsLines:[], lyricIdx:-1, lyricsFor:'', lyricsOn:true, translated:false, editOpen:true,
 };
 
@@ -489,12 +508,13 @@ function loadRewindConfig(){
 }
 function saveRewindConfig(patch){ const c=Object.assign(loadRewindConfig(), patch||{}); try{ localStorage.setItem('rewind_config', JSON.stringify(c)); }catch(_){} return c; }
 
-function saveKeys(){ saveRewindConfig({geminiKeys:S.geminiKeys, ytKeys:S.ytKeys, model:S.model, dataSaver:S.dataSaver, cassetteSeed:S.profile.seed}); }
+function saveKeys(){ saveRewindConfig({geminiKeys:S.geminiKeys, ytKeys:S.ytKeys, lastfm:S.lastfm, model:S.model, dataSaver:S.dataSaver, cassetteSeed:S.profile.seed}); }
 function loadKeys(){
   try{
     const c=loadRewindConfig();
     S.geminiKeys=c.geminiKeys||[]; S.ytKeys=c.ytKeys||[];
     $('geminiKey').value=S.geminiKeys.join('\n'); $('ytKey').value=S.ytKeys.join('\n');
+    S.lastfm=c.lastfm||''; $('lastfmKey').value=S.lastfm;
     if(c.model) $('modelSel').value=c.model; $('seed').value=c.cassetteSeed||'';
     if(c.dataSaver){ S.dataSaver=c.dataSaver; const d=$('dataSaver'); if(d) d.value=c.dataSaver; }
     if(S.geminiKeys.length) $('setupNote').textContent=S.geminiKeys.length+' Gemini · '+S.ytKeys.length+' YouTube key(s) — shared with Reel. Hit Start.';
@@ -523,11 +543,40 @@ function topKeys(obj,n){ return Object.entries(obj).filter(([,v])=>v>0).sort((a,
 /* ============================================================
    GEMINI  — recommendation + learning
 ============================================================ */
+/* Last.fm hybrid: real listening-data candidates that Gemini then curates.
+   track.getSimilar = collaborative filtering from decades of scrobbles. */
+async function lastfmSimilarPool(){
+  if(!S.lastfm) return [];
+  const anchors=sampleDiverse(S.profile.loved.concat(S.profile.liked),3);
+  if(!anchors.length) return [];
+  const pool=[]; const poolKeys=new Set();
+  await Promise.all(anchors.map(async a=>{
+    try{
+      const u='https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&autocorrect=1&limit=12&format=json'
+        +'&api_key='+encodeURIComponent(S.lastfm)
+        +'&artist='+encodeURIComponent(a.artist||'')+'&track='+encodeURIComponent(a.title||'');
+      const r=await fetch(u); if(!r.ok) return;
+      const d=await r.json();
+      ((d.similartracks&&d.similartracks.track)||[]).forEach(t=>{
+        const cand={title:t.name, artist:(t.artist&&t.artist.name)||'', via:a.title};
+        const k=key(cand);
+        if(S.seenKeys.has(k)||poolKeys.has(k)) return;
+        poolKeys.add(k); pool.push(cand);
+      });
+    }catch(_){}
+  }));
+  return pool.slice(0,30);
+}
 async function askGemini(n){
   const p = S.profile;
   const avoid = [...S.seenKeys].slice(-45).join('; ') || 'none yet';
+  const pool = await lastfmSimilarPool();
+  const poolLine = pool.length
+    ? 'CANDIDATE POOL from real listening data (people who love this listener\'s songs also play these). STRONGLY prefer selecting from this pool; you may add outside picks only if the pool cannot satisfy the rules: '+pool.map(c=>c.title+' — '+c.artist).join(' / ')
+    : '';
   const lines = [
     'You are a precise music recommendation engine. Suggest '+n+' songs to play NEXT for this listener.',
+    poolLine,
     '',
     'ALL-TIME FAVORITES (weight these the most): '+ (p.loved.map(desc).join(' / ')||'none yet'),
     'LIKED — listened all the way through (sampled across full history): '+ (sampleDiverse(p.liked,20).map(desc).join(' / ')||'none yet'),
@@ -1002,7 +1051,7 @@ function down(){                          // discovery: kill genre · hearts: re
 function addTo(bucket,t){
   const k=key(t);
   ['loved','liked','disliked','banned'].forEach(b=>{ S.profile[b]=S.profile[b].filter(x=>key(x)!==k); });
-  S.profile[bucket].push({title:t.title,artist:t.artist,genre:t.genre,videoId:t.videoId});  // keep videoId → instant replay in hearts mode
+  S.profile[bucket].push({title:t.title,artist:t.artist,genre:t.genre,videoId:t.videoId,reason:t.reason||''});  // keep videoId → instant replay in hearts mode
   S.seenKeys.add(k);
 }
 function afterFeedback(t,advance){
@@ -1081,10 +1130,18 @@ function renderModelInner(){
   el.innerHTML = parts.join('') +
     `<button class="editbtn" id="editTgl">${S.editOpen?'▾ hide song list':'✎ edit / ▶ play my songs ('+total+')'}</button>
      <div id="mlistWrap" class="${S.editOpen?'':'hidden'}"></div>
-     <div class="model-actions"><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>`;
+     <div id="tsumBox" class="mlist-hint" style="text-align:left;display:${S.profile.tasteSummary?'block':'none'}">${escapeHtml(S.profile.tasteSummary||'')}</div>\n     <div class="model-actions"><a id="tsum">🧠 what has it learned?</a><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>`;
   $('editTgl').onclick=()=>{ S.editOpen=!S.editOpen; renderModel(); };
   el.querySelectorAll('[data-bg]').forEach(ch=>ch.onclick=()=>{ const g=ch.dataset.bg; S.profile.hatedGenres=S.profile.hatedGenres.filter(x=>x!==g); delete S.profile.genreScore[g]; saveLocal(); renderModel(); toast('genre unbanned · '+g); });
   if(S.editOpen){ try{ renderMList(); }catch(e){ $('mlistWrap').innerHTML='<div class="mlist-hint">could not list songs</div>'; } }
+  $('tsum').onclick=async()=>{
+    $('tsumBox').style.display='block'; $('tsumBox').textContent='thinking…';
+    try{
+      const p=S.profile;
+      const txt=await geminiRaw('In 2-3 plain sentences, describe this listener\'s music taste — moods, eras, genres, what they avoid. Be specific, no flattery. FAVORITES: '+p.loved.map(t=>t.title+' — '+t.artist).join('; ')+'. LIKED: '+sampleDiverse(p.liked,15).map(t=>t.title+' — '+t.artist).join('; ')+'. AVOIDS: '+p.disliked.slice(-10).map(t=>t.title).join('; ')+(p.hatedGenres.length?('. BANNED GENRES: '+p.hatedGenres.join(', ')):''));
+      S.profile.tasteSummary=txt.trim(); saveLocal(); $('tsumBox').textContent=S.profile.tasteSummary;
+    }catch(e){ $('tsumBox').textContent='could not generate — check Gemini key/quota'; }
+  };
   $('exp').onclick=exportProfile;
   $('rst').onclick=()=>{ if(confirm('Wipe everything Cassette has learned?')){ S.profile={loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],genreScore:{},artistScore:{},seed:S.profile.seed}; S.seenKeys.clear(); saveLocal(); renderModel(); toast('Model reset'); } };
   $('mcount').textContent = total? (total+' signals') : '';
@@ -1143,6 +1200,53 @@ $('btnSkip').onclick=skip;
 $('btnDown').onclick=down;
 $('btnNext').onclick=neutralNext;
 $('exportBtn2').onclick=exportProfile;
+/* minimal CSV parser: quoted fields, escaped quotes, CRLF */
+function parseCSV(text){
+  const rows=[]; let row=[], cell='', q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else q=false; } else cell+=ch; }
+    else if(ch==='"') q=true;
+    else if(ch===','){ row.push(cell); cell=''; }
+    else if(ch==='\n'||ch==='\r'){ if(cell!==''||row.length){ row.push(cell); rows.push(row); row=[]; cell=''; } if(ch==='\r'&&text[i+1]==='\n')i++; }
+    else cell+=ch;
+  }
+  if(cell!==''||row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+function importSongsFromFile(file,bucket){
+  const r=new FileReader();
+  r.onload=()=>{
+    const txt=String(r.result||''); let items=[];
+    if(/,/.test(txt.split('\n')[0]) && /"|,/.test(txt)){
+      const rows=parseCSV(txt); if(!rows.length){ $('impNote').textContent='Empty file.'; return; }
+      const hdr=rows[0].map(h=>h.toLowerCase().trim());
+      const ti=hdr.findIndex(h=>['track name','name','title','song','track'].includes(h));
+      const ai=hdr.findIndex(h=>['artist name(s)','artist name','artist','artists','artist(s)'].includes(h));
+      if(ti>=0){
+        rows.slice(1).forEach(rw=>{ const t=(rw[ti]||'').trim(); if(!t)return;
+          let a=ai>=0?(rw[ai]||'').trim():''; a=a.split(/[,;]/)[0].trim();
+          items.push({title:t,artist:a}); });
+      }
+    }
+    if(!items.length){ // plain text fallback: "Title — Artist" per line
+      txt.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{
+        const p=line.split(/\s+[—–]\s+|\s+-\s+/); if(p[0]) items.push({title:p[0].trim(),artist:(p[1]||'').trim()});
+      });
+    }
+    let added=0,skipped=0;
+    items.forEach(it=>{ const t={title:it.title,artist:it.artist,genre:''};
+      if(!t.title||S.seenKeys.has(key(t))){skipped++;return;}
+      S.profile[bucket].push(t); S.seenKeys.add(key(t)); added++; });
+    saveLocal(); renderModel();
+    $('impNote').textContent='Imported '+added+' songs into '+(bucket==='loved'?'♥ favorites':'liked')+(skipped?(' · '+skipped+' skipped (dupes/blank)'):'')+'. Gemini will use them from the next batch.';
+    toast('⇪ '+added+' songs imported');
+  };
+  r.readAsText(file);
+}
+$('impTgl').onclick=()=>$('impForm').classList.toggle('hidden');
+$('impPick').onclick=()=>$('impFile').click();
+$('impFile').onchange=e=>{ const f=e.target.files[0]; if(f) importSongsFromFile(f,$('impBucket').value); e.target.value=''; };
 $('anchorTgl').onclick=()=>$('anchorForm').classList.toggle('hidden');
 $('anchorAdd').onclick=addAnchors;
 
@@ -1219,6 +1323,7 @@ $('modePill').onclick=()=>{
 $('startBtn').onclick=async ()=>{
   S.geminiKeys=parseKeys($('geminiKey').value); S.gi=0; S.geminiQuotaOut=false;
   S.ytKeys=parseKeys($('ytKey').value); S.yi=0; S.ytQuotaOut=false;
+  S.lastfm=$('lastfmKey').value.trim();
   S.model=$('modelSel').value;
   S.dataSaver=$('dataSaver').value;
   applyDataSaver();
@@ -1259,7 +1364,7 @@ function applyWide(){ /* tabs are single-pane at all widths now; nothing to togg
 window.addEventListener('resize',()=>{ if(S.started) applyWide(); });
 
 /* on load: prefill remembered keys, show existing profile, open setup */
-const BUILD='Cassette · build 18 · 2026-07-15 · song-level-ban';
+const BUILD='Cassette · build 19 · 2026-07-15 · lastfm+import';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();

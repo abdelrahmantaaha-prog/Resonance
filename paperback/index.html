@@ -91,7 +91,7 @@
   .mv-meta .rt{color:#E0524B}
   .mv-reason{font-size:13.5px;color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:11px;margin:10px 0 14px}
   .mv-reason b{color:var(--gold);font-style:normal;font-family:var(--mono);font-size:11px}
-  .mv-overview{font-size:13.5px;color:var(--muted);margin-bottom:14px;max-height:120px;overflow-y:auto}
+  .mv-overview{white-space:pre-line;font-size:13.5px;color:var(--muted);margin-bottom:14px;max-height:120px;overflow-y:auto}
   .chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
   .gchip{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
   .actions{display:flex;gap:10px;margin-bottom:12px}
@@ -300,6 +300,7 @@
         <div class="shelf-tools">
           <div class="fchips" id="fchips">
             <button class="fchip on" data-f="all">All</button>
+            <button class="fchip" data-f="reading">📖 Reading</button>
             <button class="fchip" data-f="watchlist">🔖 To read</button>
             <button class="fchip" data-f="loved">★</button>
             <button class="fchip" data-f="liked">▲</button>
@@ -323,6 +324,15 @@
           </div>
           <div id="addResults"></div>
           <div class="anchor" style="border-top:1px solid var(--line);margin-top:14px">
+            <span class="tgl" id="impTgl">⇪ import Goodreads CSV</span>
+            <div class="hidden" id="impForm" style="margin:10px 0">
+              <div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:8px">
+                Upload your Goodreads library export (My Books → Import/Export). Maps automatically: ★5 → shelf-changers, ★3–4 → worth it, ★1–2 → not for me, to-read → 🔖, currently-reading → 📖. Unrated read books are skipped.
+              </div>
+              <button class="btn sm" id="impPick">Choose file</button>
+              <input type="file" id="impFile" accept=".csv,text/csv" style="display:none">
+              <div id="impNote" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:8px"></div>
+            </div>
             <span class="tgl" id="anchorTgl">＋ or paste a list manually</span>
             <div class="hidden" id="anchorForm">
               <textarea id="anchorText" placeholder="One per line:&#10;Thinking, Fast and Slow — Kahneman&#10;Why Nations Fail (2012)"></textarea>
@@ -331,6 +341,7 @@
                   <option value="loved">★ shelf-changers</option>
                   <option value="liked">books worth it</option>
                   <option value="disliked">not for me</option>
+                  <option value="reading">📖 currently reading</option>
                   <option value="watchlist">🔖 reading list</option>
                   <option value="hatedGenres">banned topics (one per line)</option>
                 </select>
@@ -349,19 +360,28 @@
     <span id="buildStamp" style="opacity:.6"></span> · Book data by Open Library (openlibrary.org), an Internet Archive project
   </footer>
 </div>
+  <div class="overlay hidden" id="noteOverlay">
+    <div class="sheet" style="max-width:440px">
+      <div class="sheet-h"><span id="noteTitle">📝 Notes</span><button class="xbtn" id="noteClose">✕</button></div>
+      <div class="sheet-body">
+        <textarea id="noteText" style="width:100%;min-height:140px;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:11px;font-family:var(--sans);font-size:13.5px;resize:vertical" placeholder="quotes, arguments, what it changed for you…"></textarea>
+        <button class="btn sm" id="noteSave" style="margin-top:10px">Save note</button>
+      </div>
+    </div>
+  </div>
 <div class="toast" id="toast"></div>
 
 <script>
 const $=id=>document.getElementById(id);
 const S={
   geminiKeys:[],gi:0,model:'gemini-3.5-flash',
-  profile:{loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:''},
+  profile:{loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],watchlist:[],reading:[],genreScore:{},dirScore:{},seed:''},
   seen:new Set(), candidates:[], queue:[], current:null, history:[],
   started:false,resolving:false,thinking:false,mode:'discover',favQueue:[],
   geminiQuotaOut:false,tab:'now',editOpen:true
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Paperback · build 4 · 2026-07-15 · song-level-ban';
+const BUILD='Paperback · build 5 · 2026-07-15 · shelves+import';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -377,7 +397,7 @@ function rotateGemini(){if(S.gi<S.geminiKeys.length-1){S.gi++;return true;}S.gem
 function saveLocal(){try{localStorage.setItem('paperback_profile',JSON.stringify(S.profile));}catch(_){}}
 function normalize(){
   const p=S.profile;
-  ['loved','liked','disliked','banned','hatedGenres','watchlist'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
+  ['loved','liked','disliked','banned','hatedGenres','watchlist','reading'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
   ['genreScore','dirScore'].forEach(k=>{if(!p[k]||typeof p[k]!=='object')p[k]={};});
   if(typeof p.seed!=='string')p.seed='';
   if(Object.keys(p.genreScore).length===0){
@@ -385,7 +405,7 @@ function normalize(){
     p.liked.forEach(m=>(m.genres||[]).forEach(g=>bump(p.genreScore,g,1)));
   }
 }
-function loadLocal(){try{const r=(localStorage.getItem('paperback_profile')||localStorage.getItem('spine_profile'));if(r){Object.assign(S.profile,JSON.parse(r));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked,S.profile.banned||[],S.profile.watchlist||[]).forEach(m=>S.seen.add(mkey(m)));return true;}}catch(_){}normalize();return false;}
+function loadLocal(){try{const r=(localStorage.getItem('paperback_profile')||localStorage.getItem('spine_profile'));if(r){Object.assign(S.profile,JSON.parse(r));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked,S.profile.banned||[],S.profile.watchlist||[],S.profile.reading||[]).forEach(m=>S.seen.add(mkey(m)));return true;}}catch(_){}normalize();return false;}
 /* ---- shared config: one key store all Rewind apps read (same origin) ---- */
 function loadRewindConfig(){
   let c={};
@@ -422,6 +442,7 @@ async function askGemini(n){
     'NOT FOR ME (steer away): '+(p.disliked.slice(-25).map(mdesc).join(' / ')||'none yet'),
     'REJECTED OUTRIGHT — never suggest these exact books again (their topics are fine): '+(p.banned.slice(-25).map(mdesc).join(' / ')||'none'),
     'BANNED TOPICS (manually set — never suggest): '+(p.hatedGenres.join(', ')||'none'),
+    (p.reading&&p.reading.length)?('CURRENTLY READING (context for taste; do not suggest): '+p.reading.map(mdesc).join(' / ')):'',
     p.seed?('SEED / FIELD (strong early signal): '+p.seed):'',
     '',
     'Already read or queued — do NOT repeat: '+avoid,
@@ -538,7 +559,7 @@ function showMovie(m,pushHist){
   $('mvMeta').innerHTML=esc(bits)+(rt.length?(' · '+rt.join(' · ')):'');
   $('mvReason').innerHTML=m.reason?('<b>picked because</b> '+esc(m.reason)):'';
   $('mvGenres').innerHTML=(m.genres||[]).map(g=>'<span class="gchip">'+esc(g)+'</span>').join('');
-  $('mvOverview').textContent=m.overview||'';
+  $('mvOverview').textContent=(m.overview||'')+(m.note?('\n\n📝 your note: '+m.note):'');
   const acts=[];
   if(m.goodreadsUrl)acts.push('<a href="'+m.goodreadsUrl+'" target="_blank" rel="noopener">Goodreads</a>');
   if(m.olUrl)acts.push('<a href="'+m.olUrl+'" target="_blank" rel="noopener">ⓘ Open Library</a>');
@@ -569,7 +590,7 @@ function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.prof
 function like(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){advance();return;}addTo('liked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,1));bump(S.profile.dirScore,m.director,1);flash('liked · more like it');after(m);}
 function meh(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){toast('Still a favorite ★');advance();return;}addTo('disliked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-1));flash('noted · steering away');after(m);}
 function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}addTo('banned',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-2));S.queue=S.queue.filter(q=>mkey(q)!==mkey(m));S.candidates=S.candidates.filter(q=>mkey(q)!==mkey(m));flash('⦸ never again · this book only');after(m);}
-function addTo(b,m){const k=mkey(m);['loved','liked','disliked','banned'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,author:m.author||m.director,director:m.author||m.director,genres:m.genres,poster:m.poster});S.seen.add(k);}
+function addTo(b,m){const k=mkey(m);['loved','liked','disliked','banned'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,author:m.author||m.director,director:m.author||m.director,genres:m.genres,poster:m.poster,note:m.note||'',reason:m.reason||''});S.seen.add(k);}
 function after(m){renderModel();try{renderShelf();}catch(_){ }saveLocal();advance();}
 function flash(msg){toast('<span class="k">learned</span> · '+msg);}
 function advance(){ if(S.mode==='fav'){nextFav();return;} if(!S.queue.length){ if(S.geminiQuotaOut){quotaStop();return;} setStatus('<b>Curating…</b>'); ensureQueue().then(()=>{if(S.queue.length)showMovie(S.queue.shift());else if(S.geminiQuotaOut)quotaStop();}); return;} showMovie(S.queue.shift()); ensureQueue(); }
@@ -601,13 +622,14 @@ function renderQueue(){
   el.innerHTML=h;
   const _qc=$('qcount'); if(_qc)_qc.textContent=S.mode==='fav'?'★ favorites':((S.thinking||S.resolving)?'planning…':(S.queue.length+' ready'));
 }
-let shelfFilter='all';
-function shelfIcon(b){return {loved:'★',liked:'▲',disliked:'▽',watchlist:'🔖',banned:'⦸'}[b]||'';}
+let shelfFilter='all'; let noteRef=null;
+function openNote(m){ noteRef=m; $('noteTitle').textContent='📝 '+m.title; $('noteText').value=m.note||''; $('noteOverlay').classList.remove('hidden'); }
+function shelfIcon(b){return {loved:'★',liked:'▲',disliked:'▽',watchlist:'🔖',reading:'📖',banned:'⦸'}[b]||'';}
 function renderShelf(){
   const list=$('shelfList'); if(!list)return;
   const q=(($('shelfQ')&&$('shelfQ').value)||'').toLowerCase();
   const rows=[];
-  ['watchlist','loved','liked','disliked','banned'].forEach(b=>{
+  ['reading','watchlist','loved','liked','disliked','banned'].forEach(b=>{
     if(shelfFilter!=='all'&&shelfFilter!==b)return;
     (S.profile[b]||[]).forEach((m,i)=>{
       const hay=(m.title+' '+(m.author||m.director||'')+' '+((m.genres||[]).join(' '))).toLowerCase();
@@ -624,10 +646,12 @@ function renderShelf(){
       '<div class="bi"><div class="bt">'+esc(m.title)+'</div><div class="ba">'+esc((m.author||m.director||'')+(m.year?(' · '+m.year):''))+'</div></div>'+
       '<span class="badge">'+shelfIcon(r.b)+'</span>'+
       '<button class="mbtn" data-so="'+ri+'" title="Open">▶</button>'+
-      '<select data-sm="'+ri+'" title="Move shelf"><option value="">⇄</option><option value="watchlist">🔖</option><option value="loved">★</option><option value="liked">▲</option><option value="disliked">▽</option><option value="banned">⦸</option></select>'+
+      '<button class="mbtn" data-nt="'+ri+'" title="Notes" style="'+(m.note?'color:var(--gold);border-color:var(--gold)':'')+'">📝</button>'+
+      '<select data-sm="'+ri+'" title="Move shelf"><option value="">⇄</option><option value="reading">📖</option><option value="watchlist">🔖</option><option value="loved">★</option><option value="liked">▲</option><option value="disliked">▽</option><option value="banned">⦸</option></select>'+
       '<button class="mbtn del" data-sx="'+ri+'" title="Remove">✕</button></div>';
   }).join('');
   list.querySelectorAll('[data-so]').forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.so];playSpecific(r.m);});
+  list.querySelectorAll('[data-nt]').forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.nt];openNote(r.m);});
   list.querySelectorAll('[data-sx]').forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.sx];S.profile[r.b].splice(r.i,1);S.seen.delete(mkey(r.m));saveLocal();renderShelf();renderModel();toast('Removed');});
   list.querySelectorAll('[data-sm]').forEach(sel=>sel.onchange=()=>{const r=rows[+sel.dataset.sm];const to=sel.value;if(!to||to===r.b)return;S.profile[r.b].splice(r.i,1);S.profile[to].push(r.m);saveLocal();renderShelf();renderModel();toast('Moved to '+shelfIcon(to));});
 }
@@ -669,10 +693,19 @@ function renderModelInner(){
   el.innerHTML=parts.join('')+
     '<button class="editbtn" id="editTgl">'+(S.editOpen?'▾ hide book list':'✎ edit / ▶ open my books ('+total+')')+'</button>'+
     '<div id="mlistWrap" class="'+(S.editOpen?'':'hidden')+'"></div>'+
-    '<div class="model-actions"><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>';
+    '<div id="tsumBox" class="mlist-hint" style="text-align:left;display:'+(S.profile.tasteSummary?'block':'none')+'">'+esc(S.profile.tasteSummary||'')+'</div>'+
+    '<div class="model-actions"><a id="tsum">🧠 what has it learned?</a><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>';
   $('editTgl').onclick=()=>{S.editOpen=!S.editOpen;renderModel();};
   el.querySelectorAll('[data-bg]').forEach(ch=>ch.onclick=()=>{const g=ch.dataset.bg;S.profile.hatedGenres=S.profile.hatedGenres.filter(x=>x!==g);delete S.profile.genreScore[g];saveLocal();renderModel();toast('topic unbanned · '+g);});
   if(S.editOpen){try{renderMList();}catch(_){}}
+  $('tsum').onclick=async()=>{
+    $('tsumBox').style.display='block'; $('tsumBox').textContent='thinking…';
+    try{
+      const p=S.profile;
+      const txt=await geminiText('In 2-3 plain sentences, describe this reader\'s mind — the fields, thinkers, and kinds of arguments they gravitate to, and what they avoid. Be specific, no flattery. SHELF-CHANGERS: '+p.loved.map(mdesc).join('; ')+'. WORTH IT: '+p.liked.slice(-15).map(mdesc).join('; ')+'. AVOIDS: '+p.disliked.slice(-8).map(m=>m.title).join('; ')+(p.hatedGenres.length?('. BANNED TOPICS: '+p.hatedGenres.join(', ')):''));
+      S.profile.tasteSummary=txt; saveLocal(); $('tsumBox').textContent=txt;
+    }catch(e){ $('tsumBox').textContent='could not generate — check Gemini key/quota'; }
+  };
   $('exp').onclick=exportProfile;
   $('rst').onclick=()=>{if(confirm('Wipe everything Paperback has learned?')){S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:S.profile.seed};S.seen.clear();saveLocal();renderModel();toast('Reset');}};
   $('mcount').textContent=total?(total+' rated'):'';
@@ -726,6 +759,67 @@ $('btnLove').onclick=love;$('btnLike').onclick=like;$('btnMeh').onclick=meh;$('b
 $('quotaFavBtn').onclick=()=>{$('quotaWall').classList.add('hidden');enterFav();};
 $('quotaSettingsBtn').onclick=()=>{$('quotaWall').classList.add('hidden');openSettings();};
 $('exportBtn').onclick=exportProfile;
+function parseCSV(text){
+  const rows=[]; let row=[], cell='', q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else q=false; } else cell+=ch; }
+    else if(ch==='"') q=true;
+    else if(ch===','){ row.push(cell); cell=''; }
+    else if(ch==='\n'||ch==='\r'){ if(cell!==''||row.length){ row.push(cell); rows.push(row); row=[]; cell=''; } if(ch==='\r'&&text[i+1]==='\n')i++; }
+    else cell+=ch;
+  }
+  if(cell!==''||row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+function importGoodreads(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    const rows=parseCSV(String(r.result||'')); if(rows.length<2){ $('impNote').textContent='Empty or unreadable file.'; return; }
+    const hdr=rows[0].map(h=>h.toLowerCase().trim());
+    const ti=hdr.indexOf('title'), ai=hdr.indexOf('author'), ri=hdr.indexOf('my rating'), si=hdr.indexOf('exclusive shelf'), yi=hdr.indexOf('original publication year');
+    if(ti<0){ $('impNote').textContent='No "Title" column — is this a Goodreads export?'; return; }
+    let counts={loved:0,liked:0,disliked:0,watchlist:0,reading:0,skipped:0};
+    rows.slice(1).forEach(rw=>{
+      const title=(rw[ti]||'').trim(); if(!title){counts.skipped++;return;}
+      const author=ai>=0?(rw[ai]||'').trim():'';
+      const year=yi>=0?String(rw[yi]||'').trim().split('.')[0]:'';
+      const m={title,author,director:author,year,genres:[]};
+      if(S.seen.has(mkey(m))){counts.skipped++;return;}
+      const shelf=si>=0?(rw[si]||'').trim().toLowerCase():'read';
+      const rt=ri>=0?parseInt(rw[ri]||'0',10):0;
+      let bucket=null;
+      if(shelf==='to-read') bucket='watchlist';
+      else if(shelf==='currently-reading') bucket='reading';
+      else if(rt>=5) bucket='loved';
+      else if(rt>=3) bucket='liked';
+      else if(rt>=1) bucket='disliked';
+      if(!bucket){counts.skipped++;return;}
+      S.profile[bucket].push(m); S.seen.add(mkey(m)); counts[bucket]++;
+      if(bucket==='loved'&&author) bump(S.profile.dirScore,author,3);
+      if(bucket==='liked'&&author) bump(S.profile.dirScore,author,1);
+    });
+    saveLocal(); renderModel(); renderShelf();
+    $('impNote').textContent='Imported · ★ '+counts.loved+', ▲ '+counts.liked+', ▽ '+counts.disliked+', 🔖 '+counts.watchlist+', 📖 '+counts.reading+(counts.skipped?(' · '+counts.skipped+' skipped (dupes/unrated)'):'');
+    toast('⇪ Goodreads imported');
+  };
+  r.readAsText(file);
+}
+async function geminiText(prompt){
+  const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(S.gemini),
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.7}})});
+  let res=await call();
+  if(res.status===429 && rotateGemini()) res=await call();
+  if(!res.ok) throw new Error('Gemini '+res.status);
+  const d=await res.json();
+  return (d.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('').trim();
+}
+$('impTgl').onclick=()=>$('impForm').classList.toggle('hidden');
+$('impPick').onclick=()=>$('impFile').click();
+$('impFile').onchange=e=>{ const f=e.target.files[0]; if(f) importGoodreads(f); e.target.value=''; };
+$('noteClose').onclick=()=>$('noteOverlay').classList.add('hidden');
+$('noteOverlay').addEventListener('click',e=>{if(e.target.id==='noteOverlay')$('noteOverlay').classList.add('hidden');});
+$('noteSave').onclick=()=>{ if(noteRef){ noteRef.note=$('noteText').value.trim(); saveLocal(); renderShelf(); toast(noteRef.note?'📝 note saved':'note cleared'); } $('noteOverlay').classList.add('hidden'); };
 $('anchorTgl').onclick=()=>$('anchorForm').classList.toggle('hidden');
 $('shelfQ').oninput=()=>renderShelf();
 document.querySelectorAll('.fchip').forEach(c=>c.onclick=()=>{shelfFilter=c.dataset.f;document.querySelectorAll('.fchip').forEach(x=>x.classList.toggle('on',x===c));renderShelf();});
@@ -738,7 +832,7 @@ $('addGo').onclick=async()=>{
     $('addResults').innerHTML=res.map((b,i)=>{
       const img=b.poster?('<img src="'+b.poster+'" alt="" loading="lazy">'):'<span class="noimg">📕</span>';
       return '<div class="brow">'+img+'<div class="bi"><div class="bt">'+esc(b.title)+'</div><div class="ba">'+esc(b.author+(b.year?(' · '+b.year):''))+'</div></div>'+
-        '<span class="rquick"><button data-a="watchlist:'+i+'" title="Reading list">🔖</button><button data-a="loved:'+i+'" title="Shelf-changer">★</button><button data-a="liked:'+i+'" title="Worth it">▲</button><button data-a="disliked:'+i+'" title="Not for me">▽</button></span></div>';
+        '<span class="rquick"><button data-a="reading:'+i+'" title="Currently reading">📖</button><button data-a="watchlist:'+i+'" title="Reading list">🔖</button><button data-a="loved:'+i+'" title="Shelf-changer">★</button><button data-a="liked:'+i+'" title="Worth it">▲</button><button data-a="disliked:'+i+'" title="Not for me">▽</button></span></div>';
     }).join('');
     $('addResults').querySelectorAll('[data-a]').forEach(btn=>btn.onclick=()=>{const[b,i]=btn.dataset.a.split(':');addFromSearch(b,res[+i]);});
   }catch(_){$('addResults').innerHTML='<div class="mlist-hint">Open Library unreachable — use the manual paste below</div>';}
@@ -746,7 +840,7 @@ $('addGo').onclick=async()=>{
 $('addQ').addEventListener('keydown',e=>{if(e.key==='Enter')$('addGo').click();});
 $('anchorAdd').onclick=addAnchors;
 $('importBtn').onclick=()=>$('importFile').click();
-$('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{Object.assign(S.profile,JSON.parse(r.result));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked,S.profile.banned||[],S.profile.watchlist||[]).forEach(m=>S.seen.add(mkey(m)));toast('Imported');renderModel();}catch(_){toast('Bad file');}};r.readAsText(f);};
+$('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{Object.assign(S.profile,JSON.parse(r.result));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked,S.profile.banned||[],S.profile.watchlist||[],S.profile.reading||[]).forEach(m=>S.seen.add(mkey(m)));toast('Imported');renderModel();}catch(_){toast('Bad file');}};r.readAsText(f);};
 document.addEventListener('keydown',e=>{if(!S.started||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;if(e.key==='ArrowRight')meh();if(e.key==='ArrowLeft')previous();if(e.key.toLowerCase()==='n')neutralNext();if(e.key.toLowerCase()==='l')love();if(e.key.toLowerCase()==='w')addWatchlist();});
 
 $('startBtn').onclick=async()=>{
