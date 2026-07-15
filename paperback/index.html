@@ -148,7 +148,8 @@
   .mlist{max-height:220px;overflow-y:auto;margin-top:6px}
   .mlist-hint{font-family:var(--mono);font-size:10px;color:var(--faint);text-align:center;margin:8px 0 4px}
   .mrow{display:flex;align-items:center;gap:6px;margin-bottom:5px}
-  .mrow .txt{flex:1;font-family:var(--mono);font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mrow{max-width:100%}
+  .mrow .txt{flex:1;min-width:0;font-family:var(--mono);font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mbtn{background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:6px;width:24px;height:24px;font-size:12px;padding:0;transition:.15s;flex:none}
   .mbtn:hover{color:var(--gold);border-color:var(--gold)}
   .mbtn.del:hover{color:var(--rust);border-color:var(--rust)}
@@ -303,6 +304,7 @@
             <button class="fchip" data-f="loved">★</button>
             <button class="fchip" data-f="liked">▲</button>
             <button class="fchip" data-f="disliked">▽</button>
+            <button class="fchip" data-f="banned">⦸</button>
           </div>
           <input id="shelfQ" type="text" placeholder="filter by title, author, topic…">
         </div>
@@ -353,13 +355,13 @@
 const $=id=>document.getElementById(id);
 const S={
   geminiKeys:[],gi:0,model:'gemini-3.5-flash',
-  profile:{loved:[],liked:[],disliked:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:''},
+  profile:{loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:''},
   seen:new Set(), candidates:[], queue:[], current:null, history:[],
   started:false,resolving:false,thinking:false,mode:'discover',favQueue:[],
   geminiQuotaOut:false,tab:'now',editOpen:true
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Paperback · build 3 · 2026-07-14 · shelf-redesign';
+const BUILD='Paperback · build 4 · 2026-07-15 · song-level-ban';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -375,7 +377,7 @@ function rotateGemini(){if(S.gi<S.geminiKeys.length-1){S.gi++;return true;}S.gem
 function saveLocal(){try{localStorage.setItem('paperback_profile',JSON.stringify(S.profile));}catch(_){}}
 function normalize(){
   const p=S.profile;
-  ['loved','liked','disliked','hatedGenres','watchlist'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
+  ['loved','liked','disliked','banned','hatedGenres','watchlist'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
   ['genreScore','dirScore'].forEach(k=>{if(!p[k]||typeof p[k]!=='object')p[k]={};});
   if(typeof p.seed!=='string')p.seed='';
   if(Object.keys(p.genreScore).length===0){
@@ -383,7 +385,7 @@ function normalize(){
     p.liked.forEach(m=>(m.genres||[]).forEach(g=>bump(p.genreScore,g,1)));
   }
 }
-function loadLocal(){try{const r=(localStorage.getItem('paperback_profile')||localStorage.getItem('spine_profile'));if(r){Object.assign(S.profile,JSON.parse(r));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked).forEach(m=>S.seen.add(mkey(m)));return true;}}catch(_){}normalize();return false;}
+function loadLocal(){try{const r=(localStorage.getItem('paperback_profile')||localStorage.getItem('spine_profile'));if(r){Object.assign(S.profile,JSON.parse(r));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked,S.profile.banned||[],S.profile.watchlist||[]).forEach(m=>S.seen.add(mkey(m)));return true;}}catch(_){}normalize();return false;}
 /* ---- shared config: one key store all Rewind apps read (same origin) ---- */
 function loadRewindConfig(){
   let c={};
@@ -418,7 +420,8 @@ async function askGemini(n){
     'SHELF-CHANGERS — all-time favorites (weight most): '+(p.loved.map(mdesc).join(' / ')||'none yet'),
     'WORTH IT — liked: '+(p.liked.slice(-25).map(mdesc).join(' / ')||'none yet'),
     'NOT FOR ME (steer away): '+(p.disliked.slice(-25).map(mdesc).join(' / ')||'none yet'),
-    'BANNED TOPICS (never suggest): '+(p.hatedGenres.join(', ')||'none'),
+    'REJECTED OUTRIGHT — never suggest these exact books again (their topics are fine): '+(p.banned.slice(-25).map(mdesc).join(' / ')||'none'),
+    'BANNED TOPICS (manually set — never suggest): '+(p.hatedGenres.join(', ')||'none'),
     p.seed?('SEED / FIELD (strong early signal): '+p.seed):'',
     '',
     'Already read or queued — do NOT repeat: '+avoid,
@@ -565,8 +568,8 @@ function love(){const m=S.current;if(!m)return;if(S.mode==='fav'){toast('Already
 function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.profile.watchlist.some(x=>mkey(x)===k)){S.profile.watchlist=S.profile.watchlist.filter(x=>mkey(x)!==k);saveLocal();renderModel();toast('Removed from reading list');const wl=$('wlBtn');if(wl){wl.textContent='＋ Reading list';wl.style.color='';wl.style.borderColor='';}return;}S.profile.watchlist.push({title:m.title,year:m.year,author:m.author||m.director,director:m.author||m.director,genres:m.genres,poster:m.poster});S.seen.add(k);saveLocal();renderModel();toast('＋ Saved to reading list · advancing');advance();}
 function like(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){advance();return;}addTo('liked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,1));bump(S.profile.dirScore,m.director,1);flash('liked · more like it');after(m);}
 function meh(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){toast('Still a favorite ★');advance();return;}addTo('disliked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-1));flash('noted · steering away');after(m);}
-function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}(m.genres||[]).forEach(g=>{if(!S.profile.hatedGenres.includes(g))S.profile.hatedGenres.push(g);S.profile.genreScore[g]=-999;});S.queue=S.queue.filter(q=>!(q.genres||[]).some(g=>S.profile.hatedGenres.includes(g)));flash('banned topic · '+((m.genres||[])[0]||'genre'));after(m);}
-function addTo(b,m){const k=mkey(m);['loved','liked','disliked'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,author:m.author||m.director,director:m.author||m.director,genres:m.genres,poster:m.poster});}
+function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}addTo('banned',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-2));S.queue=S.queue.filter(q=>mkey(q)!==mkey(m));S.candidates=S.candidates.filter(q=>mkey(q)!==mkey(m));flash('⦸ never again · this book only');after(m);}
+function addTo(b,m){const k=mkey(m);['loved','liked','disliked','banned'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,author:m.author||m.director,director:m.author||m.director,genres:m.genres,poster:m.poster});S.seen.add(k);}
 function after(m){renderModel();try{renderShelf();}catch(_){ }saveLocal();advance();}
 function flash(msg){toast('<span class="k">learned</span> · '+msg);}
 function advance(){ if(S.mode==='fav'){nextFav();return;} if(!S.queue.length){ if(S.geminiQuotaOut){quotaStop();return;} setStatus('<b>Curating…</b>'); ensureQueue().then(()=>{if(S.queue.length)showMovie(S.queue.shift());else if(S.geminiQuotaOut)quotaStop();}); return;} showMovie(S.queue.shift()); ensureQueue(); }
@@ -599,12 +602,12 @@ function renderQueue(){
   const _qc=$('qcount'); if(_qc)_qc.textContent=S.mode==='fav'?'★ favorites':((S.thinking||S.resolving)?'planning…':(S.queue.length+' ready'));
 }
 let shelfFilter='all';
-function shelfIcon(b){return {loved:'★',liked:'▲',disliked:'▽',watchlist:'🔖'}[b]||'';}
+function shelfIcon(b){return {loved:'★',liked:'▲',disliked:'▽',watchlist:'🔖',banned:'⦸'}[b]||'';}
 function renderShelf(){
   const list=$('shelfList'); if(!list)return;
   const q=(($('shelfQ')&&$('shelfQ').value)||'').toLowerCase();
   const rows=[];
-  ['watchlist','loved','liked','disliked'].forEach(b=>{
+  ['watchlist','loved','liked','disliked','banned'].forEach(b=>{
     if(shelfFilter!=='all'&&shelfFilter!==b)return;
     (S.profile[b]||[]).forEach((m,i)=>{
       const hay=(m.title+' '+(m.author||m.director||'')+' '+((m.genres||[]).join(' '))).toLowerCase();
@@ -621,7 +624,7 @@ function renderShelf(){
       '<div class="bi"><div class="bt">'+esc(m.title)+'</div><div class="ba">'+esc((m.author||m.director||'')+(m.year?(' · '+m.year):''))+'</div></div>'+
       '<span class="badge">'+shelfIcon(r.b)+'</span>'+
       '<button class="mbtn" data-so="'+ri+'" title="Open">▶</button>'+
-      '<select data-sm="'+ri+'" title="Move shelf"><option value="">⇄</option><option value="watchlist">🔖</option><option value="loved">★</option><option value="liked">▲</option><option value="disliked">▽</option></select>'+
+      '<select data-sm="'+ri+'" title="Move shelf"><option value="">⇄</option><option value="watchlist">🔖</option><option value="loved">★</option><option value="liked">▲</option><option value="disliked">▽</option><option value="banned">⦸</option></select>'+
       '<button class="mbtn del" data-sx="'+ri+'" title="Remove">✕</button></div>';
   }).join('');
   list.querySelectorAll('[data-so]').forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.so];playSpecific(r.m);});
@@ -644,7 +647,7 @@ function addFromSearch(b,bk){
 function renderModel(){
   const el=$('model');if(!el)return;
   try{renderModelInner();}catch(e){
-    const all=[].concat(S.profile.loved||[],S.profile.liked||[],S.profile.disliked||[]);
+    const all=[].concat(S.profile.loved||[],S.profile.liked||[],S.profile.disliked||[],S.profile.banned||[]);
     el.innerHTML='<div class="mlist-hint">'+all.length+' books</div>'+all.slice(0,80).map((m,i)=>'<div class="mrow"><button class="mbtn" data-fp="'+i+'">▶</button><span class="txt">'+esc(m.title+(m.year?(' ('+m.year+')'):''))+'</span></div>').join('');
     el.querySelectorAll('[data-fp]').forEach(b=>b.onclick=()=>playSpecific(all[+b.dataset.fp]));
     try{$('mcount').textContent=all.length+' rated';}catch(_){}
@@ -661,13 +664,14 @@ function renderModelInner(){
   const parts=[];
   parts.push(grp('#E7B44C','favorite authors', dirs.length?dirs.map(d=>chip(d,'love')).join(''):emptyChip()));
   parts.push(grp('#9B8FD4','fields you like', genres.length?genres.map(g=>chip(g)).join(''):emptyChip()));
-  parts.push(grp('#5C566B','banned topics', p.hatedGenres.length?p.hatedGenres.map(g=>chip(g,'hate')).join(''):emptyChip('none yet')));
-  const total=p.loved.length+p.liked.length+p.disliked.length;
+  parts.push(grp('#5C566B','banned topics — tap to unban', p.hatedGenres.length?p.hatedGenres.map(g=>'<span class="chip hate" data-bg="'+esc(g)+'" style="cursor:pointer">'+esc(g)+' ✕</span>').join(''):emptyChip('none yet')));
+  const total=p.loved.length+p.liked.length+p.disliked.length+p.banned.length;
   el.innerHTML=parts.join('')+
     '<button class="editbtn" id="editTgl">'+(S.editOpen?'▾ hide book list':'✎ edit / ▶ open my books ('+total+')')+'</button>'+
     '<div id="mlistWrap" class="'+(S.editOpen?'':'hidden')+'"></div>'+
     '<div class="model-actions"><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>';
   $('editTgl').onclick=()=>{S.editOpen=!S.editOpen;renderModel();};
+  el.querySelectorAll('[data-bg]').forEach(ch=>ch.onclick=()=>{const g=ch.dataset.bg;S.profile.hatedGenres=S.profile.hatedGenres.filter(x=>x!==g);delete S.profile.genreScore[g];saveLocal();renderModel();toast('topic unbanned · '+g);});
   if(S.editOpen){try{renderMList();}catch(_){}}
   $('exp').onclick=exportProfile;
   $('rst').onclick=()=>{if(confirm('Wipe everything Paperback has learned?')){S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:S.profile.seed};S.seen.clear();saveLocal();renderModel();toast('Reset');}};
@@ -676,7 +680,7 @@ function renderModelInner(){
 function renderMList(){
   const wrap=$('mlistWrap');if(!wrap)return;
   const sect=(b,label,ic)=>{const arr=S.profile[b];if(!arr.length)return '';let h='<div class="grp"><div class="h">'+label+'</div><div class="mlist">';arr.forEach((m,i)=>{h+='<div class="mrow"><button class="mbtn" data-play="'+b+':'+i+'">▶</button><span class="txt">'+ic+' '+esc(m.title+(m.year?(' ('+m.year+')'):''))+'</span><button class="mbtn" data-edit="'+b+':'+i+'">✎</button><button class="mbtn del" data-del="'+b+':'+i+'">✕</button></div>';});return h+'</div></div>';};
-  wrap.innerHTML='<div class="mlist-hint">▶ play · ✎ edit · ✕ remove</div>'+sect('watchlist','🔖 reading list — not yet read','🔖')+sect('loved','★ favorites','★')+sect('liked','liked','▲')+sect('disliked','not for me','▽');
+  wrap.innerHTML='<div class="mlist-hint">▶ play · ✎ edit · ✕ remove</div>'+sect('watchlist','🔖 reading list — not yet read','🔖')+sect('loved','★ favorites','★')+sect('liked','liked','▲')+sect('disliked','not for me','▽')+sect('banned','⦸ never again','⦸');
   wrap.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.play.split(':');playSpecific(S.profile[k][+i]);});
   wrap.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.del.split(':');const m=S.profile[k][+i];S.seen.delete(mkey(m));S.profile[k].splice(+i,1);saveLocal();renderModel();toast('Removed');});
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.edit.split(':');editEntry(k,+i);});
@@ -742,7 +746,7 @@ $('addGo').onclick=async()=>{
 $('addQ').addEventListener('keydown',e=>{if(e.key==='Enter')$('addGo').click();});
 $('anchorAdd').onclick=addAnchors;
 $('importBtn').onclick=()=>$('importFile').click();
-$('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{Object.assign(S.profile,JSON.parse(r.result));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked).forEach(m=>S.seen.add(mkey(m)));toast('Imported');renderModel();}catch(_){toast('Bad file');}};r.readAsText(f);};
+$('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{Object.assign(S.profile,JSON.parse(r.result));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked,S.profile.banned||[],S.profile.watchlist||[]).forEach(m=>S.seen.add(mkey(m)));toast('Imported');renderModel();}catch(_){toast('Bad file');}};r.readAsText(f);};
 document.addEventListener('keydown',e=>{if(!S.started||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;if(e.key==='ArrowRight')meh();if(e.key==='ArrowLeft')previous();if(e.key.toLowerCase()==='n')neutralNext();if(e.key.toLowerCase()==='l')love();if(e.key.toLowerCase()==='w')addWatchlist();});
 
 $('startBtn').onclick=async()=>{

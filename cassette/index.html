@@ -131,7 +131,8 @@
   .srcswitch button{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 11px;font-family:var(--mono);font-size:11px;transition:.15s}
   .srcswitch button.on{border-color:var(--amber);color:var(--amber)}
   .mrow{display:flex;align-items:center;gap:6px;margin-bottom:5px}
-  .mrow .txt{flex:1;font-family:var(--mono);font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mrow{max-width:100%}
+  .mrow .txt{min-width:0;flex:1;font-family:var(--mono);font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mrow .mbtn{background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:6px;width:24px;height:24px;font-size:12px;line-height:1;padding:0;transition:.15s;flex:none}
   .mrow .mbtn:hover{color:var(--amber);border-color:var(--amber)}
   .mrow .mbtn.del:hover{color:var(--ember);border-color:var(--ember)}
@@ -424,7 +425,7 @@
 ============================================================ */
 const S = {
   model:'gemini-3.5-flash',
-  profile: { loved:[], liked:[], disliked:[], hatedGenres:[], genreScore:{}, artistScore:{}, seed:'' },
+  profile: { loved:[], liked:[], disliked:[], banned:[], hatedGenres:[], genreScore:{}, artistScore:{}, seed:'' },
   seenKeys: new Set(),      // "artist|title" to avoid repeats
   seenIds: new Set(),       // youtube ids used
   candidates: [],           // Gemini suggestions not yet resolved
@@ -448,7 +449,7 @@ function saveLocal(){
    which would otherwise crash renderModel and blank out Sound DNA */
 function normalizeProfile(){
   const p=S.profile;
-  ['loved','liked','disliked','hatedGenres'].forEach(k=>{ if(!Array.isArray(p[k])) p[k]=[]; });
+  ['loved','liked','disliked','banned','hatedGenres'].forEach(k=>{ if(!Array.isArray(p[k])) p[k]=[]; });
   ['genreScore','artistScore'].forEach(k=>{ if(!p[k] || typeof p[k]!=='object') p[k]={}; });
   if(typeof p.seed!=='string') p.seed='';
   // rebuild scores from buckets if they're empty but we have songs (e.g. after import)
@@ -462,7 +463,7 @@ function loadLocal(){
     const raw = (localStorage.getItem('cassette_profile')||localStorage.getItem('resonance_profile'));
     if(raw){ const p = JSON.parse(raw); Object.assign(S.profile, p);
       normalizeProfile();
-      (S.profile.loved||[]).concat(S.profile.liked||[],S.profile.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
+      (S.profile.loved||[]).concat(S.profile.liked||[],S.profile.disliked||[],S.profile.banned||[]).forEach(t=>S.seenKeys.add(key(t)));
       return true; }
   }catch(e){}
   normalizeProfile();
@@ -531,7 +532,8 @@ async function askGemini(n){
     'ALL-TIME FAVORITES (weight these the most): '+ (p.loved.map(desc).join(' / ')||'none yet'),
     'LIKED — listened all the way through (sampled across full history): '+ (sampleDiverse(p.liked,20).map(desc).join(' / ')||'none yet'),
     'DISLIKED — skipped, steer away from these: '+ (p.disliked.slice(-25).map(desc).join(' / ')||'none yet'),
-    'BANNED GENRES — never suggest anything in these: '+ (p.hatedGenres.join(', ')||'none'),
+    'NEVER AGAIN — the listener banned these exact songs, absolutely never suggest them (the genre itself is fine): '+ (p.banned.slice(-30).map(desc).join(' / ')||'none'),
+    'BANNED GENRES (manually set) — never suggest anything in these: '+ (p.hatedGenres.join(', ')||'none'),
     p.seed ? 'STANDING LISTENER DIRECTION — always respect this and blend every batch toward it: "'+p.seed+'"' : '',
     '',
     'Already played or queued — do NOT repeat any of these: '+avoid,
@@ -990,17 +992,18 @@ function down(){                          // discovery: kill genre · hearts: re
     S.profile.loved = S.profile.loved.filter(x=>key(x)!==key(t));
     saveLocal(); renderModel(); toast('Removed from favorites'); nextHeart(); return;
   }
-  if(t.genre && !S.profile.hatedGenres.includes(t.genre)) S.profile.hatedGenres.push(t.genre);
-  S.profile.genreScore[t.genre]=-999;
-  // purge anything of this genre already queued
-  S.queue = S.queue.filter(q=>(q.genre||'').toLowerCase()!==(t.genre||'').toLowerCase());
-  S.candidates = S.candidates.filter(q=>(q.genre||'').toLowerCase()!==(t.genre||'').toLowerCase());
-  flash('killed genre · '+t.genre); afterFeedback(t,true);
+  // strong rejection of THIS SONG only — the genre survives
+  addTo('banned',t);
+  if(t.genre) S.profile.genreScore[t.genre]=(S.profile.genreScore[t.genre]||0)-2;  // mild genre nudge, not a ban
+  S.queue = S.queue.filter(q=>key(q)!==key(t));
+  S.candidates = S.candidates.filter(q=>key(q)!==key(t));
+  flash('⦸ never again · this song only'); afterFeedback(t,true);
 }
 function addTo(bucket,t){
   const k=key(t);
-  ['loved','liked','disliked'].forEach(b=>{ S.profile[b]=S.profile[b].filter(x=>key(x)!==k); });
+  ['loved','liked','disliked','banned'].forEach(b=>{ S.profile[b]=S.profile[b].filter(x=>key(x)!==k); });
   S.profile[bucket].push({title:t.title,artist:t.artist,genre:t.genre,videoId:t.videoId});  // keep videoId → instant replay in hearts mode
+  S.seenKeys.add(k);
 }
 function afterFeedback(t,advance){
   renderModel(); saveLocal();
@@ -1053,7 +1056,7 @@ function renderModel(){
   try{ renderModelInner(); }
   catch(e){
     // last-resort: never leave Sound DNA blank
-    const p=S.profile||{}; const all=[].concat(p.loved||[],p.liked||[],p.disliked||[]);
+    const p=S.profile||{}; const all=[].concat(p.loved||[],p.liked||[],p.disliked||[],p.banned||[]);
     el.innerHTML='<div class="mlist-hint">'+all.length+' songs</div>'+
       all.slice(0,60).map((t,i)=>`<div class="mrow"><button class="mbtn" data-fp="${i}">▶</button><span class="txt">${escapeHtml((t.title||'')+(t.artist?(' — '+t.artist):''))}</span></div>`).join('');
     el.querySelectorAll('[data-fp]').forEach(b=>b.onclick=()=>playSpecific(all[+b.dataset.fp]));
@@ -1073,16 +1076,17 @@ function renderModelInner(){
   const parts=[];
   parts.push(grp('#E0524B','favorites', p.loved.length? lovedArtists.map(a=>chip(a,'love')).join('') : emptyChip()));
   parts.push(grp('#E8A24B',likeLabel, likeItems.length? likeItems.map(g=>chip(g)).join('') : emptyChip()));
-  parts.push(grp('#4A4658','banned genres', p.hatedGenres.length? p.hatedGenres.map(g=>chip(g,'hate')).join('') : emptyChip('none yet')));
-  const total=p.loved.length+p.liked.length+p.disliked.length;
+  parts.push(grp('#4A4658','banned genres — tap to unban', p.hatedGenres.length? p.hatedGenres.map(g=>'<span class="chip hate" data-bg="'+escapeHtml(g)+'" style="cursor:pointer">'+escapeHtml(g)+' ✕</span>').join('') : emptyChip('none — set manually below')));
+  const total=p.loved.length+p.liked.length+p.disliked.length+p.banned.length;
   el.innerHTML = parts.join('') +
     `<button class="editbtn" id="editTgl">${S.editOpen?'▾ hide song list':'✎ edit / ▶ play my songs ('+total+')'}</button>
      <div id="mlistWrap" class="${S.editOpen?'':'hidden'}"></div>
      <div class="model-actions"><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>`;
   $('editTgl').onclick=()=>{ S.editOpen=!S.editOpen; renderModel(); };
+  el.querySelectorAll('[data-bg]').forEach(ch=>ch.onclick=()=>{ const g=ch.dataset.bg; S.profile.hatedGenres=S.profile.hatedGenres.filter(x=>x!==g); delete S.profile.genreScore[g]; saveLocal(); renderModel(); toast('genre unbanned · '+g); });
   if(S.editOpen){ try{ renderMList(); }catch(e){ $('mlistWrap').innerHTML='<div class="mlist-hint">could not list songs</div>'; } }
   $('exp').onclick=exportProfile;
-  $('rst').onclick=()=>{ if(confirm('Wipe everything Cassette has learned?')){ S.profile={loved:[],liked:[],disliked:[],hatedGenres:[],genreScore:{},artistScore:{},seed:S.profile.seed}; S.seenKeys.clear(); saveLocal(); renderModel(); toast('Model reset'); } };
+  $('rst').onclick=()=>{ if(confirm('Wipe everything Cassette has learned?')){ S.profile={loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],genreScore:{},artistScore:{},seed:S.profile.seed}; S.seenKeys.clear(); saveLocal(); renderModel(); toast('Model reset'); } };
   $('mcount').textContent = total? (total+' signals') : '';
 }
 function renderMList(){
@@ -1101,7 +1105,7 @@ function renderMList(){
     return h+'</div></div>';
   };
   wrap.innerHTML = `<div class="mlist-hint">▶ play any song · ✎ edit · ✕ remove</div>` +
-    sect('loved','♥ favorites','♥') + sect('liked','you like','♪') + sect('disliked','not my type','·');
+    sect('loved','♥ favorites','♥') + sect('liked','you like','♪') + sect('disliked','not my type','·') + sect('banned','⦸ never again','⦸');
   wrap.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{ const [bk,i]=b.dataset.play.split(':'); playSpecific(S.profile[bk][+i]); });
   wrap.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const [bk,i]=b.dataset.del.split(':'); const t=S.profile[bk][+i]; S.seenKeys.delete(key(t)); S.profile[bk].splice(+i,1); saveLocal(); renderModel(); toast('Removed'); });
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{ const [bk,i]=b.dataset.edit.split(':'); editEntry(bk,+i); });
@@ -1191,7 +1195,7 @@ $('importBtn').onclick=()=>$('importFile').click();
 $('importFile').onchange=e=>{
   const f=e.target.files[0]; if(!f) return; const r=new FileReader();
   r.onload=()=>{ try{ const p=JSON.parse(r.result); Object.assign(S.profile,p); normalizeProfile();
-    (S.profile.loved||[]).concat(S.profile.liked||[],S.profile.disliked||[]).forEach(t=>S.seenKeys.add(key(t)));
+    (S.profile.loved||[]).concat(S.profile.liked||[],S.profile.disliked||[],S.profile.banned||[]).forEach(t=>S.seenKeys.add(key(t)));
     $('setupNote').textContent='Imported '+((p.loved||[]).length+(p.liked||[]).length+(p.disliked||[]).length)+' signals.'; toast('Profile imported'); renderModel();
   }catch(err){ toast('Bad profile file'); } };
   r.readAsText(f);
@@ -1255,7 +1259,7 @@ function applyWide(){ /* tabs are single-pane at all widths now; nothing to togg
 window.addEventListener('resize',()=>{ if(S.started) applyWide(); });
 
 /* on load: prefill remembered keys, show existing profile, open setup */
-const BUILD='Cassette · build 17 · 2026-07-15 · fixes';
+const BUILD='Cassette · build 18 · 2026-07-15 · song-level-ban';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
