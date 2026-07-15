@@ -25,7 +25,7 @@
     --disp:'Fraunces',Georgia,serif;
   }
   *{box-sizing:border-box}
-  html,body{margin:0}
+  html,body{margin:0;overflow-x:hidden;max-width:100vw}
   body{background:radial-gradient(1100px 650px at 80% -10%, #1a1526 0%, var(--bg) 55%) fixed, var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
   a{color:var(--gold)}
   button{font-family:inherit;cursor:pointer}
@@ -38,6 +38,7 @@
   .hdr-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
   .homebtn{width:34px;height:34px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--gold);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;transition:.15s}
   .homebtn:hover{border-color:var(--gold);transform:scale(1.05)}
+  @media(max-width:560px){ .appswitch .seg .tx{display:none} .appswitch .seg{padding:6px 10px} .brand .sub{display:none} }
   .appswitch{position:relative;display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:3px;gap:2px}
   .appswitch .seg{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:99px;font-family:var(--mono);font-size:12px;color:var(--muted);text-decoration:none;transition:.2s;position:relative;z-index:2}
   .appswitch .seg .ic{font-size:13px;filter:grayscale(.5);transition:.2s}
@@ -219,7 +220,7 @@
         </div>
         <div class="field">
           <label>Gemini model</label>
-          <select id="model">
+          <select id="modelSel">
             <option value="gemini-3.5-flash">gemini-3.5-flash</option>
             <option value="gemini-flash-latest">gemini-flash-latest</option>
             <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
@@ -239,6 +240,7 @@
   <nav class="tabbar hidden" id="tabbar">
     <button class="tab on" data-tab="now">▶ <span>Now</span></button>
     <button class="tab" data-tab="queue">◷ <span>Up next</span></button>
+    <button class="tab" data-tab="list">🔖 <span>Watchlist</span></button>
     <button class="tab" data-tab="dna">⬡ <span>Taste DNA</span></button>
   </nav>
 
@@ -284,6 +286,14 @@
       </div>
     </section>
 
+    <!-- WATCHLIST -->
+    <section class="tabpane" id="tabList">
+      <div class="card">
+        <div class="panel-h">🔖 Watchlist <span class="n" id="wlcount"></span></div>
+        <div class="model" id="wlBox"></div>
+      </div>
+    </section>
+
     <!-- DNA -->
     <section class="tabpane" id="tabDNA">
       <div class="card">
@@ -321,18 +331,19 @@ const $=id=>document.getElementById(id);
 const S={
   geminiKeys:[],gi:0,tmdb:'',omdb:'',region:'EG',model:'gemini-3.5-flash',
   profile:{loved:[],liked:[],disliked:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:''},
-  seen:new Set(), candidates:[], queue:[], current:null, history:[],
+  seen:new Set(), seenT:new Set(), candidates:[], queue:[], current:null, history:[],
   started:false,resolving:false,thinking:false,mode:'discover',favQueue:[],
   geminiQuotaOut:false,tab:'now',editOpen:true,imgBase:'https://image.tmdb.org/t/p/'
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Reel build 6 · 2026-07-14 · Paperback';
+const BUILD='Reel · build 7 · 2026-07-15 · watchlist-tab';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
 function setStatus(h){$('status').innerHTML=h;}
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const mkey=m=>((m.title||'')+'|'+(m.year||'')).toLowerCase().trim();
+const tkey=m=>String(m.title||'').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]+/g,'');
 function parseKeys(s){return (s||'').split(/[\n,]+/).map(x=>x.trim()).filter(Boolean);}
 function bump(o,k,by){if(k)o[k]=(o[k]||0)+by;}
 function topKeys(o,n){return Object.entries(o||{}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k])=>k);}
@@ -350,7 +361,7 @@ function normalize(){
     p.liked.forEach(m=>(m.genres||[]).forEach(g=>bump(p.genreScore,g,1)));
   }
 }
-function loadLocal(){try{const r=localStorage.getItem('reel_profile');if(r){Object.assign(S.profile,JSON.parse(r));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked).forEach(m=>S.seen.add(mkey(m)));return true;}}catch(_){}normalize();return false;}
+function loadLocal(){try{const r=localStorage.getItem('reel_profile');if(r){Object.assign(S.profile,JSON.parse(r));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked,S.profile.watchlist||[]).forEach(m=>{S.seen.add(mkey(m));S.seenT.add(tkey(m));});return true;}}catch(_){}normalize();return false;}
 /* ---- shared config: one key store both Cassette & Reel read (same origin) ---- */
 function loadRewindConfig(){
   let c={};
@@ -370,7 +381,7 @@ function loadKeys(){try{
   S.geminiKeys=c.geminiKeys||[];
   $('geminiKey').value=S.geminiKeys.join('\n');
   $('tmdbKey').value=c.tmdb||''; $('omdbKey').value=c.omdb||'';
-  if(c.region){$('region').value=c.region;} if(c.model)$('model').value=c.model; $('seed').value=c.reelSeed||'';
+  if(c.region){$('region').value=c.region;} if(c.model)$('modelSel').value=c.model; $('seed').value=c.reelSeed||'';
   if(S.geminiKeys.length)$('setupNote').textContent=S.geminiKeys.length+' Gemini key(s) — shared with Cassette. Hit Start.';
 }catch(_){}}
 function exportProfile(){const b=new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='reel-taste-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Exported');}
@@ -389,7 +400,8 @@ async function askGemini(n){
     'BANNED GENRES (never suggest): '+(p.hatedGenres.join(', ')||'none'),
     p.seed?('SEED / MOOD (strong early signal): '+p.seed):'',
     '',
-    'Already seen or queued — do NOT repeat: '+avoid,
+    'ON THE WATCHLIST — saved for later, NEVER recommend these: '+((p.watchlist||[]).map(mdesc).join(' / ')||'none'),
+    'Already rated or queued — do NOT repeat any of these: '+avoid,
     '',
     'Rules: real, findable films on TMDB. Prefer the viewer\'s favorite directors, moods, and eras. Never a banned genre. Mostly safe picks, at most one exploration. Vary directors.',
     '',
@@ -471,11 +483,11 @@ async function ensureQueue(){
       if(S.geminiQuotaOut)break;
       if(!S.candidates.length){await refill(); if(!S.candidates.length)break;}
       const c=S.candidates.shift();
-      if(S.seen.has(mkey({title:c.title,year:c.year})))continue;
+      if(S.seen.has(mkey({title:c.title,year:c.year}))||S.seenT.has(tkey(c)))continue;
       const id=await tmdbResolve(c); if(!id)continue;
       const det=await tmdbDetails(id); if(!det)continue;
       if(det.genres.some(gn=>S.profile.hatedGenres.map(x=>x.toLowerCase()).includes(gn.toLowerCase())))continue;
-      det.reason=c.reason||''; S.queue.push(det); S.seen.add(mkey(det));
+      det.reason=c.reason||''; S.queue.push(det); S.seen.add(mkey(det)); S.seenT.add(tkey(det));
     }
   } finally { S.resolving=false; renderQueue(); }
   if((S.geminiQuotaOut)&&!S.queue.length&&S.mode!=='fav'){ quotaStop(); return; }
@@ -532,7 +544,7 @@ function renderProviders(m){
 
 /* ---------- ratings ---------- */
 function love(){const m=S.current;if(!m)return;if(S.mode==='fav'){toast('Already a favorite ★');return;}addTo('loved',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,3));bump(S.profile.dirScore,m.director,3);flash('★ masterpiece · logged');after(m);}
-function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.profile.watchlist.some(x=>mkey(x)===k)){S.profile.watchlist=S.profile.watchlist.filter(x=>mkey(x)!==k);saveLocal();renderModel();toast('Removed from watchlist');const wl=$('wlBtn');if(wl){wl.textContent='＋ Watchlist';wl.style.color='';wl.style.borderColor='';}return;}S.profile.watchlist.push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,poster:m.poster});S.seen.add(k);saveLocal();renderModel();toast('＋ Saved to watchlist · advancing');advance();}
+function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.profile.watchlist.some(x=>mkey(x)===k)){S.profile.watchlist=S.profile.watchlist.filter(x=>mkey(x)!==k);saveLocal();renderModel();toast('Removed from watchlist');const wl=$('wlBtn');if(wl){wl.textContent='＋ Watchlist';wl.style.color='';wl.style.borderColor='';}return;}S.profile.watchlist.push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,poster:m.poster});S.seen.add(k);S.seenT.add(tkey(m));saveLocal();renderModel();toast('＋ Saved to watchlist · advancing');advance();}
 function like(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){advance();return;}addTo('liked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,1));bump(S.profile.dirScore,m.director,1);flash('liked · more like it');after(m);}
 function meh(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){toast('Still a favorite ★');advance();return;}addTo('disliked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-1));flash('noted · steering away');after(m);}
 function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}(m.genres||[]).forEach(g=>{if(!S.profile.hatedGenres.includes(g))S.profile.hatedGenres.push(g);S.profile.genreScore[g]=-999;});S.queue=S.queue.filter(q=>!(q.genres||[]).some(g=>S.profile.hatedGenres.includes(g)));flash('banned · '+((m.genres||[])[0]||'genre'));after(m);}
@@ -567,6 +579,17 @@ function renderQueue(){
   for(let i=items.length;i<2;i++)h+='<div class="qslot-empty">'+((S.thinking||S.resolving)?'<span class="thinking">thinking</span>':'slot open')+'</div>';
   el.innerHTML=h;
   $('qcount').textContent=S.mode==='fav'?'★ favorites':((S.thinking||S.resolving)?'planning…':(S.queue.length+' ready'));
+}
+function renderWatchlist(){
+  const box=$('wlBox'); if(!box)return;
+  const wl=S.profile.watchlist||[];
+  $('wlcount').textContent=wl.length?(wl.length+' saved'):'';
+  if(!wl.length){ box.innerHTML='<div class="mlist-hint">Nothing saved yet — hit ＋ Watchlist on any film you want to see.</div>'; return; }
+  box.innerHTML='<div class="mlist-hint">▶ open · ★ mark watched &amp; loved · ✕ remove</div>'+wl.map((m,i)=>
+    '<div class="mrow"><button class="mbtn" data-wp="'+i+'">▶</button><span class="txt">'+esc(m.title+(m.year?(' ('+m.year+')'):'')+(m.director?(' · '+m.director):''))+'</span><button class="mbtn" data-wlv="'+i+'" title="Watched it — loved it">★</button><button class="mbtn del" data-wx="'+i+'">✕</button></div>').join('');
+  box.querySelectorAll('[data-wp]').forEach(b=>b.onclick=()=>playSpecific(S.profile.watchlist[+b.dataset.wp]));
+  box.querySelectorAll('[data-wx]').forEach(b=>b.onclick=()=>{const m=S.profile.watchlist[+b.dataset.wx];S.profile.watchlist.splice(+b.dataset.wx,1);S.seen.delete(mkey(m));saveLocal();renderWatchlist();toast('Removed');});
+  box.querySelectorAll('[data-wlv]').forEach(b=>b.onclick=()=>{const m=S.profile.watchlist.splice(+b.dataset.wlv,1)[0];addTo('loved',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,3));bump(S.profile.dirScore,m.director,3);saveLocal();renderWatchlist();renderModel();toast('★ moved to favorites');});
 }
 function renderModel(){
   const el=$('model');if(!el)return;
@@ -628,7 +651,7 @@ function addAnchors(){
 }
 
 /* ---------- tabs / settings ---------- */
-function showTab(name){S.tab=name;const pane={now:'tabNow',queue:'tabQueue',dna:'tabDNA'}[name];document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='dna')renderModel();}
+function showTab(name){S.tab=name;const pane={now:'tabNow',queue:'tabQueue',dna:'tabDNA',list:'tabList'}[name];document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='dna')renderModel();if(name==='list')renderWatchlist();}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function openSettings(){$('setupTitle').textContent=S.started?'Settings':'Setup';$('startBtn').textContent=S.started?'Save & close':'Start';$('settingsOverlay').classList.remove('hidden');}
 function closeSettings(){$('settingsOverlay').classList.add('hidden');}
@@ -642,12 +665,12 @@ $('exportBtn').onclick=exportProfile;
 $('anchorTgl').onclick=()=>$('anchorForm').classList.toggle('hidden');
 $('anchorAdd').onclick=addAnchors;
 $('importBtn').onclick=()=>$('importFile').click();
-$('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{Object.assign(S.profile,JSON.parse(r.result));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked).forEach(m=>S.seen.add(mkey(m)));toast('Imported');renderModel();}catch(_){toast('Bad file');}};r.readAsText(f);};
+$('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{Object.assign(S.profile,JSON.parse(r.result));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked,S.profile.watchlist||[]).forEach(m=>{S.seen.add(mkey(m));S.seenT.add(tkey(m));});toast('Imported');renderModel();}catch(_){toast('Bad file');}};r.readAsText(f);};
 document.addEventListener('keydown',e=>{if(!S.started||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;if(e.key==='ArrowRight')meh();if(e.key==='ArrowLeft')previous();if(e.key.toLowerCase()==='n')neutralNext();if(e.key.toLowerCase()==='l')love();if(e.key.toLowerCase()==='w')addWatchlist();});
 
 $('startBtn').onclick=async()=>{
   S.geminiKeys=parseKeys($('geminiKey').value);S.gi=0;S.geminiQuotaOut=false;
-  S.tmdb=$('tmdbKey').value.trim();S.omdb=$('omdbKey').value.trim();S.region=$('region').value;S.model=$('model').value;
+  S.tmdb=$('tmdbKey').value.trim();S.omdb=$('omdbKey').value.trim();S.region=$('region').value;S.model=$('modelSel').value;
   $('regionLbl').textContent='· '+S.region;
   const seed=$('seed').value.trim();if(seed)S.profile.seed=seed;
   if(!S.geminiKeys.length){toast('Gemini key required');return;}

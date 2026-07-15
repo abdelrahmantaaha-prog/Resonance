@@ -33,7 +33,7 @@
     --disp:'Fraunces',Georgia,serif;
   }
   *{box-sizing:border-box}
-  html,body{margin:0}
+  html,body{margin:0;overflow-x:hidden;max-width:100vw}
   body{
     background:radial-gradient(1200px 700px at 78% -8%, #1a1626 0%, var(--bg) 55%) fixed, var(--bg);
     color:var(--ink); font-family:var(--sans); line-height:1.5;
@@ -41,7 +41,7 @@
   }
   a{color:var(--amber)}
   button{font-family:inherit; cursor:pointer}
-  .wrap{max-width:1180px; margin:0 auto; padding:26px 22px 60px}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 16px 60px;overflow-x:clip}
 
   /* header */
   header{display:flex; align-items:baseline; justify-content:space-between; gap:18px; margin-bottom:22px; flex-wrap:wrap}
@@ -81,6 +81,12 @@
   .hdr-actions{display:flex;gap:8px;align-items:center}
   .homebtn{width:34px;height:34px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--amber);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;transition:.15s}
   .homebtn:hover{border-color:var(--amber);transform:scale(1.05)}
+  @media(max-width:560px){
+    .appswitch .seg .tx{display:none}
+    .appswitch .seg{padding:6px 10px}
+    .brand .sub{display:none}
+    .status{max-width:100%;text-align:left}
+  }
   .appswitch{position:relative;display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:3px;gap:2px}
   .appswitch .seg{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:99px;font-family:var(--mono);font-size:12px;color:var(--muted);text-decoration:none;transition:.2s;position:relative;z-index:2}
   .appswitch .seg .ic{font-size:13px;filter:grayscale(.5);transition:.2s}
@@ -115,9 +121,7 @@
   #lyricsBox{min-height:96px;max-height:150px;overflow-y:auto;padding:6px 2px;display:flex;flex-direction:column;justify-content:center;gap:2px;scrollbar-width:thin}
   .lyc{font-size:15px;line-height:1.45;color:var(--faint);padding:2px 0;transition:color .3s,opacity .3s;text-align:center}
   .lyc.prev,.lyc.next{opacity:.32;font-size:13px}
-  .lyc.active{opacity:1;position:relative;font-weight:600;font-size:19px;color:var(--faint);display:inline-block;margin:3px auto}
-  .lyc.active .base{color:var(--faint)}
-  .lyc.active .sweep{position:absolute;left:0;top:0;padding:3px 0;white-space:nowrap;overflow:hidden;width:0;color:var(--amber);text-shadow:0 0 18px rgba(232,162,75,.35);transition:width .12s linear}
+  .lyc.active{opacity:1;font-weight:600;font-size:19px;color:var(--amber);text-shadow:0 0 18px rgba(232,162,75,.3);margin:3px 0;overflow-wrap:anywhere}
   .quotaWall{background:rgba(232,162,75,.08);border:1px solid rgba(232,162,75,.3);border-radius:12px;padding:20px;text-align:center;margin:8px 0 16px}
   .quotaWall .qw-i{font-size:30px;color:var(--amber);margin-bottom:8px}
   .quotaWall .qw-t{font-weight:600;font-size:16px;margin-bottom:6px}
@@ -294,7 +298,7 @@
         </div>
         <div class="field">
           <label>Gemini model <span class="hint">— change if you hit a 404</span></label>
-          <select id="model">
+          <select id="modelSel">
             <option value="gemini-3.5-flash">gemini-3.5-flash (recommended)</option>
             <option value="gemini-flash-latest">gemini-flash-latest (auto-updates)</option>
             <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (cheapest)</option>
@@ -490,7 +494,7 @@ function loadKeys(){
     const c=loadRewindConfig();
     S.geminiKeys=c.geminiKeys||[]; S.ytKeys=c.ytKeys||[];
     $('geminiKey').value=S.geminiKeys.join('\n'); $('ytKey').value=S.ytKeys.join('\n');
-    if(c.model) $('model').value=c.model; $('seed').value=c.cassetteSeed||'';
+    if(c.model) $('modelSel').value=c.model; $('seed').value=c.cassetteSeed||'';
     if(c.dataSaver){ S.dataSaver=c.dataSaver; const d=$('dataSaver'); if(d) d.value=c.dataSaver; }
     if(S.geminiKeys.length) $('setupNote').textContent=S.geminiKeys.length+' Gemini · '+S.ytKeys.length+' YouTube key(s) — shared with Reel. Hit Start.';
   }catch(_){}
@@ -525,17 +529,17 @@ async function askGemini(n){
     'You are a precise music recommendation engine. Suggest '+n+' songs to play NEXT for this listener.',
     '',
     'ALL-TIME FAVORITES (weight these the most): '+ (p.loved.map(desc).join(' / ')||'none yet'),
-    'LIKED — listened all the way through: '+ (p.liked.slice(-25).map(desc).join(' / ')||'none yet'),
+    'LIKED — listened all the way through (sampled across full history): '+ (sampleDiverse(p.liked,20).map(desc).join(' / ')||'none yet'),
     'DISLIKED — skipped, steer away from these: '+ (p.disliked.slice(-25).map(desc).join(' / ')||'none yet'),
     'BANNED GENRES — never suggest anything in these: '+ (p.hatedGenres.join(', ')||'none'),
-    p.seed ? 'STARTING MOOD/SEED (strong signal, especially early): '+p.seed : '',
+    p.seed ? 'STANDING LISTENER DIRECTION — always respect this and blend every batch toward it: "'+p.seed+'"' : '',
     '',
     'Already played or queued — do NOT repeat any of these: '+avoid,
     '',
     'Rules:',
     '- Real songs that exist on YouTube. Prefer official audio/video.',
     '- Never suggest a banned genre. Steer clear of anything close to Disliked.',
-    '- Lean hard toward the mood of the Favorites and Liked list.',
+    '- Lean toward the mood of the Favorites and Liked list, but DIVERSIFY: never more than 2 songs of the same genre in one batch; rotate across the FULL breadth of genres in the listener\'s history, not just recent ones.',
     '- Of the '+n+', make most of them safe/close picks and at most one a tasteful exploration.',
     '- Vary artists; do not stack the same artist.',
     '',
@@ -569,6 +573,7 @@ async function askGemini(n){
   return arr.filter(x=>x && x.title && x.artist);
 }
 const desc = t => t.title+' — '+t.artist+(t.genre?(' ['+t.genre+']'):'');
+function sampleDiverse(arr,n){ const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a.slice(0,n); }
 
 /* ============================================================
    RESOLVE  — title/artist -> playable YouTube videoId
@@ -842,14 +847,6 @@ function lyricsTick(cur){
   let idx=-1;
   for(let i=0;i<S.lyricsLines.length;i++){ if(cur >= S.lyricsLines[i].t - 0.15) idx=i; else break; }
   if(idx!==S.lyricIdx){ S.lyricIdx=idx; paintLyrics(); }
-  else if(idx>=0){ sweepWord(cur, idx); }  // word-sweep within the active line
-}
-function sweepWord(cur, idx){
-  const line=S.lyricsLines[idx]; const next=S.lyricsLines[idx+1];
-  const start=line.t, end=next?next.t:start+4;
-  const frac=Math.max(0,Math.min(1,(cur-start)/Math.max(0.5,end-start)));
-  const el=document.querySelector('.lyc.active .sweep');
-  if(el) el.style.width=(frac*100)+'%';
 }
 function paintLyrics(){
   const box=$('lyricsBox'); if(!box) return;
@@ -861,10 +858,9 @@ function paintLyrics(){
     const prev = i>0 ? src[i-1] : null;
     const cur  = i>=0 ? src[i] : {txt:'♪'};
     const nxt  = (i+1<src.length) ? src[i+1] : null;
-    const ct = escapeHtml(cur.txt||'♪');
     box.innerHTML =
       (prev?`<div class="lyc prev">${escapeHtml(prev.txt)}</div>`:'')+
-      `<div class="lyc active"><span class="base">${ct}</span><span class="sweep">${ct}</span></div>`+
+      `<div class="lyc active">${escapeHtml(cur.txt||'♪')}</div>`+
       (nxt?`<div class="lyc next">${escapeHtml(nxt.txt)}</div>`:'');
   } else {
     // unsynced: plain scrollable text, no highlight, no auto-scroll
@@ -1219,7 +1215,7 @@ $('modePill').onclick=()=>{
 $('startBtn').onclick=async ()=>{
   S.geminiKeys=parseKeys($('geminiKey').value); S.gi=0; S.geminiQuotaOut=false;
   S.ytKeys=parseKeys($('ytKey').value); S.yi=0; S.ytQuotaOut=false;
-  S.model=$('model').value;
+  S.model=$('modelSel').value;
   S.dataSaver=$('dataSaver').value;
   applyDataSaver();
   const seedVal=$('seed').value.trim();
@@ -1259,7 +1255,7 @@ function applyWide(){ /* tabs are single-pane at all widths now; nothing to togg
 window.addEventListener('resize',()=>{ if(S.started) applyWide(); });
 
 /* on load: prefill remembered keys, show existing profile, open setup */
-const BUILD='Cassette · build 16 · 2026-07-14 · Paperback';
+const BUILD='Cassette · build 17 · 2026-07-15 · fixes';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();

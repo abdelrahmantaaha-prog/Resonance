@@ -25,7 +25,7 @@
     --disp:'Fraunces',Georgia,serif;
   }
   *{box-sizing:border-box}
-  html,body{margin:0}
+  html,body{margin:0;overflow-x:hidden;max-width:100vw}
   body{background:radial-gradient(1100px 650px at 80% -10%, #1a1526 0%, var(--bg) 55%) fixed, var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
   a{color:var(--gold)}
   button{font-family:inherit;cursor:pointer}
@@ -38,6 +38,7 @@
   .hdr-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
   .homebtn{width:34px;height:34px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--gold);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;transition:.15s}
   .homebtn:hover{border-color:var(--gold);transform:scale(1.05)}
+  @media(max-width:560px){ .appswitch .seg .tx{display:none} .appswitch .seg{padding:6px 10px} .brand .sub{display:none} }
   .appswitch{position:relative;display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:3px;gap:2px}
   .appswitch .seg{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:99px;font-family:var(--mono);font-size:12px;color:var(--muted);text-decoration:none;transition:.2s;position:relative;z-index:2}
   .appswitch .seg .ic{font-size:13px;filter:grayscale(.5);transition:.2s}
@@ -168,6 +169,27 @@
   .quotaWall{background:rgba(231,180,76,.08);border:1px solid rgba(231,180,76,.3);border-radius:12px;padding:18px;text-align:center;margin:8px 0 14px}
   .quotaWall .qw-t{font-weight:600;font-size:15px;margin-bottom:6px}
   .quotaWall .qw-s{color:var(--muted);font-size:12.5px;margin-bottom:12px}
+  .shelf-tools{padding:12px 14px 4px}
+  .fchips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .fchip{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:6px 12px;font-family:var(--mono);font-size:11.5px;transition:.15s}
+  .fchip.on{border-color:var(--gold);color:var(--gold)}
+  .shelf-tools input,.srow input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:10px 12px;font-family:var(--mono);font-size:13px;outline:none}
+  .shelf-tools input:focus,.srow input:focus{border-color:var(--gold)}
+  .shelfList{padding:10px 14px 16px;max-height:60vh;overflow-y:auto}
+  .brow{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;border:1px solid transparent}
+  .brow:hover{background:var(--panel-2);border-color:var(--line)}
+  .brow img{width:34px;height:50px;object-fit:cover;border-radius:4px;background:var(--panel-2);flex:none}
+  .brow .noimg{width:34px;height:50px;border-radius:4px;background:var(--panel-2);display:flex;align-items:center;justify-content:center;color:var(--faint);flex:none;font-size:15px}
+  .brow .bi{flex:1;min-width:0}
+  .brow .bt{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brow .ba{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brow .badge{font-size:12px;flex:none}
+  .brow select{background:var(--bg);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:4px 6px;font-family:var(--mono);font-size:10.5px;flex:none}
+  .addbox{padding:14px}
+  .srow{display:flex;gap:8px;margin-bottom:12px}
+  .rquick{display:flex;gap:4px;flex:none}
+  .rquick button{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:7px;width:28px;height:28px;font-size:13px;padding:0;transition:.15s}
+  .rquick button:hover{border-color:var(--gold);color:var(--gold)}
   .hidden{display:none!important}
   footer{margin-top:30px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.7}
 </style>
@@ -209,7 +231,7 @@
         </div>
         <div class="field">
           <label>Gemini model</label>
-          <select id="model">
+          <select id="modelSel">
             <option value="gemini-3.5-flash">gemini-3.5-flash</option>
             <option value="gemini-flash-latest">gemini-flash-latest</option>
             <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
@@ -227,14 +249,14 @@
   </div>
 
   <nav class="tabbar hidden" id="tabbar">
-    <button class="tab on" data-tab="now">▶ <span>Now</span></button>
-    <button class="tab" data-tab="queue">◷ <span>Up next</span></button>
-    <button class="tab" data-tab="dna">⬡ <span>Taste DNA</span></button>
+    <button class="tab on" data-tab="shelf">📚 <span>Shelf</span></button>
+    <button class="tab" data-tab="add">🔍 <span>Add</span></button>
+    <button class="tab" data-tab="surprise">✨ <span>Surprise me</span></button>
   </nav>
 
   <div class="stage hidden" id="stage">
     <!-- NOW -->
-    <section class="tabpane on" id="tabNow">
+    <section class="tabpane" id="tabNow">
       <div class="card">
         <div class="poster-wrap">
           <img id="poster" class="hidden" alt="">
@@ -242,7 +264,7 @@
           <div class="rank hidden" id="rank"></div>
         </div>
         <div class="mv-body">
-          <div class="mv-eyebrow" id="mvMode">◈ Recommended for you</div>
+          <div class="mv-eyebrow" id="mvMode">✨ Surprise me — picked for your mind</div>
           <div class="quotaWall hidden" id="quotaWall">
             <div class="qw-t" id="qwT">Gemini's daily quota is used up</div>
             <div class="qw-s" id="qwS">It resets daily. Play your favorites, or add another key in Settings.</div>
@@ -266,31 +288,52 @@
       </div>
     </section>
 
-    <!-- QUEUE -->
-    <section class="tabpane" id="tabQueue">
+    <!-- SHELF -->
+    <section class="tabpane on" id="tabShelf">
       <div class="card">
-        <div class="panel-h">◷ Up next <span class="n" id="qcount">planning…</span></div>
-        <div class="queue" id="queue"></div>
+        <div class="panel-h">⬡ Your mind, mapped <span class="n" id="mcount"></span></div>
+        <div class="model" id="model"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="panel-h">📚 Shelf <span class="n" id="shelfCount"></span></div>
+        <div class="shelf-tools">
+          <div class="fchips" id="fchips">
+            <button class="fchip on" data-f="all">All</button>
+            <button class="fchip" data-f="watchlist">🔖 To read</button>
+            <button class="fchip" data-f="loved">★</button>
+            <button class="fchip" data-f="liked">▲</button>
+            <button class="fchip" data-f="disliked">▽</button>
+          </div>
+          <input id="shelfQ" type="text" placeholder="filter by title, author, topic…">
+        </div>
+        <div class="shelfList" id="shelfList"></div>
       </div>
     </section>
 
-    <!-- DNA -->
-    <section class="tabpane" id="tabDNA">
+    <!-- ADD -->
+    <section class="tabpane" id="tabAdd">
       <div class="card">
-        <div class="panel-h">⬡ Taste DNA <span class="n" id="mcount"></span></div>
-        <div class="model" id="model"></div>
-        <div class="anchor">
-          <span class="tgl" id="anchorTgl">＋ add books manually</span>
-          <div class="hidden" id="anchorForm">
-            <textarea id="anchorText" placeholder="One per line:&#10;Thinking, Fast and Slow — Kahneman&#10;Why Nations Fail (2012)"></textarea>
-            <div class="row">
-              <select id="anchorBucket">
-                <option value="loved">★ shelf-changers</option>
-                <option value="liked">books worth it</option>
-                <option value="disliked">not for me</option>
-                <option value="hatedGenres">banned topics (one per line)</option>
-              </select>
-              <button class="btn sm" id="anchorAdd">Add</button>
+        <div class="panel-h">🔍 Add books you know</div>
+        <div class="addbox">
+          <div class="srow">
+            <input id="addQ" type="text" placeholder="search title or author — e.g. Why Nations Fail">
+            <button class="btn sm" id="addGo">Search</button>
+          </div>
+          <div id="addResults"></div>
+          <div class="anchor" style="border-top:1px solid var(--line);margin-top:14px">
+            <span class="tgl" id="anchorTgl">＋ or paste a list manually</span>
+            <div class="hidden" id="anchorForm">
+              <textarea id="anchorText" placeholder="One per line:&#10;Thinking, Fast and Slow — Kahneman&#10;Why Nations Fail (2012)"></textarea>
+              <div class="row">
+                <select id="anchorBucket">
+                  <option value="loved">★ shelf-changers</option>
+                  <option value="liked">books worth it</option>
+                  <option value="disliked">not for me</option>
+                  <option value="watchlist">🔖 reading list</option>
+                  <option value="hatedGenres">banned topics (one per line)</option>
+                </select>
+                <button class="btn sm" id="anchorAdd">Add</button>
+              </div>
             </div>
           </div>
         </div>
@@ -316,7 +359,7 @@ const S={
   geminiQuotaOut:false,tab:'now',editOpen:true
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Paperback · build 2 · 2026-07-14';
+const BUILD='Paperback · build 3 · 2026-07-14 · shelf-redesign';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -359,7 +402,7 @@ function loadKeys(){try{
   const c=loadRewindConfig();
   S.geminiKeys=c.geminiKeys||[];
   $('geminiKey').value=S.geminiKeys.join('\n');
-  if(c.model)$('model').value=c.model; $('seed').value=c.paperbackSeed||c.spineSeed||'';
+  if(c.model)$('modelSel').value=c.model; $('seed').value=c.paperbackSeed||c.spineSeed||'';
   if(S.geminiKeys.length)$('setupNote').textContent=S.geminiKeys.length+' Gemini key(s) — shared across Rewind. Hit Start.';
 }catch(_){}}
 function exportProfile(){const b=new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='paperback-taste-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Exported');}
@@ -524,7 +567,7 @@ function like(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();retu
 function meh(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){toast('Still a favorite ★');advance();return;}addTo('disliked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-1));flash('noted · steering away');after(m);}
 function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}(m.genres||[]).forEach(g=>{if(!S.profile.hatedGenres.includes(g))S.profile.hatedGenres.push(g);S.profile.genreScore[g]=-999;});S.queue=S.queue.filter(q=>!(q.genres||[]).some(g=>S.profile.hatedGenres.includes(g)));flash('banned topic · '+((m.genres||[])[0]||'genre'));after(m);}
 function addTo(b,m){const k=mkey(m);['loved','liked','disliked'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,author:m.author||m.director,director:m.author||m.director,genres:m.genres,poster:m.poster});}
-function after(m){renderModel();saveLocal();advance();}
+function after(m){renderModel();try{renderShelf();}catch(_){ }saveLocal();advance();}
 function flash(msg){toast('<span class="k">learned</span> · '+msg);}
 function advance(){ if(S.mode==='fav'){nextFav();return;} if(!S.queue.length){ if(S.geminiQuotaOut){quotaStop();return;} setStatus('<b>Curating…</b>'); ensureQueue().then(()=>{if(S.queue.length)showMovie(S.queue.shift());else if(S.geminiQuotaOut)quotaStop();}); return;} showMovie(S.queue.shift()); ensureQueue(); }
 function neutralNext(){ S.mode==='fav'?nextFav():advance(); }
@@ -541,19 +584,62 @@ async function nextFav(){
   }
   f.reason='all-time favorite'; showMovie(f); renderQueue();
 }
-function enterFav(){if(!S.profile.loved.length){toast('Rate some films ★ first — or add them in Taste DNA');return;}S.mode='fav';S.favQueue=shuffle(S.profile.loved);updateFavPill();showTab('now');nextFav();}
+function enterFav(){if(!S.profile.loved.length){toast('Rate some films ★ first — or add them in Taste DNA');return;}S.mode='fav';S.favQueue=shuffle(S.profile.loved);updateFavPill();showTab('surprise');nextFav();}
 function exitFav(){S.mode='discover';updateFavPill();renderModel();advance();}
 function updateFavPill(){const b=$('favPill');if(S.mode==='fav'){b.style.borderColor='var(--gold)';b.style.color='var(--gold)';b.textContent='← discovery';}else{b.style.borderColor='';b.style.color='';b.textContent='★ shelf';}}
 function previous(){if(!S.history.length)return;showMovie(S.history.pop(),false);}
 
 /* ---------- render queue / model ---------- */
 function renderQueue(){
-  const el=$('queue'); const items=(S.mode==='fav'?S.favQueue:S.queue).slice(0,2);
+  const el=$('queue'); if(!el) return; const items=(S.mode==='fav'?S.favQueue:S.queue).slice(0,2);
   let h='';
   items.forEach((m,i)=>{h+='<div class="qitem '+(i===0?'first':'')+'"><div class="pos">'+(i===0?'next':'then')+'</div><div><div class="t">'+esc(m.title)+'</div><div class="a">'+esc([m.year,m.director].filter(Boolean).join(' · '))+'</div><div class="why">'+esc(S.mode==='fav'?'all-time favorite ★':(m.reason||''))+'</div></div></div>';});
   for(let i=items.length;i<2;i++)h+='<div class="qslot-empty">'+((S.thinking||S.resolving)?'<span class="thinking">thinking</span>':'slot open')+'</div>';
   el.innerHTML=h;
-  $('qcount').textContent=S.mode==='fav'?'★ favorites':((S.thinking||S.resolving)?'planning…':(S.queue.length+' ready'));
+  const _qc=$('qcount'); if(_qc)_qc.textContent=S.mode==='fav'?'★ favorites':((S.thinking||S.resolving)?'planning…':(S.queue.length+' ready'));
+}
+let shelfFilter='all';
+function shelfIcon(b){return {loved:'★',liked:'▲',disliked:'▽',watchlist:'🔖'}[b]||'';}
+function renderShelf(){
+  const list=$('shelfList'); if(!list)return;
+  const q=(($('shelfQ')&&$('shelfQ').value)||'').toLowerCase();
+  const rows=[];
+  ['watchlist','loved','liked','disliked'].forEach(b=>{
+    if(shelfFilter!=='all'&&shelfFilter!==b)return;
+    (S.profile[b]||[]).forEach((m,i)=>{
+      const hay=(m.title+' '+(m.author||m.director||'')+' '+((m.genres||[]).join(' '))).toLowerCase();
+      if(q&&!hay.includes(q))return;
+      rows.push({b,i,m});
+    });
+  });
+  $('shelfCount').textContent=rows.length?(rows.length+' books'):'';
+  if(!rows.length){ list.innerHTML='<div class="mlist-hint">'+(q||shelfFilter!=='all'?'nothing matches':'empty — add books in the 🔍 Add tab')+'</div>'; return; }
+  list.innerHTML=rows.map((r,ri)=>{
+    const m=r.m;
+    const img=m.poster?('<img src="'+m.poster+'" alt="" loading="lazy">'):'<span class="noimg">📕</span>';
+    return '<div class="brow">'+img+
+      '<div class="bi"><div class="bt">'+esc(m.title)+'</div><div class="ba">'+esc((m.author||m.director||'')+(m.year?(' · '+m.year):''))+'</div></div>'+
+      '<span class="badge">'+shelfIcon(r.b)+'</span>'+
+      '<button class="mbtn" data-so="'+ri+'" title="Open">▶</button>'+
+      '<select data-sm="'+ri+'" title="Move shelf"><option value="">⇄</option><option value="watchlist">🔖</option><option value="loved">★</option><option value="liked">▲</option><option value="disliked">▽</option></select>'+
+      '<button class="mbtn del" data-sx="'+ri+'" title="Remove">✕</button></div>';
+  }).join('');
+  list.querySelectorAll('[data-so]').forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.so];playSpecific(r.m);});
+  list.querySelectorAll('[data-sx]').forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.sx];S.profile[r.b].splice(r.i,1);S.seen.delete(mkey(r.m));saveLocal();renderShelf();renderModel();toast('Removed');});
+  list.querySelectorAll('[data-sm]').forEach(sel=>sel.onchange=()=>{const r=rows[+sel.dataset.sm];const to=sel.value;if(!to||to===r.b)return;S.profile[r.b].splice(r.i,1);S.profile[to].push(r.m);saveLocal();renderShelf();renderModel();toast('Moved to '+shelfIcon(to));});
+}
+async function olSearchBooks(q){
+  const u='https://openlibrary.org/search.json?limit=8&fields=title,author_name,first_publish_year,cover_i&q='+encodeURIComponent(q);
+  const r=await fetch(u); if(!r.ok)throw 0; const d=await r.json();
+  return (d.docs||[]).map(h=>({title:h.title,author:(h.author_name||[])[0]||'',year:h.first_publish_year?String(h.first_publish_year):'',
+    poster:h.cover_i?('https://covers.openlibrary.org/b/id/'+h.cover_i+'-M.jpg'):''}));
+}
+function addFromSearch(b,bk){
+  const m={title:bk.title,author:bk.author,director:bk.author,year:bk.year,genres:[],poster:bk.poster};
+  if(S.seen.has(mkey(m))){toast('Already on your shelf');return;}
+  S.profile[b].push(m); S.seen.add(mkey(m));
+  if(b==='loved'){bump(S.profile.dirScore,m.author,3);} if(b==='liked'){bump(S.profile.dirScore,m.author,1);}
+  saveLocal(); renderModel(); renderShelf(); toast(shelfIcon(b)+' added — Gemini will use it');
 }
 function renderModel(){
   const el=$('model');if(!el)return;
@@ -596,7 +682,7 @@ function renderMList(){
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.edit.split(':');editEntry(k,+i);});
 }
 function editEntry(b,i){const m=S.profile[b][i];const nt=prompt('Edit "Title (Year)":',m.title+(m.year?(' ('+m.year+')'):''));if(nt===null)return;const mm=nt.match(/^(.*?)(?:\s*\((\d{4})\))?$/);S.seen.delete(mkey(m));m.title=(mm[1]||'').trim();m.year=mm[2]||'';delete m.id;delete m.overview;S.seen.add(mkey(m));saveLocal();renderModel();toast('Updated');}
-async function playSpecific(m){const c={...m,reason:'you chose this'};const det=await bookDetails({title:c.title,author:c.author||c.director,year:c.year});if(det)Object.assign(c,det);showTab('now');showMovie(c);}
+async function playSpecific(m){const c={...m,reason:'you chose this'};const det=await bookDetails({title:c.title,author:c.author||c.director,year:c.year});if(det)Object.assign(c,det);showTab('surprise');showMovie(c);}
 
 /* ---------- manual anchor ---------- */
 function addAnchors(){
@@ -612,11 +698,20 @@ function addAnchors(){
   });
   saveLocal();renderModel();$('anchorText').value='';
   if(bucket==='loved'&&S.mode==='fav')S.favQueue=shuffle(S.profile.loved);
+  try{renderShelf();}catch(_){}
   toast('Added '+n+' — used from the next batch');
 }
 
 /* ---------- tabs / settings ---------- */
-function showTab(name){S.tab=name;const pane={now:'tabNow',queue:'tabQueue',dna:'tabDNA'}[name];document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='dna')renderModel();}
+async function kickSurprise(){
+  setStatus('<b>Thinking…</b> Gemini is choosing for your mind.');
+  try{
+    await ensureQueue();
+    if(!S.queue.length){ if(S.geminiQuotaOut)quotaStop(); else setStatus('<b>Could not build picks.</b> Check the Gemini key.'); return; }
+    showMovie(S.queue.shift()); ensureQueue();
+  }catch(e){ setStatus('<b>Failed:</b> '+esc(String(e.message).slice(0,100))); }
+}
+function showTab(name){S.tab=name;const pane={surprise:'tabNow',shelf:'tabShelf',add:'tabAdd'}[name]||'tabShelf';document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='shelf'){renderModel();renderShelf();}if(name==='surprise'&&!S.current&&S.started){kickSurprise();}}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function openSettings(){$('setupTitle').textContent=S.started?'Settings':'Setup';$('startBtn').textContent=S.started?'Save & close':'Start';$('settingsOverlay').classList.remove('hidden');}
 function closeSettings(){$('settingsOverlay').classList.add('hidden');}
@@ -628,6 +723,23 @@ $('quotaFavBtn').onclick=()=>{$('quotaWall').classList.add('hidden');enterFav();
 $('quotaSettingsBtn').onclick=()=>{$('quotaWall').classList.add('hidden');openSettings();};
 $('exportBtn').onclick=exportProfile;
 $('anchorTgl').onclick=()=>$('anchorForm').classList.toggle('hidden');
+$('shelfQ').oninput=()=>renderShelf();
+document.querySelectorAll('.fchip').forEach(c=>c.onclick=()=>{shelfFilter=c.dataset.f;document.querySelectorAll('.fchip').forEach(x=>x.classList.toggle('on',x===c));renderShelf();});
+$('addGo').onclick=async()=>{
+  const q=$('addQ').value.trim(); if(!q)return;
+  $('addResults').innerHTML='<div class="mlist-hint">searching…</div>';
+  try{
+    const res=await olSearchBooks(q);
+    if(!res.length){$('addResults').innerHTML='<div class="mlist-hint">no matches — try the manual paste below</div>';return;}
+    $('addResults').innerHTML=res.map((b,i)=>{
+      const img=b.poster?('<img src="'+b.poster+'" alt="" loading="lazy">'):'<span class="noimg">📕</span>';
+      return '<div class="brow">'+img+'<div class="bi"><div class="bt">'+esc(b.title)+'</div><div class="ba">'+esc(b.author+(b.year?(' · '+b.year):''))+'</div></div>'+
+        '<span class="rquick"><button data-a="watchlist:'+i+'" title="Reading list">🔖</button><button data-a="loved:'+i+'" title="Shelf-changer">★</button><button data-a="liked:'+i+'" title="Worth it">▲</button><button data-a="disliked:'+i+'" title="Not for me">▽</button></span></div>';
+    }).join('');
+    $('addResults').querySelectorAll('[data-a]').forEach(btn=>btn.onclick=()=>{const[b,i]=btn.dataset.a.split(':');addFromSearch(b,res[+i]);});
+  }catch(_){$('addResults').innerHTML='<div class="mlist-hint">Open Library unreachable — use the manual paste below</div>';}
+};
+$('addQ').addEventListener('keydown',e=>{if(e.key==='Enter')$('addGo').click();});
 $('anchorAdd').onclick=addAnchors;
 $('importBtn').onclick=()=>$('importFile').click();
 $('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{Object.assign(S.profile,JSON.parse(r.result));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked).forEach(m=>S.seen.add(mkey(m)));toast('Imported');renderModel();}catch(_){toast('Bad file');}};r.readAsText(f);};
@@ -635,7 +747,7 @@ document.addEventListener('keydown',e=>{if(!S.started||['INPUT','SELECT','TEXTAR
 
 $('startBtn').onclick=async()=>{
   S.geminiKeys=parseKeys($('geminiKey').value);S.gi=0;S.geminiQuotaOut=false;
-  S.model=$('model').value;
+  S.model=$('modelSel').value;
   const seed=$('seed').value.trim();if(seed)S.profile.seed=seed;
   if(!S.geminiKeys.length){toast('Gemini key required');return;}
   saveKeys();
@@ -644,13 +756,8 @@ $('startBtn').onclick=async()=>{
   if(!S.profile.seed&&S.profile.loved.length+S.profile.liked.length===0){toast('Give it a seed to start');$('seed').focus();return;}
   S.started=true;closeSettings();
   $('tabbar').classList.remove('hidden');$('stage').classList.remove('hidden');
-  renderModel();renderQueue();updateFavPill();showTab('now');
-  setStatus('<b>Warming up…</b> Gemini is choosing your first films.');
-  try{
-    await ensureQueue();
-    if(!S.queue.length){if(S.geminiQuotaOut)quotaStop();else setStatus('<b>Could not build a queue.</b> Check keys, then reload.');return;}
-    showMovie(S.queue.shift());ensureQueue();
-  }catch(e){setStatus('<b>Startup failed:</b> '+esc(String(e.message).slice(0,120)));}
+  renderModel();renderShelf();updateFavPill();showTab((S.profile.loved.length+S.profile.liked.length+S.profile.watchlist.length)?'shelf':'add');
+  setStatus('Shelf ready · ✨ Surprise me when you want a pick.');
 };
 
 try{$('buildStamp').textContent=BUILD;}catch(_){}
