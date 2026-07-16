@@ -93,14 +93,6 @@
   .wlrow input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none}
   .wlrow input:focus{border-color:var(--gold)}
   .wlnote{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:6px;line-height:1.5}
-  .epbrowse{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-  .epbrowse .ephead{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em}
-  .epbrowse select{background:var(--bg);border:1px solid var(--line);border-radius:7px;color:var(--ink);font-family:var(--mono);font-size:11px;padding:4px 6px;outline:none}
-  .epbrowse select:focus{border-color:var(--gold)}
-  .eplist{max-height:264px;overflow:auto;margin-top:8px}
-  .eplist .mrow.playing .txt{color:var(--gold)}
-  .eplist .mrow.playing .mbtn{color:var(--gold);border-color:var(--gold)}
-  .eplist .epdate{color:var(--faint);font-size:10px;margin-left:6px}
   .mediaSwitch{display:flex;gap:6px;margin-bottom:10px}
   .mchip{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:5px 12px;font-family:var(--mono);font-size:11px;transition:.15s}
   .mchip.on{border-color:var(--gold);color:var(--gold)}
@@ -241,8 +233,8 @@
           <input id="embedTplMovie" type="text" placeholder="e.g. https://myplayer.example/movie/{id}" autocomplete="off" spellcheck="false">
         </div>
         <div class="field">
-          <label>Embed player — TV show link <span class="hint">— optional · use {id}/{season_number}/{episode_number} · missing placeholders are appended</span></label>
-          <input id="embedTplTv" type="text" placeholder="e.g. https://myplayer.example/tv/{id}/{season_number}/{episode_number}" autocomplete="off" spellcheck="false">
+          <label>Embed player — TV show link <span class="hint">— optional · used for series · same {id} rules</span></label>
+          <input id="embedTplTv" type="text" placeholder="e.g. https://myplayer.example/tv/{id}" autocomplete="off" spellcheck="false">
         </div>
         <div class="field">
           <label>Embed link id <span class="hint">— which id goes into the player links</span></label>
@@ -326,10 +318,6 @@
             </div>
             <div class="wlnote" id="srcNote">Plays whatever you point it at — use sources you have the right to watch (your own files, archive.org, official embeds).</div>
           </div>
-          <div class="epbrowse hidden" id="epBrowse">
-            <div class="ephead">episodes <select id="seasonSel"></select><span id="epCount"></span></div>
-            <div class="eplist" id="epList"></div>
-          </div>
           <div class="watch"><div class="wl">where to watch <span id="regionLbl"></span></div><div class="provs" id="provs"></div></div>
           <div class="rate">
             <button class="rb love" id="btnLove"><span class="ico">★</span><span class="lab">Masterpiece</span></button>
@@ -409,7 +397,7 @@ const S={
   geminiQuotaOut:false,tab:'now',editOpen:true,imgBase:'https://image.tmdb.org/t/p/'
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Reel · build 14 · 2026-07-16 · episode browser';
+const BUILD='Reel · build 13 · 2026-07-16 · movie+tv embed links';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -591,88 +579,16 @@ function quotaStop(){
 
 /* ---------- playback of pick ---------- */
 /* Build an embed URL from the user's per-type template + the chosen id
-   (IMDb or TMDB, per settings). Placeholders: {id} (legacy {imdb} works),
-   and for TV {season_number} / {episode_number} (aliases {season}/{episode}).
-   Missing placeholders get appended: id, then /season/episode for TV. */
-function tplEmbedUrl(m,sn,en){
+   (IMDb or TMDB, per settings). {id} placeholder is substituted — legacy
+   {imdb} still works — otherwise the id is appended at the end. */
+function tplEmbedUrl(m){
   if(!m) return '';
-  const tv=(m.type==='tv');
-  const t=((tv?S.embedTplTv:S.embedTplMovie)||'').trim();
+  const t=((m.type==='tv'?S.embedTplTv:S.embedTplMovie)||'').trim();
   if(!t) return '';
   const id=S.embedIdType==='tmdb' ? (m.id?String(m.id):'') : (m.imdbId||'');
   if(!id) return '';
-  let u=t.split('{imdb}').join('{id}');
-  u = u.includes('{id}') ? u.split('{id}').join(id) : (u.replace(/\/+$/,'')+ (u?'/':'') + id);
-  if(tv){
-    const s=String(sn||(m.se&&m.se.s)||1), e=String(en||(m.se&&m.se.e)||1);
-    u=u.split('{season}').join('{season_number}').split('{episode}').join('{episode_number}');
-    u = u.includes('{season_number}') ? u.split('{season_number}').join(s) : (u+'/'+s);
-    u = u.includes('{episode_number}') ? u.split('{episode_number}').join(e) : (u+'/'+e);
-  }
-  return u;
-}
-/* literal prefix of a template up to its first placeholder — used to
-   recognize template-built URLs so they're trusted as direct embeds */
-function tplPrefix(tv){ const t=((tv?S.embedTplTv:S.embedTplMovie)||'').trim(); return t.split('{')[0]; }
-function fromTemplate(raw){
-  const pm=tplPrefix(false), pt=tplPrefix(true);
-  return (pm&&raw.startsWith(pm))||(pt&&raw.startsWith(pt));
-}
-
-/* ---------- TV season / episode browsing ---------- */
-const seasonCache={}; // 'tvId:season' -> episodes[]
-async function loadSeason(tvId,n){
-  const k=tvId+':'+n;
-  if(seasonCache[k]) return seasonCache[k];
-  try{
-    const r=await fetch('https://api.themoviedb.org/3/tv/'+tvId+'/season/'+n+'?api_key='+encodeURIComponent(S.tmdb));
-    if(!r.ok) return null;
-    const d=await r.json();
-    const eps=(d.episodes||[]).map(e=>({n:e.episode_number,name:e.name||'',date:(e.air_date||'').slice(0,7)}));
-    seasonCache[k]=eps; return eps;
-  }catch(_){ return null; }
-}
-function renderEpBrowse(m){
-  const box=$('epBrowse');
-  if(!m || m.type!=='tv' || !m.id || !(m.seasons>0)){ box.classList.add('hidden'); return; }
-  box.classList.remove('hidden');
-  const sel=$('seasonSel');
-  sel.innerHTML=Array.from({length:m.seasons},(_,i)=>'<option value="'+(i+1)+'">Season '+(i+1)+'</option>').join('');
-  const cur=Math.min((m.se&&m.se.s)||1, m.seasons);
-  sel.value=String(cur);
-  sel.onchange=()=>fillEpisodes(m,+sel.value);
-  fillEpisodes(m,cur);
-}
-async function fillEpisodes(m,sn){
-  const list=$('epList'); $('epCount').textContent='';
-  list.innerHTML='<div class="mlist-hint">loading season '+sn+'…</div>';
-  const eps=await loadSeason(m.id,sn);
-  if(m!==S.current) return; // user moved on while we fetched
-  if(!eps||!eps.length){ list.innerHTML='<div class="mlist-hint">couldn\'t load this season</div>'; return; }
-  $('epCount').textContent='· '+eps.length+' ep'+(eps.length>1?'s':'');
-  const canPlay=!!S.embedTplTv;
-  const cur=m.se||{};
-  list.innerHTML=eps.map(e=>'<div class="mrow'+((cur.s===sn&&cur.e===e.n)?' playing':'')+'" data-eprow="'+e.n+'">'
-    +'<button class="mbtn" data-ep="'+e.n+'" title="'+(canPlay?'Play this episode':'Set a TV embed link in Settings first')+'">▶</button>'
-    +'<span class="txt">E'+e.n+(e.name?(' · '+esc(e.name)):'')+(e.date?('<span class="epdate">'+esc(e.date)+'</span>'):'')+'</span></div>').join('');
-  list.querySelectorAll('[data-ep]').forEach(b=>b.onclick=()=>playEpisode(m,sn,+b.dataset.ep));
-}
-function playEpisode(m,sn,en){
-  const src=tplEmbedUrl(m,sn,en);
-  if(!src){ toast(S.embedTplTv?'No '+(S.embedIdType==='tmdb'?'TMDB':'IMDb')+' id for this title':'Set a TV embed link in Settings'); return; }
-  m.se={s:sn,e:en};
-  $('srcIn').value=src;
-  mountEmbed({type:'iframe',src},'Playing S'+sn+'E'+en+' — remembered for this title.');
-  persistCurrent({src:src,se:m.se});
-  $('epList').querySelectorAll('.mrow').forEach(r=>r.classList.toggle('playing', +r.dataset.eprow===en));
-}
-/* copy playback fields onto the matching saved copies of the current title */
-function persistCurrent(patch){
-  if(!S.current) return;
-  Object.assign(S.current,patch);
-  const k=mkey(S.current);
-  ['loved','liked','disliked','watchlist','banned'].forEach(b=>{ const hit=(S.profile[b]||[]).find(x=>mkey(x)===k); if(hit) Object.assign(hit,patch); });
-  saveLocal();
+  const tt=t.split('{imdb}').join('{id}');
+  return tt.includes('{id}') ? tt.split('{id}').join(id) : (tt+id);
 }
 function showMovie(m,pushHist){
   if(pushHist!==false && S.current)S.history.push(S.current);
@@ -702,10 +618,9 @@ function showMovie(m,pushHist){
   closePlayer();
   const tpl=tplEmbedUrl(m);
   $('srcIn').value=m.src||tpl||'';
-  $('srcNote').textContent = m.src ? (m.type==='tv'&&m.se?('Saved link — S'+m.se.s+'E'+m.se.e+' — hit Play or pick another episode below.'):'Saved link for this title — hit Play.')
-    : tpl ? (m.type==='tv'?'Link built from your TV embed template — hit Play or pick an episode below.':'Link built from your embed template — hit Play.')
+  $('srcNote').textContent = m.src ? 'Saved link for this title — hit Play.'
+    : tpl ? 'Link built from your embed template — hit Play.'
     : 'Plays whatever you point it at — use sources you have the right to watch (your own files, archive.org, official embeds).';
-  renderEpBrowse(m);
   renderProviders(m);
   $('rank').classList.toggle('hidden', S.mode!=='fav');
   $('mvMode').textContent = S.mode==='fav' ? '★ Close to my heart' : '◈ Recommended for you';
@@ -742,26 +657,25 @@ function toEmbed(raw){
   if(/\/embed\//.test(p)) return {type:'iframe',src:u};
   return {type:'unknown',src:u};
 }
-function mountEmbed(e,note){
+function playSource(raw){
+  let e=toEmbed(raw);
+  if(!e){ $('srcNote').textContent='That doesn\'t look like a URL.'; return; }
+  // URLs built from the user's embed template are trusted as direct embeds
+  if(e.type==='unknown' && (S.embedTplMovie||S.embedTplTv) && S.current && raw===tplEmbedUrl(S.current)) e={type:'iframe',src:raw};
+  if(e.type==='unknown'){
+    $('srcNote').innerHTML='Can\'t embed that host — <a href="'+e.src+'" target="_blank" rel="noopener">open it in a new tab ↗</a>. Embeddable: YouTube, Vimeo, archive.org, Dailymotion, or a direct .mp4/.webm/.m3u8 link.';
+    return;
+  }
   const f=$('pframe');
   f.innerHTML = e.type==='video'
     ? '<video src="'+esc(e.src)+'" controls autoplay playsinline></video>'
     : '<iframe src="'+esc(e.src)+'" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
   $('playerShell').classList.remove('hidden');
   $('posterWrap').classList.add('hidden');
-  $('srcNote').textContent=note;
-}
-function playSource(raw){
-  let e=toEmbed(raw);
-  if(!e){ $('srcNote').textContent='That doesn\'t look like a URL.'; return; }
-  // URLs built from the user's embed templates are trusted as direct embeds
-  if(e.type==='unknown' && fromTemplate(raw)) e={type:'iframe',src:raw};
-  if(e.type==='unknown'){
-    $('srcNote').innerHTML='Can\'t embed that host — <a href="'+e.src+'" target="_blank" rel="noopener">open it in a new tab ↗</a>. Embeddable: YouTube, Vimeo, archive.org, Dailymotion, or a direct .mp4/.webm/.m3u8 link.';
-    return;
-  }
-  mountEmbed(e, e.hls ? 'HLS stream — plays natively in Safari; other browsers may not support .m3u8 without a plugin.' : 'Playing. The link is remembered for this title.');
-  persistCurrent({src:raw});
+  $('srcNote').textContent = e.hls ? 'HLS stream — plays natively in Safari; other browsers may not support .m3u8 without a plugin.' : 'Playing. The link is remembered for this title.';
+  if(S.current){ S.current.src=raw; const k=mkey(S.current);
+    ['loved','liked','disliked','watchlist','banned'].forEach(b=>{ const hit=(S.profile[b]||[]).find(x=>mkey(x)===k); if(hit){ hit.src=raw; } });
+    saveLocal(); }
 }
 function closePlayer(){ $('pframe').innerHTML=''; $('playerShell').classList.add('hidden'); $('posterWrap').classList.remove('hidden'); }
 function renderProviders(m){
