@@ -29,7 +29,7 @@
   body{background:radial-gradient(1100px 650px at 80% -10%, #1a1526 0%, var(--bg) 55%) fixed, var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
   a{color:var(--gold)}
   button{font-family:inherit;cursor:pointer}
-  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 118px}
   header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:20px}
   .brand{display:flex;align-items:baseline;gap:11px}
   .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 14px var(--gold);align-self:center}
@@ -69,9 +69,21 @@
   .sheet-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px}
   input[type=file]{display:none}
 
-  .tabbar{display:flex;gap:6px;margin-bottom:16px;position:sticky;top:0;z-index:20;background:var(--bg);padding:4px 0}
-  .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:11px;padding:11px 8px;font-family:var(--mono);font-size:12.5px;transition:.15s}
-  .tab.on{border-color:var(--gold);color:var(--gold);background:var(--panel-2)}
+  .tabbar{position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+    width:min(calc(100% - 20px),640px);z-index:50;display:flex;gap:4px;padding:6px;margin:0;
+    background:rgba(8,7,12,.66);backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);
+    border:1px solid rgba(255,255,255,.09);border-radius:18px;box-shadow:0 12px 34px rgba(0,0,0,.5);
+    overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabbar::-webkit-scrollbar{display:none}
+  .tabbar.hidden{display:none}
+  .tind{position:absolute;top:6px;bottom:6px;left:0;width:0;border-radius:13px;background:rgba(231,180,76,.14);border:1px solid rgba(231,180,76,.42);
+    transition:transform .38s cubic-bezier(.3,1.35,.35,1),width .38s cubic-bezier(.3,1.35,.35,1),opacity .2s;opacity:0;pointer-events:none}
+  .tab{flex:1;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:7px;background:transparent;border:1px solid transparent;color:var(--muted);border-radius:13px;padding:11px 12px;font-family:var(--mono);font-size:12.5px;position:relative;z-index:1;transition:color .25s,transform .2s}
+  .tab:active{transform:scale(.93)}
+  .tabpane.on{animation:paneIn .3s cubic-bezier(.22,1,.36,1)}
+  @keyframes paneIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.tind{transition:opacity .2s}.tabpane.on{animation:none}.tab:active{transform:none}}
+  .tab.on{color:var(--gold);background:transparent;border-color:transparent}
   .tabpane{display:none}
   .tabpane.on{display:block;animation:fade .2s ease}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
@@ -462,7 +474,24 @@ const S={
   geminiQuotaOut:false,tab:'now',editOpen:true
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Paperback · build 7 · 2026-07-15 · reading-plans';
+
+/* ---------- bottom nav: sliding indicator ---------- */
+function moveTabInd(){
+  const bar=$('tabbar'); if(!bar||bar.classList.contains('hidden'))return;
+  let ind=bar.querySelector('.tind');
+  if(!ind){ ind=document.createElement('i'); ind.className='tind'; bar.prepend(ind); }
+  const on=bar.querySelector('.tab.on');
+  if(!on){ ind.style.opacity='0'; return; }
+  requestAnimationFrame(()=>{
+    ind.style.opacity='1';
+    ind.style.width=on.offsetWidth+'px';
+    ind.style.transform='translateX('+on.offsetLeft+'px)';
+    try{on.scrollIntoView({inline:'nearest',block:'nearest'});}catch(_){}
+  });
+}
+window.addEventListener('resize',moveTabInd);
+
+const BUILD='Paperback · build 8 · 2026-07-17 · bottom glass nav · fluid motion';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -930,7 +959,7 @@ function renderPlans(){
   $('plansList').querySelectorAll('[data-po]').forEach(b=>b.onclick=()=>{ curPlan=S.profile.plans[+b.dataset.po]; renderPlan(); $('planCard').scrollIntoView({behavior:'smooth',block:'start'}); });
   $('plansList').querySelectorAll('[data-px]').forEach(b=>b.onclick=()=>{ const p=S.profile.plans[+b.dataset.px]; if(curPlan&&curPlan.id===p.id){curPlan=null;renderPlan();} S.profile.plans.splice(+b.dataset.px,1); saveLocal(); renderPlans(); toast('Plan deleted'); });
 }
-function showTab(name){S.tab=name;const pane={surprise:'tabNow',shelf:'tabShelf',add:'tabAdd',learn:'tabLearn'}[name]||'tabShelf';document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='shelf'){renderModel();renderShelf();}if(name==='learn'){renderPlan();renderPlans();}if(name==='surprise'&&!S.current&&S.started){kickSurprise();}}
+function showTab(name){S.tab=name;const pane={surprise:'tabNow',shelf:'tabShelf',add:'tabAdd',learn:'tabLearn'}[name]||'tabShelf';document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='shelf'){renderModel();renderShelf();}if(name==='learn'){renderPlan();renderPlans();}if(name==='surprise'&&!S.current&&S.started){kickSurprise();}moveTabInd();}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function openSettings(){$('setupTitle').textContent=S.started?'Settings':'Setup';$('startBtn').textContent=S.started?'Save & close':'Start';$('settingsOverlay').classList.remove('hidden');}
 function closeSettings(){$('settingsOverlay').classList.add('hidden');}
@@ -1040,7 +1069,7 @@ $('startBtn').onclick=async()=>{
   loadLocal();if(seed)S.profile.seed=seed;
   if(!S.profile.seed&&S.profile.loved.length+S.profile.liked.length===0){toast('Give it a seed to start');$('seed').focus();return;}
   S.started=true;closeSettings();
-  $('tabbar').classList.remove('hidden');$('stage').classList.remove('hidden');
+  $('tabbar').classList.remove('hidden');$('stage').classList.remove('hidden');moveTabInd();
   renderModel();renderShelf();updateFavPill();showTab((S.profile.loved.length+S.profile.liked.length+S.profile.watchlist.length)?'shelf':'add');
   setStatus('Shelf ready · ✨ Surprise me when you want a pick.');
 };
