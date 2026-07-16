@@ -245,6 +245,22 @@
   .warnbar b{color:var(--ember)}
   input[type=file]{display:none}
   footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.7}
+  /* focus bar */
+  .focusbar{margin-bottom:14px}
+  .frow{display:flex;gap:8px}
+  .frow input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px 13px;font-family:var(--mono);font-size:12px;outline:none;transition:.15s}
+  .frow input:focus{border-color:var(--amber)}
+  .focusbar.on .frow input{border-color:var(--amber);color:var(--amber)}
+  .fpresets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .fpre{background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:6px 12px;font-family:var(--mono);font-size:11px;transition:.15s}
+  .fpre:hover,.fpre.on{border-color:var(--amber);color:var(--amber)}
+  /* hard containment: lists must never widen the page on mobile */
+  html,body{max-width:100%}
+  .card{overflow:hidden}
+  .model,.mlist,#mlistWrap,.grp,.chips{max-width:100%;min-width:0}
+  .mrow{max-width:100%;min-width:0}
+  .mrow .txt{flex:1 1 0%;min-width:0}
+  .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
@@ -262,6 +278,7 @@
         <a class="seg" href="../reel/" title="Movies"><span class="ic">🎬</span><span class="tx">Reel</span></a>
         <a class="seg" href="../paperback/" title="Books"><span class="ic">📖</span><span class="tx">Paperback</span></a>
       </div>
+      <button class="pill" id="explorePill" title="Explore genres beyond your taste">🎲 surprise</button>
       <button class="pill" id="modePill" title="Play only your all-time favorites">♥ favorites</button>
       <button class="pill" id="gearBtn" title="API keys & settings">⚙</button>
     </div>
@@ -340,6 +357,19 @@
 
     <!-- TAB: NOW PLAYING -->
     <section class="tabpane on" id="tabNow">
+    <div class="focusbar" id="focusBar">
+      <div class="frow">
+        <input id="focusIn" type="text" placeholder="🎯 focus this session — mood · genre · artist (e.g. 80s synthwave · Fairuz · study beats)">
+        <button class="btn sm" id="focusGo">Set</button>
+        <button class="btn ghost sm hidden" id="focusClr">✕</button>
+      </div>
+      <div class="fpresets">
+        <button class="fpre" data-p="deep focus, instrumental, no vocals">🎧 Focus</button>
+        <button class="fpre" data-p="chill, mellow, late night">🌙 Chill</button>
+        <button class="fpre" data-p="high energy, uptempo">🏃 Energy</button>
+        <button class="fpre" data-p="driving music, feel-good, singalong">🚗 Drive</button>
+      </div>
+    </div>
     <div class="card now">
       <div class="videoshell">
         <div id="player"></div>
@@ -453,7 +483,7 @@ const S = {
   player: null, ytReady:false, playing:false, resolving:false, thinking:false, started:false,
   progTimer:null, mode:'discover', heartQueue:[], history:[], userPaused:false,
   pendingTrack:null, dataSaver:'off', ytQuotaOut:false, geminiQuotaOut:false, tab:'now', seeking:false,
-  geminiKeys:[], gi:0, ytKeys:[], yi:0, lastfm:'',
+  geminiKeys:[], gi:0, ytKeys:[], yi:0, lastfm:'', exploreMode:false, focus:'',
   lyrics:null, lyricsLines:[], lyricIdx:-1, lyricsFor:'', lyricsOn:true, translated:false, editOpen:true,
 };
 
@@ -570,12 +600,14 @@ async function lastfmSimilarPool(){
 async function askGemini(n){
   const p = S.profile;
   const avoid = [...S.seenKeys].slice(-45).join('; ') || 'none yet';
-  const pool = await lastfmSimilarPool();
+  const pool = S.exploreMode ? [] : await lastfmSimilarPool();   // similarity pool contradicts exploration
   const poolLine = pool.length
     ? 'CANDIDATE POOL from real listening data (people who love this listener\'s songs also play these). STRONGLY prefer selecting from this pool; you may add outside picks only if the pool cannot satisfy the rules: '+pool.map(c=>c.title+' — '+c.artist).join(' / ')
     : '';
   const lines = [
     'You are a precise music recommendation engine. Suggest '+n+' songs to play NEXT for this listener.',
+    S.focus ? ('SESSION FOCUS — hard constraint the listener set for RIGHT NOW; every single pick must fit it, it overrides general taste: "'+S.focus+'"') : '',
+    S.exploreMode ? 'EXPLORATION MODE — the listener wants to EXPAND their palate: pick from genres and scenes they have NOT rated. Choose the most beloved gateway songs of unfamiliar genres, adjacent enough to their taste to land. Do NOT pick from their usual genres. Still respect banned songs/genres and the session focus if set.' : '',
     poolLine,
     '',
     'ALL-TIME FAVORITES (weight these the most): '+ (p.loved.map(desc).join(' / ')||'none yet'),
@@ -1315,6 +1347,35 @@ $('gearBtn').onclick=openSettings;
 $('closeSettings').onclick=closeSettings;
 $('settingsOverlay').addEventListener('click',e=>{ if(e.target.id==='settingsOverlay') closeSettings(); });
 
+function refreshSessionUI(){
+  $('explorePill').style.borderColor = S.exploreMode?'var(--amber)':'';
+  $('explorePill').style.color = S.exploreMode?'var(--amber)':'';
+  $('explorePill').textContent = S.exploreMode?'🎲 exploring':'🎲 surprise';
+  $('focusBar').classList.toggle('on', !!S.focus);
+  $('focusClr').classList.toggle('hidden', !S.focus);
+  document.querySelectorAll('.fpre').forEach(b=>b.classList.toggle('on', S.focus===b.dataset.p));
+}
+function reSteer(msg){
+  S.candidates=[]; S.queue=[];
+  toast(msg+' · re-steering the queue');
+  if(S.started && !S.geminiQuotaOut){ setStatus('<b>Re-steering…</b>'); ensureQueue(); }
+}
+$('explorePill').onclick=()=>{
+  S.exploreMode=!S.exploreMode;
+  if(S.exploreMode && S.mode==='hearts') exitHearts();
+  refreshSessionUI();
+  reSteer(S.exploreMode?'🎲 exploring beyond your taste':'back to your taste');
+};
+function setFocus(v){
+  S.focus=(v||'').trim();
+  $('focusIn').value=S.focus;
+  refreshSessionUI();
+  reSteer(S.focus?('🎯 '+S.focus):'focus cleared');
+}
+$('focusGo').onclick=()=>setFocus($('focusIn').value);
+$('focusIn').addEventListener('keydown',e=>{ if(e.key==='Enter') setFocus($('focusIn').value); });
+$('focusClr').onclick=()=>setFocus('');
+document.querySelectorAll('.fpre').forEach(b=>b.onclick=()=>setFocus(S.focus===b.dataset.p?'':b.dataset.p));
 $('modePill').onclick=()=>{
   if(!S.started){ toast('Start listening first'); return; }
   S.mode==='hearts' ? exitHearts() : enterHearts();
@@ -1364,7 +1425,7 @@ function applyWide(){ /* tabs are single-pane at all widths now; nothing to togg
 window.addEventListener('resize',()=>{ if(S.started) applyWide(); });
 
 /* on load: prefill remembered keys, show existing profile, open setup */
-const BUILD='Cassette · build 19 · 2026-07-15 · lastfm+import';
+const BUILD='Cassette · build 20 · 2026-07-15 · surprise+focus';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();

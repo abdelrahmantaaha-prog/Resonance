@@ -193,6 +193,30 @@
   .rquick button:hover{border-color:var(--gold);color:var(--gold)}
   .hidden{display:none!important}
   footer{margin-top:30px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.7}
+  .ladder{padding:8px 14px 14px}
+  .rung{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .rung:last-child{border-bottom:0}
+  .rung.done{opacity:.5}
+  .rung .step{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--muted);cursor:pointer;transition:.15s;background:var(--panel-2)}
+  .rung .step:hover{border-color:var(--gold);color:var(--gold)}
+  .rung.done .step{background:var(--gold);color:#221a0a;border-color:var(--gold)}
+  .rung .rb2{flex:1;min-width:0}
+  .rung .stage{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--violet);margin-bottom:3px}
+  .rung .rt{font-weight:600;font-size:14px}
+  .rung .ra{color:var(--muted);font-size:12px;margin-bottom:5px}
+  .rung .rw{color:var(--muted);font-size:12.5px;font-style:italic;line-height:1.5}
+  .rung .racts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .rung .racts button{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:4px 9px;font-family:var(--mono);font-size:10.5px;transition:.15s}
+  .rung .racts button:hover{border-color:var(--gold);color:var(--gold)}
+  /* hard containment: lists must never widen the page on mobile */
+  html,body{max-width:100%}
+  .card{overflow:hidden}
+  .model,.mlist,#mlistWrap,.grp,.chips{max-width:100%;min-width:0}
+  .mrow{max-width:100%;min-width:0}
+  .mrow .txt{flex:1 1 0%;min-width:0}
+  .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .shelfList,.brow,.addbox{max-width:100%;min-width:0}
+  .brow .bi{min-width:0}
 </style>
 </head>
 <body>
@@ -252,6 +276,7 @@
   <nav class="tabbar hidden" id="tabbar">
     <button class="tab on" data-tab="shelf">📚 <span>Shelf</span></button>
     <button class="tab" data-tab="add">🔍 <span>Add</span></button>
+    <button class="tab" data-tab="learn">🎓 <span>Learn</span></button>
     <button class="tab" data-tab="surprise">✨ <span>Surprise me</span></button>
   </nav>
 
@@ -310,6 +335,62 @@
           <input id="shelfQ" type="text" placeholder="filter by title, author, topic…">
         </div>
         <div class="shelfList" id="shelfList"></div>
+      </div>
+    </section>
+
+    <!-- LEARN -->
+    <section class="tabpane" id="tabLearn">
+      <div class="card" id="planSetup">
+        <div class="panel-h">🎓 Build a reading plan</div>
+        <div class="addbox">
+          <div class="field" style="margin-bottom:12px">
+            <label>What do you want to learn?</label>
+            <input id="planTopic" type="text" placeholder="e.g. monetary policy · Ottoman history · statistics for journalists">
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label>Where are you starting from?</label>
+            <select id="planLevel">
+              <option value="none">Complete beginner — assume nothing</option>
+              <option value="curious">Curious — I read the news on it, no formal grounding</option>
+              <option value="working" selected>Working knowledge — I use it professionally, want depth</option>
+              <option value="deep">Already deep — take me to the frontier</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label>Why / what's the goal? <span class="hint">— optional, sharpens the plan</span></label>
+            <input id="planGoal" type="text" placeholder="e.g. to write authoritatively about it · to teach it · pure curiosity">
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label>Length</label>
+            <select id="planLen">
+              <option value="4">Short ladder — 4 books</option>
+              <option value="6" selected>Standard — 6 books</option>
+              <option value="8">Deep — 8 books</option>
+            </select>
+          </div>
+          <button class="btn" id="planGo">Build the ladder</button>
+          <div id="planNote" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:10px"></div>
+        </div>
+      </div>
+
+      <div class="card hidden" id="planCard" style="margin-top:16px">
+        <div class="panel-h">📈 <span id="planTitle">Your ladder</span> <span class="n" id="planProg"></span></div>
+        <div id="planBody" class="ladder"></div>
+        <div class="addbox" style="border-top:1px solid var(--line)">
+          <div class="wlrow" style="display:flex;gap:8px">
+            <input id="planRefine" type="text" placeholder="refine it — 'less US-centric', 'more primary sources', 'swap rung 3'">
+            <button class="btn sm" id="planRefineGo">Refine</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn ghost sm" id="planAddAll">＋ add all to 🔖 reading list</button>
+            <button class="btn ghost sm" id="planNew">↺ new plan</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card hidden" id="plansCard" style="margin-top:16px">
+        <div class="panel-h">🗂 Saved plans <span class="n" id="plansCount"></span></div>
+        <div id="plansList" class="shelfList"></div>
       </div>
     </section>
 
@@ -375,13 +456,13 @@
 const $=id=>document.getElementById(id);
 const S={
   geminiKeys:[],gi:0,model:'gemini-3.5-flash',
-  profile:{loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],watchlist:[],reading:[],genreScore:{},dirScore:{},seed:''},
+  profile:{loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],watchlist:[],reading:[],plans:[],genreScore:{},dirScore:{},seed:''},
   seen:new Set(), candidates:[], queue:[], current:null, history:[],
   started:false,resolving:false,thinking:false,mode:'discover',favQueue:[],
   geminiQuotaOut:false,tab:'now',editOpen:true
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Paperback · build 5 · 2026-07-15 · shelves+import';
+const BUILD='Paperback · build 7 · 2026-07-15 · reading-plans';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -397,7 +478,7 @@ function rotateGemini(){if(S.gi<S.geminiKeys.length-1){S.gi++;return true;}S.gem
 function saveLocal(){try{localStorage.setItem('paperback_profile',JSON.stringify(S.profile));}catch(_){}}
 function normalize(){
   const p=S.profile;
-  ['loved','liked','disliked','banned','hatedGenres','watchlist','reading'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
+  ['loved','liked','disliked','banned','hatedGenres','watchlist','reading','plans'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
   ['genreScore','dirScore'].forEach(k=>{if(!p[k]||typeof p[k]!=='object')p[k]={};});
   if(typeof p.seed!=='string')p.seed='';
   if(Object.keys(p.genreScore).length===0){
@@ -748,7 +829,108 @@ async function kickSurprise(){
     showMovie(S.queue.shift()); ensureQueue();
   }catch(e){ setStatus('<b>Failed:</b> '+esc(String(e.message).slice(0,100))); }
 }
-function showTab(name){S.tab=name;const pane={surprise:'tabNow',shelf:'tabShelf',add:'tabAdd'}[name]||'tabShelf';document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='shelf'){renderModel();renderShelf();}if(name==='surprise'&&!S.current&&S.started){kickSurprise();}}
+let curPlan=null;
+const LEVELS={none:'a complete beginner who should be assumed to know nothing',
+  curious:'a curious general reader who follows the news on this but has no formal grounding',
+  working:'someone with working professional knowledge who wants real depth, not introductions',
+  deep:'someone already deep in the field who wants the frontier and primary/technical sources'};
+
+async function buildPlan(refineNote){
+  const topic=$('planTopic').value.trim();
+  if(!topic){ $('planNote').textContent='Give it a topic first.'; return; }
+  const level=$('planLevel').value, goal=$('planGoal').value.trim(), n=$('planLen').value;
+  $('planNote').textContent='Building your ladder…';
+  const known=[].concat(S.profile.loved,S.profile.liked).slice(-25).map(mdesc).join('; ')||'nothing recorded';
+  const prompt=[
+    'You are a rigorous curriculum designer for serious autodidacts. Build an ORDERED reading ladder of exactly '+n+' books on: '+topic,
+    'The reader is: '+(LEVELS[level]||LEVELS.working)+'.',
+    goal?('Their goal: '+goal):'',
+    'Books they already rate highly (calibrate difficulty and avoid repeating): '+known,
+    (S.profile.hatedGenres.length?('Avoid these topics: '+S.profile.hatedGenres.join(', ')):''),
+    refineNote?('IMPORTANT REVISION REQUEST from the reader — honor it: '+refineNote):'',
+    '',
+    'Rules:',
+    '- Strict ladder: each rung must be readable given ONLY the rungs before it. Order matters more than fame.',
+    '- Start at the right rung for their stated level — do NOT insert beginner books for an advanced reader.',
+    '- Progress from synthesis/overview toward specialized, technical, and primary sources.',
+    '- Real, findable, well-regarded books. No invented titles. Prefer the best book, not the most popular.',
+    '- Vary authors and schools of thought; include at least one book that challenges the others if the field is contested.',
+    '- "stage" labels: foundation, bridge, core, specialized, frontier (use what fits the ladder).',
+    '',
+    'Return ONLY a raw JSON object, no markdown:',
+    '{"title":"short name for this ladder","note":"2 sentences on the arc of this plan and what the reader will be able to do at the end",',
+    '"rungs":[{"title":"","author":"","year":"YYYY","stage":"","why":"1-2 sentences: what THIS rung gives you and why it comes here","difficulty":"1-5"}]}'
+  ].filter(Boolean).join('\n');
+  try{
+    const raw=await geminiText(prompt);
+    const t=raw.replace(/```json/gi,'').replace(/```/g,'');
+    const a=t.indexOf('{'), b=t.lastIndexOf('}');
+    const plan=JSON.parse(t.slice(a,b+1));
+    plan.topic=topic; plan.level=level; plan.goal=goal; plan.created=Date.now();
+    plan.rungs=(plan.rungs||[]).map(r=>Object.assign({done:false},r));
+    plan.id='p'+plan.created;
+    curPlan=plan;
+    S.profile.plans=(S.profile.plans||[]).filter(p=>p.id!==plan.id); S.profile.plans.push(plan);
+    saveLocal(); renderPlan(); renderPlans();
+    $('planNote').textContent='';
+  }catch(e){ $('planNote').textContent='Could not build the plan — check the Gemini key/quota, then retry.'; }
+}
+function planDone(p){ return (p.rungs||[]).filter(r=>r.done).length; }
+function renderPlan(){
+  const card=$('planCard'); if(!curPlan){ card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  $('planTitle').textContent=curPlan.title||curPlan.topic;
+  $('planProg').textContent=planDone(curPlan)+'/'+curPlan.rungs.length+' done';
+  const body=$('planBody');
+  body.innerHTML=(curPlan.note?'<div class="mlist-hint" style="text-align:left;padding:6px 0 12px">'+esc(curPlan.note)+'</div>':'')+
+    curPlan.rungs.map((r,i)=>{
+      const onShelf=S.seen.has(mkey(r));
+      return '<div class="rung'+(r.done?' done':'')+'">'+
+        '<div class="step" data-rd="'+i+'" title="Mark read">'+(r.done?'✓':(i+1))+'</div>'+
+        '<div class="rb2">'+
+          '<div class="stage">'+esc(r.stage||'')+(r.difficulty?(' · difficulty '+esc(r.difficulty)+'/5'):'')+'</div>'+
+          '<div class="rt">'+esc(r.title)+'</div>'+
+          '<div class="ra">'+esc((r.author||'')+(r.year?(' · '+r.year):''))+'</div>'+
+          '<div class="rw">'+esc(r.why||'')+'</div>'+
+          '<div class="racts">'+
+            '<button data-rr="'+i+'">🔖 '+(onShelf?'on shelf':'reading list')+'</button>'+
+            '<button data-ro="'+i+'">▶ open</button>'+
+            '<button data-rx="'+i+'">↻ swap this rung</button>'+
+          '</div>'+
+        '</div></div>';
+    }).join('');
+  body.querySelectorAll('[data-rd]').forEach(b=>b.onclick=()=>{ const r=curPlan.rungs[+b.dataset.rd]; r.done=!r.done; saveLocal(); renderPlan(); });
+  body.querySelectorAll('[data-rr]').forEach(b=>b.onclick=()=>{ const r=curPlan.rungs[+b.dataset.rr]; addFromSearch('watchlist',{title:r.title,author:r.author,year:r.year,poster:''}); renderPlan(); });
+  body.querySelectorAll('[data-ro]').forEach(b=>b.onclick=()=>{ const r=curPlan.rungs[+b.dataset.ro]; playSpecific({title:r.title,author:r.author,year:r.year}); });
+  body.querySelectorAll('[data-rx]').forEach(b=>b.onclick=()=>swapRung(+b.dataset.rx));
+}
+async function swapRung(i){
+  const r=curPlan.rungs[i]; if(!r) return;
+  $('planNote').textContent='Finding a replacement for rung '+(i+1)+'…';
+  try{
+    const raw=await geminiText('Reading ladder on "'+curPlan.topic+'". Rung '+(i+1)+' is currently "'+r.title+'" by '+r.author+' (stage: '+r.stage+'). The reader wants a DIFFERENT book for this exact rung — same role, same difficulty level, same position in the ladder, but a different book and preferably a different author. Other rungs: '+curPlan.rungs.filter((_,j)=>j!==i).map(x=>x.title).join('; ')+'. Return ONLY raw JSON: {"title":"","author":"","year":"YYYY","stage":"'+r.stage+'","why":"1-2 sentences","difficulty":"'+(r.difficulty||3)+'"}');
+    const t=raw.replace(/```json/gi,'').replace(/```/g,'');
+    const nr=JSON.parse(t.slice(t.indexOf('{'),t.lastIndexOf('}')+1));
+    curPlan.rungs[i]=Object.assign({done:false},nr);
+    saveLocal(); renderPlan(); $('planNote').textContent='';
+  }catch(e){ $('planNote').textContent='Swap failed — check quota.'; }
+}
+function renderPlans(){
+  const plans=S.profile.plans||[]; const card=$('plansCard');
+  if(!plans.length){ card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  $('plansCount').textContent=plans.length+' saved';
+  $('plansList').innerHTML=plans.slice().reverse().map((p,i)=>{
+    const idx=plans.length-1-i;
+    return '<div class="brow"><span class="noimg">🎓</span><div class="bi"><div class="bt">'+esc(p.title||p.topic)+'</div>'+
+      '<div class="ba">'+planDone(p)+'/'+(p.rungs||[]).length+' read · '+esc(p.topic)+'</div></div>'+
+      '<button class="mbtn" data-po="'+idx+'" title="Open">▶</button>'+
+      '<button class="mbtn del" data-px="'+idx+'" title="Delete">✕</button></div>';
+  }).join('');
+  $('plansList').querySelectorAll('[data-po]').forEach(b=>b.onclick=()=>{ curPlan=S.profile.plans[+b.dataset.po]; renderPlan(); $('planCard').scrollIntoView({behavior:'smooth',block:'start'}); });
+  $('plansList').querySelectorAll('[data-px]').forEach(b=>b.onclick=()=>{ const p=S.profile.plans[+b.dataset.px]; if(curPlan&&curPlan.id===p.id){curPlan=null;renderPlan();} S.profile.plans.splice(+b.dataset.px,1); saveLocal(); renderPlans(); toast('Plan deleted'); });
+}
+function showTab(name){S.tab=name;const pane={surprise:'tabNow',shelf:'tabShelf',add:'tabAdd',learn:'tabLearn'}[name]||'tabShelf';document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='shelf'){renderModel();renderShelf();}if(name==='learn'){renderPlan();renderPlans();}if(name==='surprise'&&!S.current&&S.started){kickSurprise();}}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function openSettings(){$('setupTitle').textContent=S.started?'Settings':'Setup';$('startBtn').textContent=S.started?'Save & close':'Start';$('settingsOverlay').classList.remove('hidden');}
 function closeSettings(){$('settingsOverlay').classList.add('hidden');}
@@ -814,6 +996,11 @@ async function geminiText(prompt){
   const d=await res.json();
   return (d.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('').trim();
 }
+$('planGo').onclick=()=>buildPlan('');
+$('planRefineGo').onclick=()=>{ const v=$('planRefine').value.trim(); if(!v){toast('Say what to change');return;} buildPlan(v); $('planRefine').value=''; };
+$('planRefine').addEventListener('keydown',e=>{ if(e.key==='Enter') $('planRefineGo').onclick(); });
+$('planNew').onclick=()=>{ curPlan=null; renderPlan(); $('planTopic').value=''; $('planGoal').value=''; $('planTopic').focus(); };
+$('planAddAll').onclick=()=>{ if(!curPlan)return; let n=0; curPlan.rungs.forEach(r=>{ const m={title:r.title,author:r.author,director:r.author,year:r.year,genres:[]}; if(!S.seen.has(mkey(m))){ S.profile.watchlist.push(m); S.seen.add(mkey(m)); n++; } }); saveLocal(); renderShelf(); renderModel(); renderPlan(); toast('＋ '+n+' added to reading list'); };
 $('impTgl').onclick=()=>$('impForm').classList.toggle('hidden');
 $('impPick').onclick=()=>$('impFile').click();
 $('impFile').onchange=e=>{ const f=e.target.files[0]; if(f) importGoodreads(f); e.target.value=''; };

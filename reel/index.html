@@ -83,6 +83,16 @@
   .rank{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.7);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-family:var(--mono);font-size:12px}
   .rank b{color:var(--gold)}
   .mv-body{padding:18px 20px 20px}
+  .playershell{position:relative;width:100%;background:#000}
+  .pframe{position:relative;width:100%;aspect-ratio:16/9;background:#000}
+  .pframe iframe,.pframe video{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+  .pclose{position:absolute;top:8px;right:8px;z-index:3;background:rgba(0,0,0,.65);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:5px 10px;font-family:var(--mono);font-size:11px}
+  .pclose:hover{border-color:var(--gold);color:var(--gold)}
+  .watchlink{margin-bottom:14px}
+  .wlrow{display:flex;gap:8px}
+  .wlrow input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none}
+  .wlrow input:focus{border-color:var(--gold)}
+  .wlnote{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:6px;line-height:1.5}
   .mediaSwitch{display:flex;gap:6px;margin-bottom:10px}
   .mchip{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:5px 12px;font-family:var(--mono);font-size:11px;transition:.15s}
   .mchip.on{border-color:var(--gold);color:var(--gold)}
@@ -175,6 +185,13 @@
   .quotaWall .qw-s{color:var(--muted);font-size:12.5px;margin-bottom:12px}
   .hidden{display:none!important}
   footer{margin-top:30px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.7}
+  /* hard containment: lists must never widen the page on mobile */
+  html,body{max-width:100%}
+  .card{overflow:hidden}
+  .model,.mlist,#mlistWrap,.grp,.chips{max-width:100%;min-width:0}
+  .mrow{max-width:100%;min-width:0}
+  .mrow .txt{flex:1 1 0%;min-width:0}
+  .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
@@ -210,6 +227,10 @@
         <div class="field">
           <label>OMDb API key <span class="hint">— optional · omdbapi.com · enables real IMDb + Rotten Tomatoes scores</span></label>
           <input id="omdbKey" type="password" placeholder="OMDb key (blank = TMDB score + IMDb link only)" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Embed player template <span class="hint">— optional · {imdb} is replaced with the title's IMDb id (or the id is appended if no {imdb})</span></label>
+          <input id="embedTpl" type="text" placeholder="e.g. https://myplayer.example/embed/{imdb}" autocomplete="off" spellcheck="false">
         </div>
         <div class="field">
           <label>Region <span class="hint">— for "where to watch"</span></label>
@@ -252,7 +273,11 @@
     <!-- NOW -->
     <section class="tabpane on" id="tabNow">
       <div class="card">
-        <div class="poster-wrap">
+        <div class="playershell hidden" id="playerShell">
+          <div class="pframe" id="pframe"></div>
+          <button class="pclose" id="pClose" title="Close player">✕ close player</button>
+        </div>
+        <div class="poster-wrap" id="posterWrap">
           <img id="poster" class="hidden" alt="">
           <div class="ph" id="posterPh">finding your first pick…</div>
           <div class="rank hidden" id="rank"></div>
@@ -275,6 +300,13 @@
           <div class="chiprow" id="mvGenres"></div>
           <div class="mv-overview" id="mvOverview"></div>
           <div class="actions" id="mvActions"></div>
+          <div class="watchlink">
+            <div class="wlrow">
+              <input id="srcIn" type="text" placeholder="▶ paste a watch link — YouTube, Vimeo, archive.org, .mp4/.m3u8, or any embed URL">
+              <button class="btn sm" id="srcGo">Play</button>
+            </div>
+            <div class="wlnote" id="srcNote">Plays whatever you point it at — use sources you have the right to watch (your own files, archive.org, official embeds).</div>
+          </div>
           <div class="watch"><div class="wl">where to watch <span id="regionLbl"></span></div><div class="provs" id="provs"></div></div>
           <div class="rate">
             <button class="rb love" id="btnLove"><span class="ico">★</span><span class="lab">Masterpiece</span></button>
@@ -347,14 +379,14 @@
 <script>
 const $=id=>document.getElementById(id);
 const S={
-  geminiKeys:[],gi:0,tmdb:'',omdb:'',region:'EG',model:'gemini-3.5-flash',media:'movie',
+  geminiKeys:[],gi:0,tmdb:'',omdb:'',region:'EG',model:'gemini-3.5-flash',media:'movie',embedTpl:'',
   profile:{loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:''},
   seen:new Set(), seenT:new Set(), candidates:[], queue:[], current:null, history:[],
   started:false,resolving:false,thinking:false,mode:'discover',favQueue:[],
   geminiQuotaOut:false,tab:'now',editOpen:true,imgBase:'https://image.tmdb.org/t/p/'
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Reel · build 9 · 2026-07-15 · tv+letterboxd';
+const BUILD='Reel · build 12 · 2026-07-16 · embed template';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -393,13 +425,14 @@ function loadRewindConfig(){
 }
 function saveRewindConfig(patch){ const c=Object.assign(loadRewindConfig(), patch||{}); try{ localStorage.setItem('rewind_config', JSON.stringify(c)); }catch(_){} return c; }
 
-function saveKeys(){ saveRewindConfig({geminiKeys:S.geminiKeys, tmdb:S.tmdb, omdb:S.omdb, region:S.region, model:S.model, reelSeed:S.profile.seed}); }
+function saveKeys(){ saveRewindConfig({geminiKeys:S.geminiKeys, tmdb:S.tmdb, omdb:S.omdb, region:S.region, model:S.model, reelSeed:S.profile.seed, embedTpl:S.embedTpl}); }
 function loadKeys(){try{
   const c=loadRewindConfig();
   S.geminiKeys=c.geminiKeys||[];
   $('geminiKey').value=S.geminiKeys.join('\n');
   $('tmdbKey').value=c.tmdb||''; $('omdbKey').value=c.omdb||'';
   if(c.region){$('region').value=c.region;} S.media=c.reelMedia||'movie'; if(c.model)$('modelSel').value=c.model; $('seed').value=c.reelSeed||'';
+  S.embedTpl=(c.embedTpl||'').trim(); $('embedTpl').value=S.embedTpl;
   if(S.geminiKeys.length)$('setupNote').textContent=S.geminiKeys.length+' Gemini key(s) — shared with Cassette. Hit Start.';
 }catch(_){}}
 function exportProfile(){const b=new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='reel-taste-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Exported');}
@@ -529,6 +562,13 @@ function quotaStop(){
 }
 
 /* ---------- playback of pick ---------- */
+/* Build an embed URL from the user's template + this title's IMDb id.
+   {imdb} placeholder is substituted; otherwise the id is appended. */
+function tplEmbedUrl(m){
+  const t=(S.embedTpl||'').trim();
+  if(!t||!m||!m.imdbId) return '';
+  return t.includes('{imdb}') ? t.split('{imdb}').join(m.imdbId) : (t+m.imdbId);
+}
 function showMovie(m,pushHist){
   if(pushHist!==false && S.current)S.history.push(S.current);
   S.current=m;
@@ -554,12 +594,69 @@ function showMovie(m,pushHist){
   acts.push('<a id="wlBtn" style="cursor:pointer;'+(onList?'border-color:var(--gold);color:var(--gold)':'')+'">'+(onList?'✓ On watchlist':'＋ Watchlist')+'</a>');
   $('mvActions').innerHTML=acts.join('');
   const wl=$('wlBtn'); if(wl) wl.onclick=addWatchlist;
+  closePlayer();
+  const tpl=tplEmbedUrl(m);
+  $('srcIn').value=m.src||tpl||'';
+  $('srcNote').textContent = m.src ? 'Saved link for this title — hit Play.'
+    : tpl ? 'Link built from your embed template — hit Play.'
+    : 'Plays whatever you point it at — use sources you have the right to watch (your own files, archive.org, official embeds).';
   renderProviders(m);
   $('rank').classList.toggle('hidden', S.mode!=='fav');
   $('mvMode').textContent = S.mode==='fav' ? '★ Close to my heart' : '◈ Recommended for you';
   $('btnLove').classList.toggle('on', S.profile.loved.some(x=>mkey(x)===mkey(m)));
   setStatus(S.mode==='fav' ? ('<b>★ Favorites</b> · '+S.profile.loved.length+' on shuffle') : 'Curating · queue keeps 2 ready');
 }
+/* Turn a pasted URL into something playable. Handles the common embeddable
+   hosts + direct video files; anything else is offered as an external link. */
+function toEmbed(raw){
+  const u=String(raw||'').trim(); if(!u) return null;
+  let url; try{ url=new URL(u); }catch(_){ return null; }
+  const h=url.hostname.replace(/^www\./,''), p=url.pathname;
+  // YouTube
+  if(/(^|\.)youtube\.com$/.test(h)){
+    const v=url.searchParams.get('v');
+    if(v) return {type:'iframe',src:'https://www.youtube.com/embed/'+v+'?autoplay=1&rel=0'};
+    const m=p.match(/^\/(embed|v)\/([\w-]+)/); if(m) return {type:'iframe',src:'https://www.youtube.com/embed/'+m[2]+'?autoplay=1&rel=0'};
+  }
+  if(h==='youtu.be'){ const id=p.slice(1).split('/')[0]; if(id) return {type:'iframe',src:'https://www.youtube.com/embed/'+id+'?autoplay=1&rel=0'}; }
+  // Vimeo
+  if(/(^|\.)vimeo\.com$/.test(h)){ const id=(p.match(/\/(\d+)/)||[])[1]; if(id) return {type:'iframe',src:'https://player.vimeo.com/video/'+id+'?autoplay=1'}; }
+  // Internet Archive
+  if(/(^|\.)archive\.org$/.test(h)){
+    const m=p.match(/^\/(?:details|embed)\/([^/]+)/);
+    if(m) return {type:'iframe',src:'https://archive.org/embed/'+m[1]};
+    if(/\.(mp4|webm|ogv)$/i.test(p)) return {type:'video',src:u};
+  }
+  // Dailymotion
+  if(/(^|\.)dailymotion\.com$/.test(h)){ const m=p.match(/\/video\/([\w]+)/); if(m) return {type:'iframe',src:'https://www.dailymotion.com/embed/video/'+m[1]}; }
+  // direct media
+  if(/\.(mp4|webm|ogg|ogv|mov|m4v)(\?|$)/i.test(u)) return {type:'video',src:u};
+  if(/\.m3u8(\?|$)/i.test(u)) return {type:'video',src:u, hls:true};
+  // already an embed path
+  if(/\/embed\//.test(p)) return {type:'iframe',src:u};
+  return {type:'unknown',src:u};
+}
+function playSource(raw){
+  let e=toEmbed(raw);
+  if(!e){ $('srcNote').textContent='That doesn\'t look like a URL.'; return; }
+  // URLs built from the user's embed template are trusted as direct embeds
+  if(e.type==='unknown' && S.embedTpl && S.current && raw===tplEmbedUrl(S.current)) e={type:'iframe',src:raw};
+  if(e.type==='unknown'){
+    $('srcNote').innerHTML='Can\'t embed that host — <a href="'+e.src+'" target="_blank" rel="noopener">open it in a new tab ↗</a>. Embeddable: YouTube, Vimeo, archive.org, Dailymotion, or a direct .mp4/.webm/.m3u8 link.';
+    return;
+  }
+  const f=$('pframe');
+  f.innerHTML = e.type==='video'
+    ? '<video src="'+esc(e.src)+'" controls autoplay playsinline></video>'
+    : '<iframe src="'+esc(e.src)+'" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+  $('playerShell').classList.remove('hidden');
+  $('posterWrap').classList.add('hidden');
+  $('srcNote').textContent = e.hls ? 'HLS stream — plays natively in Safari; other browsers may not support .m3u8 without a plugin.' : 'Playing. The link is remembered for this title.';
+  if(S.current){ S.current.src=raw; const k=mkey(S.current);
+    ['loved','liked','disliked','watchlist','banned'].forEach(b=>{ const hit=(S.profile[b]||[]).find(x=>mkey(x)===k); if(hit){ hit.src=raw; } });
+    saveLocal(); }
+}
+function closePlayer(){ $('pframe').innerHTML=''; $('playerShell').classList.add('hidden'); $('posterWrap').classList.remove('hidden'); }
 function renderProviders(m){
   const box=$('provs'); const p=m.providers;
   const flat=p&&(p.flatrate||p.free||p.ads)||[];
@@ -575,7 +672,7 @@ function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.prof
 function like(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){advance();return;}addTo('liked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,1));bump(S.profile.dirScore,m.director,1);flash('liked · more like it');after(m);}
 function meh(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){toast('Still a favorite ★');advance();return;}addTo('disliked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-1));flash('noted · steering away');after(m);}
 function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}addTo('banned',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-2));S.queue=S.queue.filter(q=>mkey(q)!==mkey(m));S.candidates=S.candidates.filter(q=>tkey(q)!==tkey(m));flash('⦸ never again · this film only');after(m);}
-function addTo(b,m){const k=mkey(m);['loved','liked','disliked','banned'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,type:m.type||'movie',poster:m.poster,reason:m.reason||''});S.seen.add(k);S.seenT.add(tkey(m));}
+function addTo(b,m){const k=mkey(m);['loved','liked','disliked','banned'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,type:m.type||'movie',poster:m.poster,reason:m.reason||'',src:m.src||''});S.seen.add(k);S.seenT.add(tkey(m));}
 function after(m){renderModel();saveLocal();advance();}
 function flash(msg){toast('<span class="k">learned</span> · '+msg);}
 function advance(){ if(S.mode==='fav'){nextFav();return;} if(!S.queue.length){ if(S.geminiQuotaOut){quotaStop();return;} setStatus('<b>Curating…</b>'); ensureQueue().then(()=>{if(S.queue.length)showMovie(S.queue.shift());else if(S.geminiQuotaOut)quotaStop();}); return;} showMovie(S.queue.shift()); ensureQueue(); }
@@ -701,6 +798,9 @@ document.querySelectorAll('.mchip').forEach(c=>c.onclick=()=>{
   if(S.started && !S.geminiQuotaOut) refill();
 });
 function syncMediaChips(){document.querySelectorAll('.mchip').forEach(x=>x.classList.toggle('on',x.dataset.m===S.media));}
+$('srcGo').onclick=()=>playSource($('srcIn').value);
+$('srcIn').addEventListener('keydown',e=>{ if(e.key==='Enter') playSource($('srcIn').value); });
+$('pClose').onclick=closePlayer;
 $('favPill').onclick=()=>{if(!S.started){toast('Start first');return;}S.mode==='fav'?exitFav():enterFav();};
 $('btnLove').onclick=love;$('btnLike').onclick=like;$('btnMeh').onclick=meh;$('btnNever').onclick=never;$('btnNext').onclick=neutralNext;
 $('quotaFavBtn').onclick=()=>{$('quotaWall').classList.add('hidden');enterFav();};
@@ -766,6 +866,7 @@ document.addEventListener('keydown',e=>{if(!S.started||['INPUT','SELECT','TEXTAR
 $('startBtn').onclick=async()=>{
   S.geminiKeys=parseKeys($('geminiKey').value);S.gi=0;S.geminiQuotaOut=false;
   S.tmdb=$('tmdbKey').value.trim();S.omdb=$('omdbKey').value.trim();S.region=$('region').value;S.model=$('modelSel').value;
+  S.embedTpl=$('embedTpl').value.trim();
   $('regionLbl').textContent='· '+S.region;
   const seed=$('seed').value.trim();if(seed)S.profile.seed=seed;
   if(!S.geminiKeys.length){toast('Gemini key required');return;}
