@@ -93,6 +93,14 @@
   .wlrow input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none}
   .wlrow input:focus{border-color:var(--gold)}
   .wlnote{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:6px;line-height:1.5}
+  .epbrowse{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .epbrowse .ephead{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em}
+  .epbrowse select{background:var(--bg);border:1px solid var(--line);border-radius:7px;color:var(--ink);font-family:var(--mono);font-size:11px;padding:4px 6px;outline:none}
+  .epbrowse select:focus{border-color:var(--gold)}
+  .eplist{max-height:264px;overflow:auto;margin-top:8px}
+  .eplist .mrow.playing .txt{color:var(--gold)}
+  .eplist .mrow.playing .mbtn{color:var(--gold);border-color:var(--gold)}
+  .eplist .epdate{color:var(--faint);font-size:10px;margin-left:6px}
   .mediaSwitch{display:flex;gap:6px;margin-bottom:10px}
   .mchip{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:5px 12px;font-family:var(--mono);font-size:11px;transition:.15s}
   .mchip.on{border-color:var(--gold);color:var(--gold)}
@@ -192,6 +200,41 @@
   .mrow{max-width:100%;min-width:0}
   .mrow .txt{flex:1 1 0%;min-width:0}
   .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+
+  /* ---- direct search ---- */
+  .srow{display:flex;gap:11px;align-items:center;padding:8px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:.12s}
+  .srow:hover{background:var(--panel-2);border-color:var(--line)}
+  .srow img{width:42px;height:63px;object-fit:cover;border-radius:6px;background:#000;flex:none}
+  .srow .noimg{width:42px;height:63px;border-radius:6px;background:var(--panel-2);border:1px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:16px}
+  .srow .st{font-weight:600;font-size:13.5px;line-height:1.3}
+  .srow .ss{color:var(--muted);font-family:var(--mono);font-size:11px;margin-top:2px}
+
+  /* ---- poster grids (watchlist + trending) ---- */
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(106px,1fr));gap:12px;padding:12px 18px 18px}
+  .pcard{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel-2);cursor:pointer;transition:.15s}
+  .pcard:hover{transform:translateY(-3px);border-color:var(--faint)}
+  .pcard .pimg{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:#000}
+  .pcard .pnop{width:100%;aspect-ratio:2/3;display:flex;align-items:center;justify-content:center;color:var(--faint);font-family:var(--mono);font-size:10.5px;text-align:center;padding:8px;line-height:1.4}
+  .pcard .pt{padding:7px 8px 8px;font-size:11.5px;line-height:1.3;font-weight:600}
+  .pcard .py{color:var(--faint);font-family:var(--mono);font-size:10px;font-weight:400}
+  .pcard .pbtns{position:absolute;top:6px;right:6px;display:flex;gap:4px;opacity:0;transition:.15s;z-index:2}
+  .pcard:hover .pbtns{opacity:1}
+  @media(hover:none){.pcard .pbtns{opacity:1}}
+  .pcard .pbtns button{background:rgba(0,0,0,.74);border:1px solid var(--line);color:var(--ink);border-radius:7px;width:27px;height:27px;font-size:13px;padding:0;cursor:pointer}
+  .pcard .pbtns button:hover{border-color:var(--gold);color:var(--gold)}
+  .pcard .badge-seen{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.74);border:1px solid var(--line);color:var(--teal);border-radius:7px;font-family:var(--mono);font-size:9.5px;padding:2px 6px;z-index:2}
+  .tchips{display:flex;gap:6px;flex-wrap:wrap;padding:14px 18px 0}
+
+  /* ---- watching strip (episode tracker) ---- */
+  .wshow{display:flex;gap:12px;align-items:center;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--panel-2)}
+  .wshow img{width:36px;height:54px;object-fit:cover;border-radius:6px;background:#000;flex:none}
+  .wshow .wt{font-weight:600;font-size:13px;line-height:1.25}
+  .wshow .ws{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:3px}
+  .wshow .ws .new{color:var(--gold);font-weight:600}
+  .wshow .wbtns{margin-left:auto;display:flex;gap:5px;flex:none}
+  .tab{position:relative}
+  .tab .badge{position:absolute;top:7px;right:9px;width:8px;height:8px;border-radius:99px;background:var(--gold);box-shadow:0 0 8px var(--gold);display:none}
+  .tab .badge.show{display:block}
 </style>
 </head>
 <body>
@@ -205,6 +248,7 @@
         <span class="seg on" aria-current="page"><span class="ic">🎬</span><span class="tx">Reel</span></span>
         <a class="seg" href="../paperback/" title="Books"><span class="ic">📖</span><span class="tx">Paperback</span></a>
       </div>
+      <button class="pill" id="searchPill" title="Find a specific film or series">🔍</button>
       <button class="pill" id="favPill" title="Play only your all-time favorites">★ favorites</button>
       <button class="pill" id="gearBtn" title="Keys & settings">⚙</button>
     </div>
@@ -233,8 +277,8 @@
           <input id="embedTplMovie" type="text" placeholder="e.g. https://myplayer.example/movie/{id}" autocomplete="off" spellcheck="false">
         </div>
         <div class="field">
-          <label>Embed player — TV show link <span class="hint">— optional · used for series · same {id} rules</span></label>
-          <input id="embedTplTv" type="text" placeholder="e.g. https://myplayer.example/tv/{id}" autocomplete="off" spellcheck="false">
+          <label>Embed player — TV show link <span class="hint">— optional · use {id}/{season_number}/{episode_number} · missing placeholders are appended</span></label>
+          <input id="embedTplTv" type="text" placeholder="e.g. https://myplayer.example/tv/{id}/{season_number}/{episode_number}" autocomplete="off" spellcheck="false">
         </div>
         <div class="field">
           <label>Embed link id <span class="hint">— which id goes into the player links</span></label>
@@ -276,7 +320,8 @@
   <nav class="tabbar hidden" id="tabbar">
     <button class="tab on" data-tab="now">▶ <span>Now</span></button>
     <button class="tab" data-tab="queue">◷ <span>Up next</span></button>
-    <button class="tab" data-tab="list">🔖 <span>Watchlist</span></button>
+    <button class="tab" data-tab="trend">🔥 <span>Trending</span></button>
+    <button class="tab" data-tab="list">🔖 <span>Watchlist</span><i class="badge" id="epBadge"></i></button>
     <button class="tab" data-tab="dna">⬡ <span>Taste DNA</span></button>
   </nav>
 
@@ -303,7 +348,7 @@
           <div class="quotaWall hidden" id="quotaWall">
             <div class="qw-t" id="qwT">Gemini's daily quota is used up</div>
             <div class="qw-s" id="qwS">It resets daily. Play your favorites, or add another key in Settings.</div>
-            <div><button class="btn sm" id="quotaFavBtn">★ Play my favorites</button> <button class="btn ghost sm" id="quotaSettingsBtn">⚙ Settings</button></div>
+            <div><button class="btn sm" id="quotaFavBtn">★ Play my favorites</button> <button class="btn ghost sm" id="quotaRetryBtn">↻ Try again</button> <button class="btn ghost sm" id="quotaSettingsBtn">⚙ Settings</button></div>
           </div>
           <h2 class="mv-title" id="mvTitle">—</h2>
           <div class="mv-meta" id="mvMeta"></div>
@@ -317,6 +362,10 @@
               <button class="btn sm" id="srcGo">Play</button>
             </div>
             <div class="wlnote" id="srcNote">Plays whatever you point it at — use sources you have the right to watch (your own files, archive.org, official embeds).</div>
+          </div>
+          <div class="epbrowse hidden" id="epBrowse">
+            <div class="ephead">episodes <select id="seasonSel"></select><span id="epCount"></span></div>
+            <div class="eplist" id="epList"></div>
           </div>
           <div class="watch"><div class="wl">where to watch <span id="regionLbl"></span></div><div class="provs" id="provs"></div></div>
           <div class="rate">
@@ -338,9 +387,28 @@
       </div>
     </section>
 
+    <!-- TRENDING -->
+    <section class="tabpane" id="tabTrend">
+      <div class="card">
+        <div class="panel-h">🔥 From TMDB <span class="n" id="trCount"></span></div>
+        <div class="tchips" id="trChips">
+          <button class="mchip on" data-tr="trending_day">Trending today</button>
+          <button class="mchip" data-tr="trending_week">This week</button>
+          <button class="mchip" data-tr="movie_popular">Popular films</button>
+          <button class="mchip" data-tr="tv_popular">Popular series</button>
+          <button class="mchip" data-tr="movie_top">Top-rated films</button>
+        </div>
+        <div class="pgrid" id="trGrid"></div>
+      </div>
+    </section>
+
     <!-- WATCHLIST -->
     <section class="tabpane" id="tabList">
       <div class="card">
+        <div class="panel-h">📺 Watching — new episode tracker <span class="n" id="wcount"></span></div>
+        <div class="model" id="watchingBox"></div>
+      </div>
+      <div class="card" style="margin-top:14px">
         <div class="panel-h">🔖 Watchlist <span class="n" id="wlcount"></span></div>
         <div class="model" id="wlBox"></div>
       </div>
@@ -385,6 +453,15 @@
     <span id="buildStamp" style="opacity:.6"></span> · Movie data by TMDB (this product uses the TMDB API but is not endorsed by TMDB)
   </footer>
 </div>
+<div class="overlay hidden" id="searchOverlay">
+  <div class="sheet">
+    <div class="sheet-h"><span>Search films &amp; series</span><button class="xbtn" id="closeSearch">✕</button></div>
+    <div class="sheet-body">
+      <div class="wlrow"><input id="searchIn" type="text" placeholder="e.g. The Insider · Severance · نادي الرجال السري"><button class="btn sm" id="searchGo">Search</button></div>
+      <div id="searchRes" style="margin-top:12px;max-height:60vh;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -397,7 +474,7 @@ const S={
   geminiQuotaOut:false,tab:'now',editOpen:true,imgBase:'https://image.tmdb.org/t/p/'
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Reel · build 13 · 2026-07-16 · movie+tv embed links';
+const BUILD='Reel · build 15 · 2026-07-16 · search · trending · poster watchlist · episode tracker · key rotation fix';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -408,13 +485,15 @@ const tkey=m=>String(m.title||'').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]+
 function parseKeys(s){return (s||'').split(/[\n,]+/).map(x=>x.trim()).filter(Boolean);}
 function bump(o,k,by){if(k)o[k]=(o[k]||0)+by;}
 function topKeys(o,n){return Object.entries(o||{}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k])=>k);}
-function rotateGemini(){if(S.gi<S.geminiKeys.length-1){S.gi++;return true;}S.geminiQuotaOut=true;return false;}
+function rotateGemini(){if(S.gi<S.geminiKeys.length-1){S.gi++;toast('Gemini key '+S.gi+' spent · switched to key '+(S.gi+1));return true;}S.geminiQuotaOut=true;S.quotaOutAt=Date.now();return false;}
+/* Gemini free-tier 429s are usually PER-MINUTE limits, not daily — recover automatically */
+function geminiRecovered(){ if(S.geminiQuotaOut && S.quotaOutAt && (Date.now()-S.quotaOutAt)>90000){ S.gi=0; S.geminiQuotaOut=false; $('quotaWall').classList.add('hidden'); return true; } return false; }
 
 /* ---------- persistence ---------- */
 function saveLocal(){try{localStorage.setItem('reel_profile',JSON.stringify(S.profile));}catch(_){}}
 function normalize(){
   const p=S.profile;
-  ['loved','liked','disliked','banned','hatedGenres','watchlist'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
+  ['loved','liked','disliked','banned','hatedGenres','watchlist','watching'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
   ['genreScore','dirScore'].forEach(k=>{if(!p[k]||typeof p[k]!=='object')p[k]={};});
   if(typeof p.seed!=='string')p.seed='';
   if(Object.keys(p.genreScore).length===0){
@@ -422,7 +501,7 @@ function normalize(){
     p.liked.forEach(m=>(m.genres||[]).forEach(g=>bump(p.genreScore,g,1)));
   }
 }
-function loadLocal(){try{const r=localStorage.getItem('reel_profile');if(r){Object.assign(S.profile,JSON.parse(r));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked,S.profile.banned||[],S.profile.watchlist||[]).forEach(m=>{S.seen.add(mkey(m));S.seenT.add(tkey(m));});return true;}}catch(_){}normalize();return false;}
+function loadLocal(){try{const r=localStorage.getItem('reel_profile');if(r){Object.assign(S.profile,JSON.parse(r));normalize();S.profile.loved.concat(S.profile.liked,S.profile.disliked,S.profile.banned||[],S.profile.watchlist||[],S.profile.watching||[]).forEach(m=>{S.seen.add(mkey(m));S.seenT.add(tkey(m));});return true;}}catch(_){}normalize();return false;}
 /* ---- shared config: one key store both Cassette & Reel read (same origin) ---- */
 function loadRewindConfig(){
   let c={};
@@ -482,11 +561,19 @@ async function askGemini(n){
   ].filter(Boolean).join('\n');
   const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(S.gemini),
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:lines}]}],generationConfig:{temperature:1.0}})});
-  let res;
+  let res, waited=false;
   while(true){
     res=await call();
-    if(res.status===404&&S.model!=='gemini-flash-latest'){S.model='gemini-flash-latest';res=await call();}
+    if(res.status===404&&S.model!=='gemini-flash-latest'){S.model='gemini-flash-latest';continue;}
     if(res.status===429){ if(rotateGemini())continue; throw new Error('GEMINI_QUOTA'); }
+    if(res.status===503&&!waited){ waited=true; await new Promise(r=>setTimeout(r,2500)); continue; } // model overloaded — one retry
+    if(res.status===400||res.status===403){
+      let msg=''; try{ const e=await res.clone().json(); msg=((e.error&&e.error.status)||'')+' '+((e.error&&e.error.message)||''); }catch(_){}
+      if(/API_KEY_INVALID|API key not valid|PERMISSION_DENIED|expired|leaked/i.test(msg)){
+        if(rotateGemini()){ toast('A Gemini key was rejected — trying the next one'); continue; }
+        throw new Error('All Gemini keys were rejected — check them in Settings');
+      }
+    }
     break;
   }
   if(!res.ok)throw new Error('Gemini '+res.status);
@@ -545,7 +632,8 @@ async function tmdbDetails(id,type){
 
 /* ---------- queue ---------- */
 async function refill(){
-  if(S.candidates.length>=3||S.thinking||S.geminiQuotaOut)return;
+  if(S.candidates.length>=3||S.thinking)return;
+  if(S.geminiQuotaOut&&!geminiRecovered())return;
   S.thinking=true;renderQueue();
   try{S.candidates.push(...await askGemini(6));}
   catch(e){ if(String(e.message).includes('GEMINI_QUOTA')){S.geminiQuotaOut=true;} else setStatus('<b>Recommendation error.</b> '+esc(String(e.message).slice(0,90))); }
@@ -556,7 +644,7 @@ async function ensureQueue(){
   try{
     let g=0;
     while(S.queue.length<2 && g++<16){
-      if(S.geminiQuotaOut)break;
+      if(S.geminiQuotaOut&&!geminiRecovered())break;
       if(!S.candidates.length){await refill(); if(!S.candidates.length)break;}
       const c=S.candidates.shift();
       if(S.seen.has(mkey({title:c.title,year:c.year}))||S.seenT.has(tkey(c)))continue;
@@ -567,28 +655,100 @@ async function ensureQueue(){
     }
   } finally { S.resolving=false; renderQueue(); }
   if((S.geminiQuotaOut)&&!S.queue.length&&S.mode!=='fav'){ quotaStop(); return; }
-  if(S.candidates.length<3&&!S.geminiQuotaOut)refill();
+  if(S.candidates.length<3)refill();
 }
 function quotaStop(){
   const can=S.profile.loved.length>0;
-  $('qwT').textContent="Gemini's daily quota is used up";
-  $('qwS').textContent=can?'Play your favorites, or add another Gemini key in Settings.':'Add favorites, or another key in Settings.';
+  $('qwT').textContent="Gemini's quota is used up";
+  $('qwS').textContent=(can?'Play your favorites, add another Gemini key in Settings, or':'Add favorites, another key in Settings, or')+' — if this was a per-minute limit — just try again shortly. Reel retries by itself after ~90s.';
   $('quotaWall').classList.remove('hidden'); $('quotaFavBtn').style.display=can?'':'none';
-  setStatus('<b>Gemini quota used up.</b> '+(can?'Play your favorites.':'Add a key in Settings.'));
+  setStatus('<b>Gemini quota used up.</b> '+(can?'Play your favorites or retry in a minute.':'Add a key in Settings or retry in a minute.'));
 }
 
 /* ---------- playback of pick ---------- */
 /* Build an embed URL from the user's per-type template + the chosen id
-   (IMDb or TMDB, per settings). {id} placeholder is substituted — legacy
-   {imdb} still works — otherwise the id is appended at the end. */
-function tplEmbedUrl(m){
+   (IMDb or TMDB, per settings). Placeholders: {id} (legacy {imdb} works),
+   and for TV {season_number} / {episode_number} (aliases {season}/{episode}).
+   Missing placeholders get appended: id, then /season/episode for TV. */
+function tplEmbedUrl(m,sn,en){
   if(!m) return '';
-  const t=((m.type==='tv'?S.embedTplTv:S.embedTplMovie)||'').trim();
+  const tv=(m.type==='tv');
+  const t=((tv?S.embedTplTv:S.embedTplMovie)||'').trim();
   if(!t) return '';
   const id=S.embedIdType==='tmdb' ? (m.id?String(m.id):'') : (m.imdbId||'');
   if(!id) return '';
-  const tt=t.split('{imdb}').join('{id}');
-  return tt.includes('{id}') ? tt.split('{id}').join(id) : (tt+id);
+  let u=t.split('{imdb}').join('{id}');
+  u = u.includes('{id}') ? u.split('{id}').join(id) : (u.replace(/\/+$/,'')+ (u?'/':'') + id);
+  if(tv){
+    const s=String(sn||(m.se&&m.se.s)||1), e=String(en||(m.se&&m.se.e)||1);
+    u=u.split('{season}').join('{season_number}').split('{episode}').join('{episode_number}');
+    u = u.includes('{season_number}') ? u.split('{season_number}').join(s) : (u+'/'+s);
+    u = u.includes('{episode_number}') ? u.split('{episode_number}').join(e) : (u+'/'+e);
+  }
+  return u;
+}
+/* literal prefix of a template up to its first placeholder — used to
+   recognize template-built URLs so they're trusted as direct embeds */
+function tplPrefix(tv){ const t=((tv?S.embedTplTv:S.embedTplMovie)||'').trim(); return t.split('{')[0]; }
+function fromTemplate(raw){
+  const pm=tplPrefix(false), pt=tplPrefix(true);
+  return (pm&&raw.startsWith(pm))||(pt&&raw.startsWith(pt));
+}
+
+/* ---------- TV season / episode browsing ---------- */
+const seasonCache={}; // 'tvId:season' -> episodes[]
+async function loadSeason(tvId,n){
+  const k=tvId+':'+n;
+  if(seasonCache[k]) return seasonCache[k];
+  try{
+    const r=await fetch('https://api.themoviedb.org/3/tv/'+tvId+'/season/'+n+'?api_key='+encodeURIComponent(S.tmdb));
+    if(!r.ok) return null;
+    const d=await r.json();
+    const eps=(d.episodes||[]).map(e=>({n:e.episode_number,name:e.name||'',date:(e.air_date||'').slice(0,7)}));
+    seasonCache[k]=eps; return eps;
+  }catch(_){ return null; }
+}
+function renderEpBrowse(m){
+  const box=$('epBrowse');
+  if(!m || m.type!=='tv' || !m.id || !(m.seasons>0)){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const sel=$('seasonSel');
+  sel.innerHTML=Array.from({length:m.seasons},(_,i)=>'<option value="'+(i+1)+'">Season '+(i+1)+'</option>').join('');
+  const cur=Math.min((m.se&&m.se.s)||1, m.seasons);
+  sel.value=String(cur);
+  sel.onchange=()=>fillEpisodes(m,+sel.value);
+  fillEpisodes(m,cur);
+}
+async function fillEpisodes(m,sn){
+  const list=$('epList'); $('epCount').textContent='';
+  list.innerHTML='<div class="mlist-hint">loading season '+sn+'…</div>';
+  const eps=await loadSeason(m.id,sn);
+  if(m!==S.current) return; // user moved on while we fetched
+  if(!eps||!eps.length){ list.innerHTML='<div class="mlist-hint">couldn\'t load this season</div>'; return; }
+  $('epCount').textContent='· '+eps.length+' ep'+(eps.length>1?'s':'');
+  const canPlay=!!S.embedTplTv;
+  const cur=m.se||{};
+  list.innerHTML=eps.map(e=>'<div class="mrow'+((cur.s===sn&&cur.e===e.n)?' playing':'')+'" data-eprow="'+e.n+'">'
+    +'<button class="mbtn" data-ep="'+e.n+'" title="'+(canPlay?'Play this episode':'Set a TV embed link in Settings first')+'">▶</button>'
+    +'<span class="txt">E'+e.n+(e.name?(' · '+esc(e.name)):'')+(e.date?('<span class="epdate">'+esc(e.date)+'</span>'):'')+'</span></div>').join('');
+  list.querySelectorAll('[data-ep]').forEach(b=>b.onclick=()=>playEpisode(m,sn,+b.dataset.ep));
+}
+function playEpisode(m,sn,en){
+  const src=tplEmbedUrl(m,sn,en);
+  if(!src){ toast(S.embedTplTv?'No '+(S.embedIdType==='tmdb'?'TMDB':'IMDb')+' id for this title':'Set a TV embed link in Settings'); return; }
+  m.se={s:sn,e:en};
+  $('srcIn').value=src;
+  mountEmbed({type:'iframe',src},'Playing S'+sn+'E'+en+' — remembered for this title.');
+  persistCurrent({src:src,se:m.se});
+  $('epList').querySelectorAll('.mrow').forEach(r=>r.classList.toggle('playing', +r.dataset.eprow===en));
+}
+/* copy playback fields onto the matching saved copies of the current title */
+function persistCurrent(patch){
+  if(!S.current) return;
+  Object.assign(S.current,patch);
+  const k=mkey(S.current);
+  ['loved','liked','disliked','watchlist','banned','watching'].forEach(b=>{ const hit=(S.profile[b]||[]).find(x=>mkey(x)===k); if(hit) Object.assign(hit,patch); });
+  saveLocal();
 }
 function showMovie(m,pushHist){
   if(pushHist!==false && S.current)S.history.push(S.current);
@@ -613,14 +773,17 @@ function showMovie(m,pushHist){
   if(m.provLink)acts.push('<a href="'+m.provLink+'" target="_blank" rel="noopener">↗ Where to watch</a>');
   const onList=S.profile.watchlist.some(x=>mkey(x)===mkey(m));
   acts.push('<a id="wlBtn" style="cursor:pointer;'+(onList?'border-color:var(--gold);color:var(--gold)':'')+'">'+(onList?'✓ On watchlist':'＋ Watchlist')+'</a>');
+  if(m.type==='tv'){ const w=isWatching(m); acts.push('<a id="wtBtn" style="cursor:pointer;'+(w?'border-color:var(--teal);color:var(--teal)':'')+'">'+(w?'✓ Watching':'📺 Watching')+'</a>'); }
   $('mvActions').innerHTML=acts.join('');
   const wl=$('wlBtn'); if(wl) wl.onclick=addWatchlist;
+  const wt=$('wtBtn'); if(wt) wt.onclick=toggleWatching;
   closePlayer();
   const tpl=tplEmbedUrl(m);
   $('srcIn').value=m.src||tpl||'';
-  $('srcNote').textContent = m.src ? 'Saved link for this title — hit Play.'
-    : tpl ? 'Link built from your embed template — hit Play.'
+  $('srcNote').textContent = m.src ? (m.type==='tv'&&m.se?('Saved link — S'+m.se.s+'E'+m.se.e+' — hit Play or pick another episode below.'):'Saved link for this title — hit Play.')
+    : tpl ? (m.type==='tv'?'Link built from your TV embed template — hit Play or pick an episode below.':'Link built from your embed template — hit Play.')
     : 'Plays whatever you point it at — use sources you have the right to watch (your own files, archive.org, official embeds).';
+  renderEpBrowse(m);
   renderProviders(m);
   $('rank').classList.toggle('hidden', S.mode!=='fav');
   $('mvMode').textContent = S.mode==='fav' ? '★ Close to my heart' : '◈ Recommended for you';
@@ -657,25 +820,26 @@ function toEmbed(raw){
   if(/\/embed\//.test(p)) return {type:'iframe',src:u};
   return {type:'unknown',src:u};
 }
-function playSource(raw){
-  let e=toEmbed(raw);
-  if(!e){ $('srcNote').textContent='That doesn\'t look like a URL.'; return; }
-  // URLs built from the user's embed template are trusted as direct embeds
-  if(e.type==='unknown' && (S.embedTplMovie||S.embedTplTv) && S.current && raw===tplEmbedUrl(S.current)) e={type:'iframe',src:raw};
-  if(e.type==='unknown'){
-    $('srcNote').innerHTML='Can\'t embed that host — <a href="'+e.src+'" target="_blank" rel="noopener">open it in a new tab ↗</a>. Embeddable: YouTube, Vimeo, archive.org, Dailymotion, or a direct .mp4/.webm/.m3u8 link.';
-    return;
-  }
+function mountEmbed(e,note){
   const f=$('pframe');
   f.innerHTML = e.type==='video'
     ? '<video src="'+esc(e.src)+'" controls autoplay playsinline></video>'
     : '<iframe src="'+esc(e.src)+'" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
   $('playerShell').classList.remove('hidden');
   $('posterWrap').classList.add('hidden');
-  $('srcNote').textContent = e.hls ? 'HLS stream — plays natively in Safari; other browsers may not support .m3u8 without a plugin.' : 'Playing. The link is remembered for this title.';
-  if(S.current){ S.current.src=raw; const k=mkey(S.current);
-    ['loved','liked','disliked','watchlist','banned'].forEach(b=>{ const hit=(S.profile[b]||[]).find(x=>mkey(x)===k); if(hit){ hit.src=raw; } });
-    saveLocal(); }
+  $('srcNote').textContent=note;
+}
+function playSource(raw){
+  let e=toEmbed(raw);
+  if(!e){ $('srcNote').textContent='That doesn\'t look like a URL.'; return; }
+  // URLs built from the user's embed templates are trusted as direct embeds
+  if(e.type==='unknown' && fromTemplate(raw)) e={type:'iframe',src:raw};
+  if(e.type==='unknown'){
+    $('srcNote').innerHTML='Can\'t embed that host — <a href="'+e.src+'" target="_blank" rel="noopener">open it in a new tab ↗</a>. Embeddable: YouTube, Vimeo, archive.org, Dailymotion, or a direct .mp4/.webm/.m3u8 link.';
+    return;
+  }
+  mountEmbed(e, e.hls ? 'HLS stream — plays natively in Safari; other browsers may not support .m3u8 without a plugin.' : 'Playing. The link is remembered for this title.');
+  persistCurrent({src:raw});
 }
 function closePlayer(){ $('pframe').innerHTML=''; $('playerShell').classList.add('hidden'); $('posterWrap').classList.remove('hidden'); }
 function renderProviders(m){
@@ -696,7 +860,7 @@ function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.lov
 function addTo(b,m){const k=mkey(m);['loved','liked','disliked','banned'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,type:m.type||'movie',poster:m.poster,reason:m.reason||'',src:m.src||''});S.seen.add(k);S.seenT.add(tkey(m));}
 function after(m){renderModel();saveLocal();advance();}
 function flash(msg){toast('<span class="k">learned</span> · '+msg);}
-function advance(){ if(S.mode==='fav'){nextFav();return;} if(!S.queue.length){ if(S.geminiQuotaOut){quotaStop();return;} setStatus('<b>Curating…</b>'); ensureQueue().then(()=>{if(S.queue.length)showMovie(S.queue.shift());else if(S.geminiQuotaOut)quotaStop();}); return;} showMovie(S.queue.shift()); ensureQueue(); }
+function advance(){ if(S.mode==='fav'){nextFav();return;} if(!S.queue.length){ if(S.geminiQuotaOut&&!geminiRecovered()){quotaStop();return;} setStatus('<b>Curating…</b>'); ensureQueue().then(()=>{if(S.queue.length)showMovie(S.queue.shift());else if(S.geminiQuotaOut)quotaStop();}); return;} showMovie(S.queue.shift()); ensureQueue(); }
 function neutralNext(){ S.mode==='fav'?nextFav():advance(); }
 
 /* ---------- favorites mode ---------- */
@@ -730,12 +894,190 @@ function renderWatchlist(){
   const wl=S.profile.watchlist||[];
   $('wlcount').textContent=wl.length?(wl.length+' saved'):'';
   if(!wl.length){ box.innerHTML='<div class="mlist-hint">Nothing saved yet — hit ＋ Watchlist on any film you want to see.</div>'; return; }
-  box.innerHTML='<div class="mlist-hint">▶ open · ★ mark watched &amp; loved · ✕ remove</div>'+wl.map((m,i)=>
-    '<div class="mrow"><button class="mbtn" data-wp="'+i+'">▶</button><span class="txt">'+esc(m.title+(m.year?(' ('+m.year+')'):'')+(m.director?(' · '+m.director):''))+'</span><button class="mbtn" data-wlv="'+i+'" title="Watched it — loved it">★</button><button class="mbtn del" data-wx="'+i+'">✕</button></div>').join('');
-  box.querySelectorAll('[data-wp]').forEach(b=>b.onclick=()=>playSpecific(S.profile.watchlist[+b.dataset.wp]));
-  box.querySelectorAll('[data-wx]').forEach(b=>b.onclick=()=>{const m=S.profile.watchlist[+b.dataset.wx];S.profile.watchlist.splice(+b.dataset.wx,1);S.seen.delete(mkey(m));saveLocal();renderWatchlist();toast('Removed');});
-  box.querySelectorAll('[data-wlv]').forEach(b=>b.onclick=()=>{const m=S.profile.watchlist.splice(+b.dataset.wlv,1)[0];addTo('loved',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,3));bump(S.profile.dirScore,m.director,3);saveLocal();renderWatchlist();renderModel();toast('★ moved to favorites');});
+  box.innerHTML='<div class="mlist-hint">tap a poster to open · ★ watched &amp; loved · ✕ remove</div>'
+    +'<div class="pgrid" style="padding:8px 4px 4px">'+wl.map((m,i)=>
+    '<div class="pcard" data-wp="'+i+'">'
+    +(m.poster?('<img class="pimg" loading="lazy" src="'+esc(m.poster)+'" alt="">'):('<div class="pnop">'+esc(m.title)+'</div>'))
+    +'<div class="pbtns"><button data-wlv="'+i+'" title="Watched it — loved it">★</button><button data-wx="'+i+'" title="Remove">✕</button></div>'
+    +'<div class="pt">'+esc(m.title)+' <span class="py">'+esc(m.year||'')+(m.type==='tv'?' · TV':'')+'</span></div></div>').join('')+'</div>';
+  box.querySelectorAll('[data-wp]').forEach(c=>c.onclick=e=>{ if(e.target.closest('button'))return; playSpecific(S.profile.watchlist[+c.dataset.wp]); });
+  box.querySelectorAll('[data-wx]').forEach(b=>b.onclick=e=>{e.stopPropagation();const i=+b.dataset.wx;const m=S.profile.watchlist[i];S.profile.watchlist.splice(i,1);S.seen.delete(mkey(m));saveLocal();renderWatchlist();toast('Removed');});
+  box.querySelectorAll('[data-wlv]').forEach(b=>b.onclick=e=>{e.stopPropagation();const i=+b.dataset.wlv;const m=S.profile.watchlist.splice(i,1)[0];addTo('loved',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,3));bump(S.profile.dirScore,m.director,3);saveLocal();renderWatchlist();renderModel();toast('★ moved to favorites');});
+  hydrateWlPosters();
 }
+/* fetch missing posters for watchlist items (Letterboxd imports, manual adds) — max 10 per pass */
+let _hydrating=false;
+async function hydrateWlPosters(){
+  if(_hydrating||!S.tmdb) return; _hydrating=true;
+  let done=0;
+  try{
+    for(const m of (S.profile.watchlist||[])){
+      if(m.poster||m.noPoster) continue;
+      if(done>=10) break;
+      const tv=(m.type==='tv');
+      try{
+        let u='https://api.themoviedb.org/3/search/'+(tv?'tv':'movie')+'?api_key='+encodeURIComponent(S.tmdb)+'&query='+encodeURIComponent(m.title);
+        if(m.year) u+= tv?('&first_air_date_year='+encodeURIComponent(m.year)):('&year='+encodeURIComponent(m.year));
+        const r=await fetch(u); if(!r.ok) break;
+        const hit=(((await r.json()).results)||[])[0];
+        if(hit){ m.id=m.id||hit.id; if(hit.poster_path) m.poster=S.imgBase+'w342'+hit.poster_path; else m.noPoster=1; }
+        else m.noPoster=1;
+      }catch(_){ break; }
+      done++;
+    }
+  } finally {
+    _hydrating=false;
+    if(done){ saveLocal(); if(S.tab==='list') renderWatchlist(); }
+  }
+}
+
+/* ---------- 📺 watching / new-episode tracker ---------- */
+function isWatching(m){ return (S.profile.watching||[]).some(x=>mkey(x)===mkey(m)); }
+function toggleWatching(){
+  const m=S.current; if(!m||m.type!=='tv') return;
+  const k=mkey(m);
+  if(isWatching(m)){ S.profile.watching=S.profile.watching.filter(x=>mkey(x)!==k); toast('Stopped tracking'); }
+  else{
+    S.profile.watching.push({title:m.title,year:m.year,id:m.id,type:'tv',poster:m.poster,seenAir:new Date().toISOString().slice(0,10)});
+    toast('📺 Tracking — new episodes will show under Watchlist');
+    checkEpisodes(true);
+  }
+  saveLocal();
+  const wt=$('wtBtn'); if(wt){ const w=isWatching(m); wt.textContent=w?'✓ Watching':'📺 Watching'; wt.style.color=w?'var(--teal)':''; wt.style.borderColor=w?'var(--teal)':''; }
+  updateEpBadge();
+}
+function hasNewEp(sh){ return !!(sh.lastAir && (!sh.seenAir || sh.lastAir>sh.seenAir)); }
+function updateEpBadge(){ const b=$('epBadge'); if(b) b.classList.toggle('show',(S.profile.watching||[]).some(hasNewEp)); }
+async function checkEpisodes(force){
+  const w=S.profile.watching||[];
+  if(!w.length||!S.tmdb){ updateEpBadge(); return; }
+  const now=Date.now();
+  if(!force && S._epChecked && now-S._epChecked<30*60*1000){ updateEpBadge(); return; }
+  S._epChecked=now;
+  for(const sh of w){
+    try{
+      if(!sh.id){ const hit=await tmdbResolve({title:sh.title,year:sh.year,type:'tv'}); if(hit) sh.id=hit.id; else continue; }
+      const r=await fetch('https://api.themoviedb.org/3/tv/'+sh.id+'?api_key='+encodeURIComponent(S.tmdb));
+      if(!r.ok) continue;
+      const d=await r.json();
+      sh.status=d.status||'';
+      const le=d.last_episode_to_air, ne=d.next_episode_to_air;
+      sh.lastAir=(le&&le.air_date)||''; sh.lastS=le?le.season_number:0; sh.lastE=le?le.episode_number:0;
+      sh.nextAir=(ne&&ne.air_date)||''; sh.nextS=ne?ne.season_number:0; sh.nextE=ne?ne.episode_number:0;
+      if(!sh.poster&&d.poster_path) sh.poster=S.imgBase+'w342'+d.poster_path;
+    }catch(_){}
+  }
+  saveLocal(); updateEpBadge();
+  if(S.tab==='list') renderWatching();
+}
+function renderWatching(){
+  const box=$('watchingBox'); if(!box) return;
+  const w=S.profile.watching||[];
+  $('wcount').textContent=w.length?(w.length+' tracked'):'';
+  if(!w.length){ box.innerHTML='<div class="mlist-hint">Open any series and hit <b>📺 Watching</b>. Reel checks TMDB when you open the app and flags new episodes here.</div>'; return; }
+  box.innerHTML=w.map((sh,i)=>{
+    const isNew=hasNewEp(sh);
+    const line = isNew ? ('<span class="new">● NEW — S'+sh.lastS+'E'+sh.lastE+' aired '+esc(sh.lastAir)+'</span>')
+      : sh.nextAir ? ('next: S'+sh.nextS+'E'+sh.nextE+' · '+esc(sh.nextAir))
+      : (sh.status==='Ended'||sh.status==='Canceled') ? esc(sh.status.toLowerCase())
+      : (sh.lastAir?('caught up · last aired '+esc(sh.lastAir)):'checking air dates…');
+    return '<div class="wshow">'+(sh.poster?('<img src="'+esc(sh.poster)+'" alt="">'):'')
+      +'<div style="min-width:0"><div class="wt">'+esc(sh.title)+'</div><div class="ws">'+line+'</div></div>'
+      +'<div class="wbtns"><button class="mbtn" data-wo="'+i+'" title="Open">▶</button>'
+      +(isNew?('<button class="mbtn" data-wc="'+i+'" title="Mark caught up">✓</button>'):'')
+      +'<button class="mbtn del" data-wstop="'+i+'" title="Stop tracking">✕</button></div></div>';
+  }).join('');
+  box.querySelectorAll('[data-wo]').forEach(b=>b.onclick=()=>playSpecific(S.profile.watching[+b.dataset.wo]));
+  box.querySelectorAll('[data-wc]').forEach(b=>b.onclick=()=>{const sh=S.profile.watching[+b.dataset.wc];sh.seenAir=sh.lastAir;saveLocal();renderWatching();updateEpBadge();toast('✓ Caught up');});
+  box.querySelectorAll('[data-wstop]').forEach(b=>b.onclick=()=>{S.profile.watching.splice(+b.dataset.wstop,1);saveLocal();renderWatching();updateEpBadge();toast('Stopped tracking');});
+}
+
+/* ---------- 🔥 trending / popular from TMDB ---------- */
+const TR_PATHS={trending_day:'/trending/all/day',trending_week:'/trending/all/week',movie_popular:'/movie/popular',tv_popular:'/tv/popular',movie_top:'/movie/top_rated'};
+const TR_WHY={trending_day:'trending on TMDB today',trending_week:'trending on TMDB this week',movie_popular:'popular on TMDB right now',tv_popular:'popular on TMDB right now',movie_top:'top-rated on TMDB'};
+let trCache={}, trCur='trending_day';
+async function renderTrending(){
+  const grid=$('trGrid'); if(!grid) return;
+  document.querySelectorAll('#trChips .mchip').forEach(c=>c.classList.toggle('on',c.dataset.tr===trCur));
+  if(!S.tmdb){ grid.innerHTML='<div class="mlist-hint">Add a TMDB key in Settings first.</div>'; return; }
+  let items=trCache[trCur];
+  if(!items){
+    grid.innerHTML='<div class="mlist-hint">loading…</div>';
+    try{
+      const r=await fetch('https://api.themoviedb.org/3'+TR_PATHS[trCur]+'?api_key='+encodeURIComponent(S.tmdb));
+      if(!r.ok) throw 0;
+      items=(((await r.json()).results)||[])
+        .filter(x=>!x.media_type||x.media_type==='movie'||x.media_type==='tv')
+        .slice(0,20)
+        .map(h=>{ const tv=h.media_type==='tv'||(!h.media_type&&trCur.indexOf('tv')===0);
+          return {id:h.id,type:tv?'tv':'movie',title:tv?h.name:h.title,year:((tv?h.first_air_date:h.release_date)||'').slice(0,4),
+                  poster:h.poster_path?(S.imgBase+'w342'+h.poster_path):'',rating:h.vote_average?h.vote_average.toFixed(1):''}; });
+      trCache[trCur]=items;
+    }catch(_){ grid.innerHTML='<div class="mlist-hint">could not load — check your TMDB key</div>'; return; }
+  }
+  $('trCount').textContent=items.length?(items.length+' titles'):'';
+  grid.innerHTML=items.map((m,i)=>{
+    const seen=S.seen.has(mkey(m));
+    const onList=S.profile.watchlist.some(x=>mkey(x)===mkey(m));
+    return '<div class="pcard" data-ti="'+i+'">'
+      +(m.poster?('<img class="pimg" loading="lazy" src="'+esc(m.poster)+'" alt="">'):('<div class="pnop">'+esc(m.title)+'</div>'))
+      +(seen?'<span class="badge-seen">✓</span>':(onList?'<span class="badge-seen">🔖</span>':''))
+      +'<div class="pbtns"><button data-tw="'+i+'" title="'+(onList?'Already on watchlist':'Add to watchlist')+'">'+(onList?'✓':'＋')+'</button></div>'
+      +'<div class="pt">'+esc(m.title)+' <span class="py">'+esc(m.year||'')+(m.type==='tv'?' · TV':'')+(m.rating?(' · ★'+m.rating):'')+'</span></div></div>';
+  }).join('');
+  grid.querySelectorAll('[data-ti]').forEach(c=>c.onclick=async e=>{
+    if(e.target.closest('button'))return;
+    const m=items[+c.dataset.ti];
+    showTab('now'); setStatus('<b>Loading…</b>');
+    const det=await tmdbDetails(m.id,m.type);
+    if(!det){toast('Could not load it');return;}
+    det.reason=TR_WHY[trCur]; showMovie(det);
+  });
+  grid.querySelectorAll('[data-tw]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    const m=items[+b.dataset.tw], k=mkey(m);
+    if(S.profile.watchlist.some(x=>mkey(x)===k)){toast('Already on your watchlist');return;}
+    S.profile.watchlist.push({title:m.title,year:m.year,id:m.id,type:m.type,poster:m.poster,genres:[]});
+    S.seen.add(k); S.seenT.add(tkey(m));
+    saveLocal(); toast('＋ Saved to watchlist'); renderTrending();
+  });
+}
+document.querySelectorAll('#trChips .mchip').forEach(c=>c.onclick=()=>{trCur=c.dataset.tr;renderTrending();});
+
+/* ---------- 🔍 direct search ---------- */
+function openSearch(){
+  if(!S.tmdb){toast('Add a TMDB key in Settings first');return;}
+  $('searchOverlay').classList.remove('hidden'); $('searchRes').innerHTML='';
+  setTimeout(()=>{try{$('searchIn').focus();}catch(_){}} ,60);
+}
+function closeSearchOv(){ $('searchOverlay').classList.add('hidden'); }
+async function runSearch(){
+  const q=$('searchIn').value.trim(); if(!q) return;
+  $('searchRes').innerHTML='<div class="mlist-hint">searching…</div>';
+  try{
+    const r=await fetch('https://api.themoviedb.org/3/search/multi?api_key='+encodeURIComponent(S.tmdb)+'&query='+encodeURIComponent(q)+'&include_adult=false');
+    if(!r.ok) throw 0;
+    const hits=(((await r.json()).results)||[]).filter(x=>x.media_type==='movie'||x.media_type==='tv').slice(0,12);
+    if(!hits.length){ $('searchRes').innerHTML='<div class="mlist-hint">nothing found on TMDB</div>'; return; }
+    $('searchRes').innerHTML=hits.map((h,i)=>{
+      const tv=h.media_type==='tv', t=tv?h.name:h.title, y=((tv?h.first_air_date:h.release_date)||'').slice(0,4);
+      const img=h.poster_path?('<img src="'+S.imgBase+'w92'+h.poster_path+'" alt="">'):'<span class="noimg">🎬</span>';
+      return '<div class="srow" data-si="'+i+'">'+img+'<div><div class="st">'+esc(t)+'</div><div class="ss">'+(tv?'📺 series':'🎬 film')+(y?(' · '+y):'')+(h.vote_average?(' · ★ '+h.vote_average.toFixed(1)):'')+'</div></div></div>';
+    }).join('');
+    $('searchRes').querySelectorAll('[data-si]').forEach(el=>el.onclick=async()=>{
+      const h=hits[+el.dataset.si];
+      closeSearchOv(); showTab('now'); setStatus('<b>Loading…</b>');
+      const det=await tmdbDetails(h.id,h.media_type);
+      if(!det){toast('Could not load it');return;}
+      det.reason='you searched for this'; showMovie(det);
+    });
+  }catch(_){ $('searchRes').innerHTML='<div class="mlist-hint">search failed — check your TMDB key</div>'; }
+}
+$('searchPill').onclick=()=>{ if(!S.started){toast('Start first');return;} openSearch(); };
+$('closeSearch').onclick=closeSearchOv;
+$('searchGo').onclick=runSearch;
+$('searchIn').addEventListener('keydown',e=>{ if(e.key==='Enter') runSearch(); });
+$('searchOverlay').addEventListener('click',e=>{ if(e.target.id==='searchOverlay') closeSearchOv(); });
 function renderModel(){
   const el=$('model');if(!el)return;
   try{renderModelInner();}catch(e){
@@ -806,25 +1148,26 @@ function addAnchors(){
 }
 
 /* ---------- tabs / settings ---------- */
-function showTab(name){S.tab=name;const pane={now:'tabNow',queue:'tabQueue',dna:'tabDNA',list:'tabList'}[name];document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='dna')renderModel();if(name==='list')renderWatchlist();}
+function showTab(name){S.tab=name;const pane={now:'tabNow',queue:'tabQueue',dna:'tabDNA',list:'tabList',trend:'tabTrend'}[name];document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='dna')renderModel();if(name==='list'){renderWatchlist();renderWatching();checkEpisodes();}if(name==='trend')renderTrending();}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function openSettings(){$('setupTitle').textContent=S.started?'Settings':'Setup';$('startBtn').textContent=S.started?'Save & close':'Start';$('settingsOverlay').classList.remove('hidden');}
 function closeSettings(){$('settingsOverlay').classList.add('hidden');}
 $('gearBtn').onclick=openSettings;$('closeSettings').onclick=closeSettings;
 $('settingsOverlay').addEventListener('click',e=>{if(e.target.id==='settingsOverlay')closeSettings();});
-document.querySelectorAll('.mchip').forEach(c=>c.onclick=()=>{
+document.querySelectorAll('#mediaSwitch .mchip').forEach(c=>c.onclick=()=>{
   S.media=c.dataset.m; saveRewindConfig({reelMedia:S.media});
-  document.querySelectorAll('.mchip').forEach(x=>x.classList.toggle('on',x===c));
+  document.querySelectorAll('#mediaSwitch .mchip').forEach(x=>x.classList.toggle('on',x===c));
   S.candidates=[]; toast(c.textContent.trim()+' · from the next picks');
   if(S.started && !S.geminiQuotaOut) refill();
 });
-function syncMediaChips(){document.querySelectorAll('.mchip').forEach(x=>x.classList.toggle('on',x.dataset.m===S.media));}
+function syncMediaChips(){document.querySelectorAll('#mediaSwitch .mchip').forEach(x=>x.classList.toggle('on',x.dataset.m===S.media));}
 $('srcGo').onclick=()=>playSource($('srcIn').value);
 $('srcIn').addEventListener('keydown',e=>{ if(e.key==='Enter') playSource($('srcIn').value); });
 $('pClose').onclick=closePlayer;
 $('favPill').onclick=()=>{if(!S.started){toast('Start first');return;}S.mode==='fav'?exitFav():enterFav();};
 $('btnLove').onclick=love;$('btnLike').onclick=like;$('btnMeh').onclick=meh;$('btnNever').onclick=never;$('btnNext').onclick=neutralNext;
 $('quotaFavBtn').onclick=()=>{$('quotaWall').classList.add('hidden');enterFav();};
+$('quotaRetryBtn').onclick=()=>{S.gi=0;S.geminiQuotaOut=false;S.quotaOutAt=0;$('quotaWall').classList.add('hidden');setStatus('<b>Retrying…</b>');if(S.mode==='fav')exitFav();else advance();};
 $('quotaSettingsBtn').onclick=()=>{$('quotaWall').classList.add('hidden');openSettings();};
 $('exportBtn').onclick=exportProfile;
 function parseCSV(text){
@@ -869,8 +1212,8 @@ function importLetterboxd(file){
 async function geminiText(prompt){
   const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(S.gemini),
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.7}})});
-  let res=await call();
-  if(res.status===429 && rotateGemini()) res=await call();
+  let res;
+  while(true){ res=await call(); if(res.status===429&&rotateGemini())continue; break; }
   if(!res.ok) throw new Error('Gemini '+res.status);
   const d=await res.json();
   return (d.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('').trim();
@@ -904,6 +1247,7 @@ $('startBtn').onclick=async()=>{
     await ensureQueue();
     if(!S.queue.length){if(S.geminiQuotaOut)quotaStop();else setStatus('<b>Could not build a queue.</b> Check keys, then reload.');return;}
     showMovie(S.queue.shift());ensureQueue();
+    checkEpisodes();
   }catch(e){setStatus('<b>Startup failed:</b> '+esc(String(e.message).slice(0,120)));}
 };
 

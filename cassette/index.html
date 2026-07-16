@@ -260,7 +260,12 @@
   .model,.mlist,#mlistWrap,.grp,.chips{max-width:100%;min-width:0}
   .mrow{max-width:100%;min-width:0}
   .mrow .txt{flex:1 1 0%;min-width:0}
-  .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis}  /* ---- direct song search ---- */
+  .srow{display:flex;gap:11px;align-items:center;padding:8px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:.12s}
+  .srow:hover{background:var(--panel-2);border-color:var(--line)}
+  .srow img{width:74px;height:42px;object-fit:cover;border-radius:7px;background:#000;flex:none}
+  .srow .st{font-weight:600;font-size:13px;line-height:1.3}
+  .srow .ss{color:var(--muted);font-family:var(--mono);font-size:11px;margin-top:2px}
 </style>
 </head>
 <body>
@@ -278,6 +283,7 @@
         <a class="seg" href="../reel/" title="Movies"><span class="ic">🎬</span><span class="tx">Reel</span></a>
         <a class="seg" href="../paperback/" title="Books"><span class="ic">📖</span><span class="tx">Paperback</span></a>
       </div>
+      <button class="pill" id="searchPill" title="Play a specific song">🔍</button>
       <button class="pill" id="explorePill" title="Explore genres beyond your taste">🎲 surprise</button>
       <button class="pill" id="modePill" title="Play only your all-time favorites">♥ favorites</button>
       <button class="pill" id="gearBtn" title="API keys & settings">⚙</button>
@@ -383,6 +389,7 @@
           <div class="qw-s">It resets daily (Pacific midnight). Until then you can play your favorites, or add a bigger YouTube key in Settings.</div>
           <div class="qw-btns">
             <button class="btn sm" id="quotaFavBtn">♥ Play my favorites</button>
+            <button class="btn ghost sm" id="quotaRetryBtn">↻ Try again</button>
             <button class="btn ghost sm" id="quotaSettingsBtn">⚙ Open settings</button>
           </div>
         </div>
@@ -466,6 +473,19 @@
   </footer>
 </div>
 
+<div class="overlay hidden" id="searchOverlay">
+  <div class="sheet">
+    <div class="sheet-h"><span>Play a specific song</span><button class="xbtn" id="closeSearch">✕</button></div>
+    <div class="sheet-body">
+      <div style="display:flex;gap:8px">
+        <input id="searchIn" type="text" placeholder="e.g. Cheb Khaled — Aicha · Fairuz" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:11px 12px;font-family:var(--mono);font-size:13px;outline:none">
+        <button class="btn sm" id="searchGo">Search</button>
+      </div>
+      <div id="searchRes" style="margin-top:12px;max-height:60vh;overflow-y:auto"></div>
+      <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:10px">Playing a search result teaches nothing — heart it if you want Cassette to learn from it.</div>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -553,8 +573,17 @@ function loadKeys(){
 /* active key + rotation. rotateX() advances to the next key; returns false when all are spent. */
 function gKey(){ return S.geminiKeys[S.gi]||''; }
 function yKey(){ return S.ytKeys[S.yi]||''; }
-function rotateGemini(){ if(S.gi < S.geminiKeys.length-1){ S.gi++; return true; } S.geminiQuotaOut=true; return false; }
-function rotateYT(){ if(S.yi < S.ytKeys.length-1){ S.yi++; return true; } S.ytQuotaOut=true; return false; }
+function rotateGemini(){ if(S.gi < S.geminiKeys.length-1){ S.gi++; toast('Gemini key spent · switched to key '+(S.gi+1)); return true; } S.geminiQuotaOut=true; S.gQuotaAt=Date.now(); return false; }
+function rotateYT(){ if(S.yi < S.ytKeys.length-1){ S.yi++; toast('YouTube key spent · switched to key '+(S.yi+1)); return true; } S.ytQuotaOut=true; S.yQuotaAt=Date.now(); return false; }
+/* Gemini free-tier 429s are usually PER-MINUTE limits — recover automatically after 90s.
+   YouTube quotas are daily, but a retry window costs nothing and un-sticks false positives. */
+function quotaRecovered(){
+  let rec=false;
+  if(S.geminiQuotaOut && S.gQuotaAt && (Date.now()-S.gQuotaAt)>90000){ S.gi=0; S.geminiQuotaOut=false; rec=true; }
+  if(S.ytQuotaOut && S.yQuotaAt && (Date.now()-S.yQuotaAt)>300000){ S.yi=0; S.ytQuotaOut=false; rec=true; }
+  if(rec) $('quotaWall').classList.add('hidden');
+  return !S.geminiQuotaOut && !S.ytQuotaOut;
+}
 /* back-compat shims so the rest of the code can read S.gemini / S.yt */
 Object.defineProperty(S,'gemini',{get(){return gKey();}, configurable:true});
 Object.defineProperty(S,'yt',{get(){return yKey();}, configurable:true});
@@ -633,16 +662,24 @@ async function askGemini(n){
   const call = async(model)=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(gKey()),
     {method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({contents:[{parts:[{text:lines}]}],generationConfig:{temperature:1.0}})});
-  let res;
+  let res, waited=false;
   while(true){
     res = await call(S.model);
     if(res.status===404 && S.model!=='gemini-flash-latest'){
       S.model='gemini-flash-latest'; toast('Model retired · switched to gemini-flash-latest');
-      res = await call(S.model);
+      continue;
     }
     if(res.status===429){                       // this key is spent — rotate silently
       if(rotateGemini()) continue;              // more keys → retry
       throw new Error('GEMINI_QUOTA');          // all keys spent
+    }
+    if(res.status===503 && !waited){ waited=true; await new Promise(r=>setTimeout(r,2500)); continue; } // overloaded — one retry
+    if(res.status===400 || res.status===403){   // invalid / restricted key — rotation should cover this too
+      let msg=''; try{ const e=await res.clone().json(); msg=((e.error&&e.error.status)||'')+' '+((e.error&&e.error.message)||''); }catch(_){}
+      if(/API_KEY_INVALID|API key not valid|PERMISSION_DENIED|expired|leaked/i.test(msg)){
+        if(rotateGemini()){ toast('A Gemini key was rejected — trying the next one'); continue; }
+        throw new Error('All Gemini keys were rejected — check them in Settings');
+      }
     }
     break;
   }
@@ -700,7 +737,8 @@ function quotaStop(){
    QUEUE MANAGEMENT  — always keep 2 ahead
 ============================================================ */
 async function refillCandidates(){
-  if(S.candidates.length>=3 || S.thinking || S.geminiQuotaOut) return;
+  if(S.candidates.length>=3 || S.thinking) return;
+  if(S.geminiQuotaOut && !quotaRecovered()) return;
   S.thinking=true; renderQueue();
   try{ const got=await askGemini(6); S.candidates.push(...got); }
   catch(e){
@@ -714,7 +752,7 @@ async function ensureQueue(){
   try{
     let guard=0;
     while(S.queue.length<2 && guard++<14){
-      if(S.ytQuotaOut || S.geminiQuotaOut) break;   // a quota is gone — stop trying
+      if((S.ytQuotaOut || S.geminiQuotaOut) && !quotaRecovered()) break;   // quotas gone and not yet recoverable
       if(S.candidates.length===0){ await refillCandidates(); if(S.candidates.length===0) break; }
       const cand=S.candidates.shift();
       if(cand.genre && S.profile.hatedGenres.map(g=>g.toLowerCase()).includes((cand.genre||'').toLowerCase())) continue;
@@ -725,7 +763,7 @@ async function ensureQueue(){
     }
   } finally { S.resolving=false; renderQueue(); updateQCount(); }
   if((S.ytQuotaOut||S.geminiQuotaOut) && !S.queue.length && S.mode!=='hearts'){ quotaStop(); return; }
-  if(S.candidates.length<3 && !S.ytQuotaOut && !S.geminiQuotaOut) refillCandidates();
+  if(S.candidates.length<3) refillCandidates();
 }
 
 /* ============================================================
@@ -838,6 +876,45 @@ async function playSpecific(t){
   }
   showTab('now'); startTrack(c);
 }
+/* ---------- 🔍 direct song search — plays exactly what you name ---------- */
+function deent(s){ const t=document.createElement('textarea'); t.innerHTML=s||''; return t.value; }
+function openSearch(){
+  if(!S.started){ toast('Start first'); return; }
+  if(!yKey()){ toast('Direct search needs a YouTube key — add one in Settings'); return; }
+  $('searchOverlay').classList.remove('hidden'); $('searchRes').innerHTML='';
+  setTimeout(()=>{try{$('searchIn').focus();}catch(_){}} ,60);
+}
+function closeSearchOv(){ $('searchOverlay').classList.add('hidden'); }
+async function runSearch(){
+  const q=$('searchIn').value.trim(); if(!q) return;
+  $('searchRes').innerHTML='<div class="mlist-hint">searching…</div>';
+  try{
+    const u='https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=8&type=video&videoEmbeddable=true&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(yKey());
+    const r=await fetch(u);
+    if(!r.ok){
+      if(r.status===403 && rotateYT()){ runSearch(); return; }
+      throw 0;
+    }
+    const hits=(((await r.json()).items)||[]).filter(i=>i.id&&i.id.videoId);
+    if(!hits.length){ $('searchRes').innerHTML='<div class="mlist-hint">nothing found</div>'; return; }
+    $('searchRes').innerHTML=hits.map((h,i)=>{
+      const th=((h.snippet.thumbnails&&(h.snippet.thumbnails.medium||h.snippet.thumbnails.default))||{}).url||'';
+      return '<div class="srow" data-si="'+i+'">'+(th?('<img src="'+escapeHtml(th)+'" alt="">'):'')
+        +'<div style="min-width:0"><div class="st">'+escapeHtml(deent(h.snippet.title))+'</div><div class="ss">'+escapeHtml(deent(h.snippet.channelTitle||''))+'</div></div></div>';
+    }).join('');
+    $('searchRes').querySelectorAll('[data-si]').forEach(el=>el.onclick=()=>{
+      const h=hits[+el.dataset.si];
+      closeSearchOv(); showTab('now');
+      startTrack({ title:deent(h.snippet.title), artist:deent(h.snippet.channelTitle||''), videoId:h.id.videoId, reason:'you searched for this' });
+    });
+  }catch(_){ $('searchRes').innerHTML='<div class="mlist-hint">search failed — YouTube key or quota</div>'; }
+}
+$('searchPill').onclick=openSearch;
+$('closeSearch').onclick=closeSearchOv;
+$('searchGo').onclick=runSearch;
+$('searchIn').addEventListener('keydown',e=>{ if(e.key==='Enter') runSearch(); });
+$('searchOverlay').addEventListener('click',e=>{ if(e.target.id==='searchOverlay') closeSearchOv(); });
+
 function applyDataSaver(){
   const on = S.dataSaver==='on';
   document.querySelector('.videoshell').classList.toggle('mini', on);
@@ -980,8 +1057,10 @@ async function maybeTranslate(d){
   }catch(_){ $('trBtn').classList.add('hidden'); }
 }
 async function geminiRaw(text){
-  const url='https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(gKey());
-  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text}]}]})});
+  const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+S.model+':generateContent?key='+encodeURIComponent(gKey()),
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text}]}]})});
+  let r;
+  while(true){ r=await call(); if(r.status===429 && rotateGemini()) continue; break; }
   if(!r.ok) throw new Error('gemini'); const d=await r.json();
   return (d.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('').replace(/```json/gi,'').replace(/```/g,'').trim();
 }
@@ -1226,6 +1305,7 @@ $('lyToggle').onclick=()=>{
 };
 $('trBtn').onclick=toggleTranslation;
 $('quotaFavBtn').onclick=()=>{ $('quotaWall').classList.add('hidden'); enterHearts(); };
+$('quotaRetryBtn').onclick=()=>{ S.gi=0; S.yi=0; S.geminiQuotaOut=false; S.ytQuotaOut=false; S.gQuotaAt=0; S.yQuotaAt=0; $('quotaWall').classList.add('hidden'); setStatus('<b>Retrying…</b>'); if(S.mode==='hearts')exitHearts(); else loadNext(); };
 $('quotaSettingsBtn').onclick=()=>{ $('quotaWall').classList.add('hidden'); openSettings(); };
 $('btnHeart').onclick=heart;
 $('btnSkip').onclick=skip;
@@ -1425,7 +1505,7 @@ function applyWide(){ /* tabs are single-pane at all widths now; nothing to togg
 window.addEventListener('resize',()=>{ if(S.started) applyWide(); });
 
 /* on load: prefill remembered keys, show existing profile, open setup */
-const BUILD='Cassette · build 20 · 2026-07-15 · surprise+focus';
+const BUILD='Cassette · build 21 · 2026-07-16 · direct search · key rotation fix';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
