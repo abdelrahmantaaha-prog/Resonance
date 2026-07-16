@@ -708,11 +708,14 @@ async function resolveVideoIdRaw(cand, allowSeen){
         const hit=(d.items||[]).find(i=>i.id&&i.id.videoId&&(allowSeen||!S.seenIds.has(i.id.videoId)));
         if(hit) return hit.id.videoId;
         break; // valid response, just no usable hit — stop, use Gemini id fallback
-      } else if(r.status===403){
-        let reason=''; try{ const e=await r.json(); reason=(e.error&&e.error.errors&&e.error.errors[0]&&e.error.errors[0].reason)||''; }catch(_){}
-        if(reason==='quotaExceeded' || reason==='dailyLimitExceeded'){
+      } else if(r.status===403 || r.status===400){
+        let reason=''; try{ const e=await r.json(); reason=((e.error&&e.error.errors&&e.error.errors[0]&&e.error.errors[0].reason)||'')+' '+((e.error&&e.error.message)||''); }catch(_){}
+        if(/quotaExceeded|dailyLimitExceeded|rateLimitExceeded|userRateLimitExceeded/i.test(reason)){
           if(rotateYT()) continue;     // spent key → try next silently
           break;                       // all YT keys spent → fall through to Gemini-id guess
+        } else if(/keyInvalid|API key not valid|keyExpired|accessNotConfigured|forbidden|PERMISSION_DENIED|blocked/i.test(reason)){
+          if(rotateYT()){ toast('A YouTube key was rejected — trying the next one'); continue; }  // bad key → rotation covers this too now
+          S.ytBad=true; setStatus('<b>All YouTube keys were rejected.</b> Check them in Settings — falling back to Gemini guesses.'); break;
         } else { S.ytBad=true; setStatus('<b>YouTube key issue.</b> Falling back to Gemini guesses.'); break; }
       } else break;
     }catch(e){ break; }
@@ -892,7 +895,7 @@ async function runSearch(){
     const u='https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=8&type=video&videoEmbeddable=true&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(yKey());
     const r=await fetch(u);
     if(!r.ok){
-      if(r.status===403 && rotateYT()){ runSearch(); return; }
+      if((r.status===403||r.status===400) && rotateYT()){ runSearch(); return; }
       throw 0;
     }
     const hits=(((await r.json()).items)||[]).filter(i=>i.id&&i.id.videoId);
@@ -1505,7 +1508,7 @@ function applyWide(){ /* tabs are single-pane at all widths now; nothing to togg
 window.addEventListener('resize',()=>{ if(S.started) applyWide(); });
 
 /* on load: prefill remembered keys, show existing profile, open setup */
-const BUILD='Cassette · build 21 · 2026-07-16 · direct search · key rotation fix';
+const BUILD='Cassette · build 22 · 2026-07-16 · direct search · full YT+Gemini key rotation';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();

@@ -69,8 +69,9 @@
   .sheet-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px}
   input[type=file]{display:none}
 
-  .tabbar{display:flex;gap:6px;margin-bottom:16px;position:sticky;top:0;z-index:20;background:var(--bg);padding:4px 0}
-  .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:11px;padding:11px 8px;font-family:var(--mono);font-size:12.5px;transition:.15s}
+  .tabbar{display:flex;gap:6px;margin-bottom:16px;position:sticky;top:0;z-index:20;background:var(--bg);padding:4px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabbar::-webkit-scrollbar{display:none}
+  .tab{flex:1 0 auto;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:11px;padding:11px 12px;font-family:var(--mono);font-size:12.5px;transition:.15s}
   .tab.on{border-color:var(--gold);color:var(--gold);background:var(--panel-2)}
   .tabpane{display:none}
   .tabpane.on{display:block;animation:fade .2s ease}
@@ -115,8 +116,8 @@
   .mv-overview{font-size:13.5px;color:var(--muted);margin-bottom:14px;max-height:120px;overflow-y:auto}
   .chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
   .gchip{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
-  .actions{display:flex;gap:10px;margin-bottom:12px}
-  .actions a{flex:1;text-align:center;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px;font-family:var(--mono);font-size:12px;text-decoration:none;transition:.15s}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .actions a{flex:1 1 auto;min-width:96px;white-space:nowrap;text-align:center;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px 8px;font-family:var(--mono);font-size:12px;text-decoration:none;transition:.15s}
   .actions a:hover{border-color:var(--gold);color:var(--gold)}
   .watch{margin-bottom:14px}
   .watch .wl{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-bottom:7px;text-transform:uppercase;letter-spacing:.08em}
@@ -201,6 +202,19 @@
   .mrow .txt{flex:1 1 0%;min-width:0}
   .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 
+  /* ---- 📺 TV mode — 10-foot UI for TV browsers (TV Bro etc.) ---- */
+  body.tv{zoom:1.32}
+  body.tv .wrap{max-width:1280px}
+  body.tv :focus{outline:none}
+  body.tv :focus-visible, body.tv .tvfocus{outline:3px solid var(--gold)!important;outline-offset:3px;border-radius:8px;z-index:5;position:relative}
+  body.tv .pcard.tvfocus, body.tv .cwitem.tvfocus{transform:scale(1.07);border-color:var(--gold)}
+  body.tv .pill,body.tv .tab,body.tv .btn,body.tv .mbtn,body.tv .mchip{padding-top:13px;padding-bottom:13px}
+  body.tv .actions a{padding:14px 10px;font-size:13px}
+  body.tv .rate button{min-height:56px}
+  body.tv .srow,body.tv .wshow{padding:12px}
+  body.tv .pgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}
+  body.tv ::-webkit-scrollbar{width:0;height:0}
+
   /* ---- direct search ---- */
   .srow{display:flex;gap:11px;align-items:center;padding:8px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:.12s}
   .srow:hover{background:var(--panel-2);border-color:var(--line)}
@@ -224,6 +238,18 @@
   .pcard .pbtns button:hover{border-color:var(--gold);color:var(--gold)}
   .pcard .badge-seen{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.74);border:1px solid var(--line);color:var(--teal);border-radius:7px;font-family:var(--mono);font-size:9.5px;padding:2px 6px;z-index:2}
   .tchips{display:flex;gap:6px;flex-wrap:wrap;padding:14px 18px 0}
+
+  /* ---- continue watching strip ---- */
+  .cwrow{display:flex;gap:10px;overflow-x:auto;padding:12px 18px 16px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .cwrow::-webkit-scrollbar{display:none}
+  .cwitem{position:relative;flex:0 0 104px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel-2);cursor:pointer;transition:.15s}
+  .cwitem:hover{transform:translateY(-3px);border-color:var(--faint)}
+  .cwitem .pimg{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:#000}
+  .cwitem .pnop{width:100%;aspect-ratio:2/3;display:flex;align-items:center;justify-content:center;color:var(--faint);font-family:var(--mono);font-size:10px;text-align:center;padding:6px;line-height:1.4}
+  .cwitem .pt{padding:6px 8px 7px;font-size:11px;line-height:1.3;font-weight:600}
+  .cwitem .py{color:var(--gold);font-family:var(--mono);font-size:9.5px;font-weight:400;margin-top:2px}
+  .cwitem .cwx{position:absolute;top:5px;right:5px;background:rgba(0,0,0,.74);border:1px solid var(--line);color:var(--ink);border-radius:7px;width:24px;height:24px;font-size:11px;padding:0;cursor:pointer;z-index:2}
+  .cwitem .cwx:hover{border-color:var(--gold);color:var(--gold)}
 
   /* ---- watching strip (episode tracker) ---- */
   .wshow{display:flex;gap:12px;align-items:center;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--panel-2)}
@@ -305,6 +331,12 @@
             <option value="gemini-flash-latest">gemini-flash-latest</option>
             <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
           </select>
+        </div>
+        <div class="field">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="tvModeChk" style="width:20px;height:20px;accent-color:var(--gold)">
+            📺 TV mode <span class="hint">— big targets, D-pad/arrow-key navigation, focus rings. Or open with ?tv=1 in the URL.</span>
+          </label>
         </div>
         <div class="sheet-actions">
           <button class="btn" id="startBtn">Start</button>
@@ -404,6 +436,10 @@
 
     <!-- WATCHLIST -->
     <section class="tabpane" id="tabList">
+      <div class="card hidden" id="cwCard" style="margin-bottom:14px">
+        <div class="panel-h">▶ Continue watching <span class="n" id="cwCount"></span></div>
+        <div class="cwrow" id="cwRow"></div>
+      </div>
       <div class="card">
         <div class="panel-h">📺 Watching — new episode tracker <span class="n" id="wcount"></span></div>
         <div class="model" id="watchingBox"></div>
@@ -474,7 +510,86 @@ const S={
   geminiQuotaOut:false,tab:'now',editOpen:true,imgBase:'https://image.tmdb.org/t/p/'
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Reel · build 15 · 2026-07-16 · search · trending · poster watchlist · episode tracker · key rotation fix';
+/* ---------- 📺 TV mode — 10-foot UI + D-pad/arrow spatial navigation ---------- */
+function tvFocusables(){
+  const openOv=[...document.querySelectorAll('.overlay:not(.hidden)')].pop();
+  const root=openOv||document;
+  return [...root.querySelectorAll('button,a,input,select,textarea,[tabindex="0"]')].filter(el=>{
+    if(el.disabled)return false;
+    const r=el.getBoundingClientRect();
+    if(!r.width||!r.height)return false;
+    const s=getComputedStyle(el);
+    return s.visibility!=='hidden'&&s.display!=='none';
+  });
+}
+function tvSetFocus(el){
+  document.querySelectorAll('.tvfocus').forEach(x=>x.classList.remove('tvfocus'));
+  if(!el)return;
+  if(el.tabIndex<0&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');
+  el.classList.add('tvfocus');
+  try{el.focus({preventScroll:true});}catch(_){}
+  try{el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});}catch(_){}
+}
+function tvMove(dir){
+  const els=tvFocusables(); if(!els.length)return;
+  let cur=(document.activeElement&&document.activeElement!==document.body&&els.includes(document.activeElement))?document.activeElement:document.querySelector('.tvfocus');
+  if(!cur||!els.includes(cur)){
+    tvSetFocus(els.find(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.top<innerHeight;})||els[0]);
+    return;
+  }
+  const cr=cur.getBoundingClientRect(), cx=cr.left+cr.width/2, cy=cr.top+cr.height/2;
+  let best=null,bestScore=Infinity;
+  for(const el of els){
+    if(el===cur)continue;
+    const r=el.getBoundingClientRect(), dx=(r.left+r.width/2)-cx, dy=(r.top+r.height/2)-cy;
+    let primary,ortho;
+    if(dir==='ArrowRight'){ if(dx<=4)continue; primary=dx; ortho=Math.abs(dy); }
+    else if(dir==='ArrowLeft'){ if(dx>=-4)continue; primary=-dx; ortho=Math.abs(dy); }
+    else if(dir==='ArrowDown'){ if(dy<=4)continue; primary=dy; ortho=Math.abs(dx); }
+    else { if(dy>=-4)continue; primary=-dy; ortho=Math.abs(dx); }
+    const score=primary+ortho*2.2;
+    if(score<bestScore){bestScore=score;best=el;}
+  }
+  if(best)tvSetFocus(best);
+}
+function tvCloseTop(){
+  const ov=[...document.querySelectorAll('.overlay:not(.hidden)')].pop();
+  if(ov){ const x=ov.querySelector('.xbtn'); if(x)x.click(); else ov.classList.add('hidden'); return true; }
+  return false;
+}
+function applyTvMode(){
+  document.body.classList.toggle('tv',!!S.tvMode);
+  const chk=$('tvModeChk'); if(chk)chk.checked=!!S.tvMode;
+}
+(function(){
+  const q=new URLSearchParams(location.search);
+  if(q.has('tv')){ S.tvMode=q.get('tv')!=='0'; try{localStorage.setItem('reel_tv',S.tvMode?'1':'0');}catch(_){} }
+  else S.tvMode=(function(){try{return localStorage.getItem('reel_tv')==='1';}catch(_){return false;}})();
+  applyTvMode();
+})();
+$('tvModeChk').onchange=e=>{ S.tvMode=e.target.checked; try{localStorage.setItem('reel_tv',S.tvMode?'1':'0');}catch(_){} applyTvMode(); toast(S.tvMode?'📺 TV mode on — arrows move, Enter selects, Back closes':'TV mode off'); };
+document.addEventListener('keydown',e=>{
+  if(!S.tvMode)return;
+  const editing=['INPUT','SELECT','TEXTAREA'].includes((e.target||{}).tagName);
+  if(e.key==='Enter'){
+    if(editing)return;
+    const el=(document.activeElement&&document.activeElement!==document.body)?document.activeElement:document.querySelector('.tvfocus');
+    if(el){ e.preventDefault(); e.stopPropagation(); el.click(); }
+    return;
+  }
+  if(e.key==='Escape'||e.key==='Backspace'||e.key==='GoBack'){
+    if(editing&&e.key==='Backspace')return;
+    if(tvCloseTop()){ e.preventDefault(); e.stopPropagation(); }
+    return;
+  }
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+    if(editing)return;
+    e.preventDefault(); e.stopPropagation();     // overrides the ←/→ rating shortcuts while in TV mode
+    tvMove(e.key);
+  }
+},true);
+
+const BUILD='Reel · build 17 · 2026-07-16 · TV mode · continue watching · overflow fix · YT rotation fix';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -493,7 +608,7 @@ function geminiRecovered(){ if(S.geminiQuotaOut && S.quotaOutAt && (Date.now()-S
 function saveLocal(){try{localStorage.setItem('reel_profile',JSON.stringify(S.profile));}catch(_){}}
 function normalize(){
   const p=S.profile;
-  ['loved','liked','disliked','banned','hatedGenres','watchlist','watching'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
+  ['loved','liked','disliked','banned','hatedGenres','watchlist','watching','continueWatching'].forEach(k=>{if(!Array.isArray(p[k]))p[k]=[];});
   ['genreScore','dirScore'].forEach(k=>{if(!p[k]||typeof p[k]!=='object')p[k]={};});
   if(typeof p.seed!=='string')p.seed='';
   if(Object.keys(p.genreScore).length===0){
@@ -740,6 +855,7 @@ function playEpisode(m,sn,en){
   $('srcIn').value=src;
   mountEmbed({type:'iframe',src},'Playing S'+sn+'E'+en+' — remembered for this title.');
   persistCurrent({src:src,se:m.se});
+  markContinue();
   $('epList').querySelectorAll('.mrow').forEach(r=>r.classList.toggle('playing', +r.dataset.eprow===en));
 }
 /* copy playback fields onto the matching saved copies of the current title */
@@ -828,6 +944,18 @@ function mountEmbed(e,note){
   $('playerShell').classList.remove('hidden');
   $('posterWrap').classList.add('hidden');
   $('srcNote').textContent=note;
+  /* direct <video> files are the one case where we can save & restore the real position */
+  const v=f.querySelector('video');
+  if(v && S.current){
+    const k=mkey(S.current);
+    const entry=(S.profile.continueWatching||[]).find(x=>mkey(x)===k);
+    if(entry && entry.pos>30) v.addEventListener('loadedmetadata',()=>{ try{ v.currentTime=Math.max(0,entry.pos-5); }catch(_){}} ,{once:true});
+    let lastSaved=0;
+    v.addEventListener('timeupdate',()=>{
+      const t=v.currentTime||0;
+      if(Math.abs(t-lastSaved)>=10){ lastSaved=t; if(S.current&&mkey(S.current)===k) markContinue({pos:Math.floor(t)}); }
+    });
+  }
 }
 function playSource(raw){
   let e=toEmbed(raw);
@@ -838,8 +966,9 @@ function playSource(raw){
     $('srcNote').innerHTML='Can\'t embed that host — <a href="'+e.src+'" target="_blank" rel="noopener">open it in a new tab ↗</a>. Embeddable: YouTube, Vimeo, archive.org, Dailymotion, or a direct .mp4/.webm/.m3u8 link.';
     return;
   }
-  mountEmbed(e, e.hls ? 'HLS stream — plays natively in Safari; other browsers may not support .m3u8 without a plugin.' : 'Playing. The link is remembered for this title.');
   persistCurrent({src:raw});
+  markContinue();
+  mountEmbed(e, e.hls ? 'HLS stream — plays natively in Safari; other browsers may not support .m3u8 without a plugin.' : 'Playing. The link is remembered for this title.');
 }
 function closePlayer(){ $('pframe').innerHTML=''; $('playerShell').classList.add('hidden'); $('posterWrap').classList.remove('hidden'); }
 function renderProviders(m){
@@ -857,7 +986,7 @@ function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.prof
 function like(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){advance();return;}addTo('liked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,1));bump(S.profile.dirScore,m.director,1);flash('liked · more like it');after(m);}
 function meh(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){toast('Still a favorite ★');advance();return;}addTo('disliked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-1));flash('noted · steering away');after(m);}
 function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}addTo('banned',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-2));S.queue=S.queue.filter(q=>mkey(q)!==mkey(m));S.candidates=S.candidates.filter(q=>tkey(q)!==tkey(m));flash('⦸ never again · this film only');after(m);}
-function addTo(b,m){const k=mkey(m);['loved','liked','disliked','banned'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,type:m.type||'movie',poster:m.poster,reason:m.reason||'',src:m.src||''});S.seen.add(k);S.seenT.add(tkey(m));}
+function addTo(b,m){const k=mkey(m);['loved','liked','disliked','banned'].forEach(x=>{S.profile[x]=S.profile[x].filter(y=>mkey(y)!==k);});S.profile[b].push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,type:m.type||'movie',poster:m.poster,reason:m.reason||'',src:m.src||''});S.seen.add(k);S.seenT.add(tkey(m));dropContinue(m);}
 function after(m){renderModel();saveLocal();advance();}
 function flash(msg){toast('<span class="k">learned</span> · '+msg);}
 function advance(){ if(S.mode==='fav'){nextFav();return;} if(!S.queue.length){ if(S.geminiQuotaOut&&!geminiRecovered()){quotaStop();return;} setStatus('<b>Curating…</b>'); ensureQueue().then(()=>{if(S.queue.length)showMovie(S.queue.shift());else if(S.geminiQuotaOut)quotaStop();}); return;} showMovie(S.queue.shift()); ensureQueue(); }
@@ -896,7 +1025,7 @@ function renderWatchlist(){
   if(!wl.length){ box.innerHTML='<div class="mlist-hint">Nothing saved yet — hit ＋ Watchlist on any film you want to see.</div>'; return; }
   box.innerHTML='<div class="mlist-hint">tap a poster to open · ★ watched &amp; loved · ✕ remove</div>'
     +'<div class="pgrid" style="padding:8px 4px 4px">'+wl.map((m,i)=>
-    '<div class="pcard" data-wp="'+i+'">'
+    '<div class="pcard" tabindex="0" data-wp="'+i+'">'
     +(m.poster?('<img class="pimg" loading="lazy" src="'+esc(m.poster)+'" alt="">'):('<div class="pnop">'+esc(m.title)+'</div>'))
     +'<div class="pbtns"><button data-wlv="'+i+'" title="Watched it — loved it">★</button><button data-wx="'+i+'" title="Remove">✕</button></div>'
     +'<div class="pt">'+esc(m.title)+' <span class="py">'+esc(m.year||'')+(m.type==='tv'?' · TV':'')+'</span></div></div>').join('')+'</div>';
@@ -992,6 +1121,55 @@ function renderWatching(){
   box.querySelectorAll('[data-wstop]').forEach(b=>b.onclick=()=>{S.profile.watching.splice(+b.dataset.wstop,1);saveLocal();renderWatching();updateEpBadge();toast('Stopped tracking');});
 }
 
+/* ---------- ▶ continue watching ---------- */
+function markContinue(patch){
+  const m=S.current; if(!m||!m.title) return;
+  const p=S.profile; p.continueWatching=p.continueWatching||[];
+  const k=mkey(m);
+  let e=p.continueWatching.find(x=>mkey(x)===k);
+  if(e){ p.continueWatching=p.continueWatching.filter(x=>x!==e); }
+  else { e={title:m.title,year:m.year,id:m.id,type:m.type||'movie',poster:m.poster||''}; }
+  p.continueWatching.unshift(e);
+  Object.assign(e,{at:Date.now()},patch||{});
+  if(m.src) e.src=m.src;
+  if(m.se) e.se=m.se;
+  if(m.poster&&!e.poster) e.poster=m.poster;
+  p.continueWatching=p.continueWatching.slice(0,12);
+  saveLocal();
+}
+function dropContinue(m){
+  const p=S.profile; if(!p.continueWatching||!p.continueWatching.length) return;
+  const k=mkey(m);
+  const n=p.continueWatching.filter(x=>mkey(x)!==k);
+  if(n.length!==p.continueWatching.length){ p.continueWatching=n; saveLocal(); if(S.tab==='list') renderContinue(); }
+}
+function renderContinue(){
+  const card=$('cwCard'), row=$('cwRow'); if(!card) return;
+  const cw=S.profile.continueWatching||[];
+  card.classList.toggle('hidden',!cw.length);
+  $('cwCount').textContent=cw.length?(cw.length+' in progress'):'';
+  if(!cw.length){ row.innerHTML=''; return; }
+  row.innerHTML=cw.map((e,i)=>{
+    const sub = (e.type==='tv'&&e.se) ? ('S'+e.se.s+'E'+e.se.e)
+      : e.pos ? ('~'+Math.max(1,Math.floor(e.pos/60))+' min in') : 'started';
+    return '<div class="cwitem" tabindex="0" data-cw="'+i+'">'
+      +(e.poster?('<img class="pimg" loading="lazy" src="'+esc(e.poster)+'" alt="">'):('<div class="pnop">'+esc(e.title)+'</div>'))
+      +'<button class="cwx" data-cwx="'+i+'" title="Remove">✕</button>'
+      +'<div class="pt">'+esc(e.title)+'<div class="py">'+sub+'</div></div></div>';
+  }).join('');
+  row.querySelectorAll('[data-cw]').forEach(c=>c.onclick=ev=>{ if(ev.target.closest('button'))return; resumeContinue(S.profile.continueWatching[+c.dataset.cw]); });
+  row.querySelectorAll('[data-cwx]').forEach(b=>b.onclick=ev=>{ ev.stopPropagation(); S.profile.continueWatching.splice(+b.dataset.cwx,1); saveLocal(); renderContinue(); });
+}
+async function resumeContinue(e){
+  const c={...e,reason:'continue watching'};
+  showTab('now'); setStatus('<b>Resuming…</b>');
+  const hit=c.id?{id:c.id,type:c.type||'movie'}:await tmdbResolve({title:c.title,year:c.year,type:c.type});
+  if(hit){ const det=await tmdbDetails(hit.id,hit.type); if(det){ const keep={src:e.src,se:e.se,pos:e.pos,reason:c.reason}; Object.assign(c,det,keep); } }
+  showMovie(c);
+  if(c.src) playSource(c.src);
+  else toast('No saved link for this one — pick a source to play');
+}
+
 /* ---------- 🔥 trending / popular from TMDB ---------- */
 const TR_PATHS={trending_day:'/trending/all/day',trending_week:'/trending/all/week',movie_popular:'/movie/popular',tv_popular:'/tv/popular',movie_top:'/movie/top_rated'};
 const TR_WHY={trending_day:'trending on TMDB today',trending_week:'trending on TMDB this week',movie_popular:'popular on TMDB right now',tv_popular:'popular on TMDB right now',movie_top:'top-rated on TMDB'};
@@ -1019,7 +1197,7 @@ async function renderTrending(){
   grid.innerHTML=items.map((m,i)=>{
     const seen=S.seen.has(mkey(m));
     const onList=S.profile.watchlist.some(x=>mkey(x)===mkey(m));
-    return '<div class="pcard" data-ti="'+i+'">'
+    return '<div class="pcard" tabindex="0" data-ti="'+i+'">'
       +(m.poster?('<img class="pimg" loading="lazy" src="'+esc(m.poster)+'" alt="">'):('<div class="pnop">'+esc(m.title)+'</div>'))
       +(seen?'<span class="badge-seen">✓</span>':(onList?'<span class="badge-seen">🔖</span>':''))
       +'<div class="pbtns"><button data-tw="'+i+'" title="'+(onList?'Already on watchlist':'Add to watchlist')+'">'+(onList?'✓':'＋')+'</button></div>'
@@ -1062,7 +1240,7 @@ async function runSearch(){
     $('searchRes').innerHTML=hits.map((h,i)=>{
       const tv=h.media_type==='tv', t=tv?h.name:h.title, y=((tv?h.first_air_date:h.release_date)||'').slice(0,4);
       const img=h.poster_path?('<img src="'+S.imgBase+'w92'+h.poster_path+'" alt="">'):'<span class="noimg">🎬</span>';
-      return '<div class="srow" data-si="'+i+'">'+img+'<div><div class="st">'+esc(t)+'</div><div class="ss">'+(tv?'📺 series':'🎬 film')+(y?(' · '+y):'')+(h.vote_average?(' · ★ '+h.vote_average.toFixed(1)):'')+'</div></div></div>';
+      return '<div class="srow" tabindex="0" data-si="'+i+'">'+img+'<div><div class="st">'+esc(t)+'</div><div class="ss">'+(tv?'📺 series':'🎬 film')+(y?(' · '+y):'')+(h.vote_average?(' · ★ '+h.vote_average.toFixed(1)):'')+'</div></div></div>';
     }).join('');
     $('searchRes').querySelectorAll('[data-si]').forEach(el=>el.onclick=async()=>{
       const h=hits[+el.dataset.si];
@@ -1148,7 +1326,7 @@ function addAnchors(){
 }
 
 /* ---------- tabs / settings ---------- */
-function showTab(name){S.tab=name;const pane={now:'tabNow',queue:'tabQueue',dna:'tabDNA',list:'tabList',trend:'tabTrend'}[name];document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='dna')renderModel();if(name==='list'){renderWatchlist();renderWatching();checkEpisodes();}if(name==='trend')renderTrending();}
+function showTab(name){S.tab=name;const pane={now:'tabNow',queue:'tabQueue',dna:'tabDNA',list:'tabList',trend:'tabTrend'}[name];document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='dna')renderModel();if(name==='list'){renderWatchlist();renderWatching();renderContinue();checkEpisodes();}if(name==='trend')renderTrending();}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function openSettings(){$('setupTitle').textContent=S.started?'Settings':'Setup';$('startBtn').textContent=S.started?'Save & close':'Start';$('settingsOverlay').classList.remove('hidden');}
 function closeSettings(){$('settingsOverlay').classList.add('hidden');}
