@@ -229,8 +229,19 @@
           <input id="omdbKey" type="password" placeholder="OMDb key (blank = TMDB score + IMDb link only)" autocomplete="off">
         </div>
         <div class="field">
-          <label>Embed player template <span class="hint">— optional · {imdb} is replaced with the title's IMDb id (or the id is appended if no {imdb})</span></label>
-          <input id="embedTpl" type="text" placeholder="e.g. https://myplayer.example/embed/{imdb}" autocomplete="off" spellcheck="false">
+          <label>Embed player — movie link <span class="hint">— optional · {id} is replaced with the id, or the id is appended at the end</span></label>
+          <input id="embedTplMovie" type="text" placeholder="e.g. https://myplayer.example/movie/{id}" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <label>Embed player — TV show link <span class="hint">— optional · used for series · same {id} rules</span></label>
+          <input id="embedTplTv" type="text" placeholder="e.g. https://myplayer.example/tv/{id}" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <label>Embed link id <span class="hint">— which id goes into the player links</span></label>
+          <select id="embedIdType">
+            <option value="imdb">IMDb id (tt…)</option>
+            <option value="tmdb">TMDB id</option>
+          </select>
         </div>
         <div class="field">
           <label>Region <span class="hint">— for "where to watch"</span></label>
@@ -379,14 +390,14 @@
 <script>
 const $=id=>document.getElementById(id);
 const S={
-  geminiKeys:[],gi:0,tmdb:'',omdb:'',region:'EG',model:'gemini-3.5-flash',media:'movie',embedTpl:'',
+  geminiKeys:[],gi:0,tmdb:'',omdb:'',region:'EG',model:'gemini-3.5-flash',media:'movie',embedTplMovie:'',embedTplTv:'',embedIdType:'imdb',
   profile:{loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:''},
   seen:new Set(), seenT:new Set(), candidates:[], queue:[], current:null, history:[],
   started:false,resolving:false,thinking:false,mode:'discover',favQueue:[],
   geminiQuotaOut:false,tab:'now',editOpen:true,imgBase:'https://image.tmdb.org/t/p/'
 };
 Object.defineProperty(S,'gemini',{get(){return S.geminiKeys[S.gi]||'';}});
-const BUILD='Reel · build 12 · 2026-07-16 · embed template';
+const BUILD='Reel · build 13 · 2026-07-16 · movie+tv embed links';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -425,14 +436,19 @@ function loadRewindConfig(){
 }
 function saveRewindConfig(patch){ const c=Object.assign(loadRewindConfig(), patch||{}); try{ localStorage.setItem('rewind_config', JSON.stringify(c)); }catch(_){} return c; }
 
-function saveKeys(){ saveRewindConfig({geminiKeys:S.geminiKeys, tmdb:S.tmdb, omdb:S.omdb, region:S.region, model:S.model, reelSeed:S.profile.seed, embedTpl:S.embedTpl}); }
+function saveKeys(){ saveRewindConfig({geminiKeys:S.geminiKeys, tmdb:S.tmdb, omdb:S.omdb, region:S.region, model:S.model, reelSeed:S.profile.seed, embedTplMovie:S.embedTplMovie, embedTplTv:S.embedTplTv, embedIdType:S.embedIdType}); }
 function loadKeys(){try{
   const c=loadRewindConfig();
   S.geminiKeys=c.geminiKeys||[];
   $('geminiKey').value=S.geminiKeys.join('\n');
   $('tmdbKey').value=c.tmdb||''; $('omdbKey').value=c.omdb||'';
   if(c.region){$('region').value=c.region;} S.media=c.reelMedia||'movie'; if(c.model)$('modelSel').value=c.model; $('seed').value=c.reelSeed||'';
-  S.embedTpl=(c.embedTpl||'').trim(); $('embedTpl').value=S.embedTpl;
+  // embed templates — migrate the old single embedTpl into both slots if present
+  const legacy=(c.embedTpl||'').trim().split('{imdb}').join('{id}');
+  S.embedTplMovie=(c.embedTplMovie!=null?String(c.embedTplMovie):legacy).trim();
+  S.embedTplTv=(c.embedTplTv!=null?String(c.embedTplTv):legacy).trim();
+  S.embedIdType=(c.embedIdType==='tmdb')?'tmdb':'imdb';
+  $('embedTplMovie').value=S.embedTplMovie; $('embedTplTv').value=S.embedTplTv; $('embedIdType').value=S.embedIdType;
   if(S.geminiKeys.length)$('setupNote').textContent=S.geminiKeys.length+' Gemini key(s) — shared with Cassette. Hit Start.';
 }catch(_){}}
 function exportProfile(){const b=new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='reel-taste-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Exported');}
@@ -562,12 +578,17 @@ function quotaStop(){
 }
 
 /* ---------- playback of pick ---------- */
-/* Build an embed URL from the user's template + this title's IMDb id.
-   {imdb} placeholder is substituted; otherwise the id is appended. */
+/* Build an embed URL from the user's per-type template + the chosen id
+   (IMDb or TMDB, per settings). {id} placeholder is substituted — legacy
+   {imdb} still works — otherwise the id is appended at the end. */
 function tplEmbedUrl(m){
-  const t=(S.embedTpl||'').trim();
-  if(!t||!m||!m.imdbId) return '';
-  return t.includes('{imdb}') ? t.split('{imdb}').join(m.imdbId) : (t+m.imdbId);
+  if(!m) return '';
+  const t=((m.type==='tv'?S.embedTplTv:S.embedTplMovie)||'').trim();
+  if(!t) return '';
+  const id=S.embedIdType==='tmdb' ? (m.id?String(m.id):'') : (m.imdbId||'');
+  if(!id) return '';
+  const tt=t.split('{imdb}').join('{id}');
+  return tt.includes('{id}') ? tt.split('{id}').join(id) : (tt+id);
 }
 function showMovie(m,pushHist){
   if(pushHist!==false && S.current)S.history.push(S.current);
@@ -640,7 +661,7 @@ function playSource(raw){
   let e=toEmbed(raw);
   if(!e){ $('srcNote').textContent='That doesn\'t look like a URL.'; return; }
   // URLs built from the user's embed template are trusted as direct embeds
-  if(e.type==='unknown' && S.embedTpl && S.current && raw===tplEmbedUrl(S.current)) e={type:'iframe',src:raw};
+  if(e.type==='unknown' && (S.embedTplMovie||S.embedTplTv) && S.current && raw===tplEmbedUrl(S.current)) e={type:'iframe',src:raw};
   if(e.type==='unknown'){
     $('srcNote').innerHTML='Can\'t embed that host — <a href="'+e.src+'" target="_blank" rel="noopener">open it in a new tab ↗</a>. Embeddable: YouTube, Vimeo, archive.org, Dailymotion, or a direct .mp4/.webm/.m3u8 link.';
     return;
@@ -866,7 +887,7 @@ document.addEventListener('keydown',e=>{if(!S.started||['INPUT','SELECT','TEXTAR
 $('startBtn').onclick=async()=>{
   S.geminiKeys=parseKeys($('geminiKey').value);S.gi=0;S.geminiQuotaOut=false;
   S.tmdb=$('tmdbKey').value.trim();S.omdb=$('omdbKey').value.trim();S.region=$('region').value;S.model=$('modelSel').value;
-  S.embedTpl=$('embedTpl').value.trim();
+  S.embedTplMovie=$('embedTplMovie').value.trim();S.embedTplTv=$('embedTplTv').value.trim();S.embedIdType=$('embedIdType').value;
   $('regionLbl').textContent='· '+S.region;
   const seed=$('seed').value.trim();if(seed)S.profile.seed=seed;
   if(!S.geminiKeys.length){toast('Gemini key required');return;}
