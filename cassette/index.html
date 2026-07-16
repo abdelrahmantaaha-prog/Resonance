@@ -41,7 +41,7 @@
   }
   a{color:var(--amber)}
   button{font-family:inherit; cursor:pointer}
-  .wrap{max-width:1180px;margin:0 auto;padding:26px 16px 60px;overflow-x:clip}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 16px 118px;overflow-x:clip}
 
   /* header */
   header{display:flex; align-items:baseline; justify-content:space-between; gap:18px; margin-bottom:22px; flex-wrap:wrap}
@@ -176,10 +176,22 @@
   .ds-tag{font-family:var(--mono);font-size:10px;color:var(--amber);border:1px solid rgba(232,162,75,.4);border-radius:99px;padding:2px 9px}
 
   /* tabs */
-  .tabbar{display:flex;gap:6px;margin-bottom:16px;position:sticky;top:0;z-index:20;background:var(--bg);padding:4px 0}
-  .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:11px;padding:11px 8px;font-family:var(--mono);font-size:12.5px;transition:.15s;position:relative}
+  .tabbar{position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+    width:min(calc(100% - 20px),640px);z-index:50;display:flex;gap:4px;padding:6px;margin:0;
+    background:rgba(8,7,12,.66);backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);
+    border:1px solid rgba(255,255,255,.09);border-radius:18px;box-shadow:0 12px 34px rgba(0,0,0,.5);
+    overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabbar::-webkit-scrollbar{display:none}
+  .tabbar.hidden{display:none}
+  .tind{position:absolute;top:6px;bottom:6px;left:0;width:0;border-radius:13px;background:rgba(232,162,75,.14);border:1px solid rgba(232,162,75,.42);
+    transition:transform .38s cubic-bezier(.3,1.35,.35,1),width .38s cubic-bezier(.3,1.35,.35,1),opacity .2s;opacity:0;pointer-events:none}
+  .tab{flex:1;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:7px;background:transparent;border:1px solid transparent;color:var(--muted);border-radius:13px;padding:11px 12px;font-family:var(--mono);font-size:12.5px;position:relative;z-index:1;transition:color .25s,transform .2s}
+  .tab:active{transform:scale(.93)}
+  .tabpane.on{animation:paneIn .3s cubic-bezier(.22,1,.36,1)}
+  @keyframes paneIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.tind{transition:opacity .2s}.tabpane.on{animation:none}.tab:active{transform:none}}
   .tab span{font-size:12.5px}
-  .tab.on{border-color:var(--amber);color:var(--amber);background:var(--panel-2)}
+  .tab.on{color:var(--amber);background:transparent;border-color:transparent}
   .tab .badge{position:absolute;top:6px;right:10px;min-width:16px;height:16px;border-radius:99px;background:var(--ember);color:#fff;font-size:9px;display:none;align-items:center;justify-content:center;padding:0 4px}
   .tab .badge.show{display:flex}
   .tabpane{display:none}
@@ -1373,6 +1385,7 @@ function showTab(name){
   document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on', p.id===paneId));
   if(name==='queue'){ $('tabBadge').classList.remove('show'); }
   if(name==='dna'){ renderModel(); }
+  moveTabInd();
 }
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 
@@ -1485,7 +1498,7 @@ $('startBtn').onclick=async ()=>{
 
   S.started=true;
   closeSettings();
-  $('tabbar').classList.remove('hidden');
+  $('tabbar').classList.remove('hidden');moveTabInd();
   $('stage').classList.remove('hidden');
   applyWide();
   renderModel(); renderQueue(); updateModePill(); showTab('now');
@@ -1508,7 +1521,24 @@ function applyWide(){ /* tabs are single-pane at all widths now; nothing to togg
 window.addEventListener('resize',()=>{ if(S.started) applyWide(); });
 
 /* on load: prefill remembered keys, show existing profile, open setup */
-const BUILD='Cassette · build 22 · 2026-07-16 · direct search · full YT+Gemini key rotation';
+
+/* ---------- bottom nav: sliding indicator ---------- */
+function moveTabInd(){
+  const bar=$('tabbar'); if(!bar||bar.classList.contains('hidden'))return;
+  let ind=bar.querySelector('.tind');
+  if(!ind){ ind=document.createElement('i'); ind.className='tind'; bar.prepend(ind); }
+  const on=bar.querySelector('.tab.on');
+  if(!on){ ind.style.opacity='0'; return; }
+  requestAnimationFrame(()=>{
+    ind.style.opacity='1';
+    ind.style.width=on.offsetWidth+'px';
+    ind.style.transform='translateX('+on.offsetLeft+'px)';
+    try{on.scrollIntoView({inline:'nearest',block:'nearest'});}catch(_){}
+  });
+}
+window.addEventListener('resize',moveTabInd);
+
+const BUILD='Cassette · build 23 · 2026-07-17 · bottom glass nav · fluid motion';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
