@@ -111,6 +111,11 @@
   .videoshell{position:relative;width:100%;padding:22px 22px 4px;display:flex;justify-content:center;background:transparent}
   .art{position:relative;width:min(72vw,320px);aspect-ratio:1/1;border-radius:14px;overflow:hidden;background-color:#1a1820;background-size:cover;background-position:center;box-shadow:0 26px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.05);transition:.3s}
   #player{position:absolute;right:10px;bottom:10px;width:150px;height:85px;border-radius:9px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.55);z-index:2;transition:.3s}
+  .onair{position:absolute;top:10px;left:10px;z-index:3;background:rgba(224,82,75,.92);color:#fff;font-family:var(--mono);font-size:9.5px;letter-spacing:2px;font-weight:600;padding:4px 9px;border-radius:7px;display:none;align-items:center;gap:6px}
+  .onair.show{display:flex;animation:onairPulse 1.3s ease-in-out infinite}
+  .onair i{width:6px;height:6px;border-radius:50%;background:#fff}
+  @keyframes onairPulse{0%,100%{opacity:1}50%{opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.onair.show{animation:none}}
   .vtog{position:absolute;top:10px;right:10px;z-index:3;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);color:#eee;border-radius:8px;padding:5px 9px;font-size:11px;cursor:pointer;backdrop-filter:blur(6px)}
   .vtog:hover{border-color:var(--amber);color:var(--amber)}
   .videoshell.vbig .art{width:100%;aspect-ratio:16/9;border-radius:12px}
@@ -323,6 +328,7 @@
         <a class="seg" href="../paperback/" title="Books"><span class="ic">📖</span><span class="tx">Paperback</span></a>
       </div>
       <button class="pill" id="searchPill" title="Play a specific song">🔍</button>
+      <button class="pill" id="radioPill" title="Radio host — announcer between tracks">📻</button>
       <button class="pill" id="explorePill" title="Explore genres beyond your taste">🎲 surprise</button>
       <button class="pill" id="modePill" title="Play only your all-time favorites">♥ favorites</button>
       <button class="pill" id="gearBtn" title="API keys & settings">⚙</button>
@@ -379,6 +385,22 @@
             <option value="on">on — audio only, less data</option>
           </select>
         </div>
+        <div class="field">
+          <label>📻 Radio host <span class="hint">— an announcer introduces tracks with a bit of trivia between songs</span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="radioChk" style="width:17px;height:17px;accent-color:var(--amber)"> On air</label>
+            <select id="radioVoice" style="flex:1;min-width:150px">
+              <option value="gemini">Gemini voice — sounds human, spends key quota</option>
+              <option value="web">Device voice — free &amp; instant</option>
+            </select>
+            <select id="radioFreq" style="min-width:110px">
+              <option value="1">every track</option>
+              <option value="2">every 2nd track</option>
+              <option value="3">every 3rd track</option>
+            </select>
+          </div>
+          <span class="hint">Gemini voice falls back to the device voice automatically if quota runs out.</span>
+        </div>
         <div class="sheet-actions">
           <button class="btn" id="startBtn">Start listening</button>
           <button class="btn ghost sm" id="importBtn">Import profile</button>
@@ -420,6 +442,7 @@
         <div class="art" id="artBox">
           <div id="player"></div>
           <button class="vtog" id="vidToggle">⛶ video</button>
+          <div class="onair" id="onAir"><i></i>ON AIR</div>
           <div class="placeholder" id="playerPh">building your first pick…</div>
         </div>
       </div>
@@ -980,6 +1003,7 @@ function onState(e){
   if(e.data===YT.PlayerState.ENDED){ if(S.repeat){ try{S.player.seekTo(0,true);S.player.playVideo();}catch(_){ } } else completed(); }
   else if(e.data===YT.PlayerState.PLAYING){ S.playing=true; S.userPaused=false; syncPlayIco(); $('livedot').classList.add('live');
     try{ navigator.mediaSession.playbackState='playing'; }catch(_){}
+    radioPrefetch();
   }
   else if(e.data===YT.PlayerState.PAUSED){ S.playing=false; syncPlayIco(); $('livedot').classList.remove('live');
     try{ navigator.mediaSession.playbackState='paused'; }catch(_){}
@@ -1579,6 +1603,136 @@ function moveTabInd(){
 }
 window.addEventListener('resize',moveTabInd);
 
+/* ---------- 📻 radio host — Gemini TTS with device-voice fallback ---------- */
+const RADIO={ctx:null,src:null,tok:0,n:0,models:['gemini-3.1-flash-tts-preview','gemini-2.5-flash-preview-tts'],mi:0,prefKey:''};
+function radioLoad(){ try{ const r=JSON.parse(localStorage.getItem('cassette_radio')||'{}'); S.radio=!!r.on; S.radioVoice=r.voice||'gemini'; S.radioFreq=+r.freq||2; }catch(_){ S.radio=false;S.radioVoice='gemini';S.radioFreq=2; } radioSyncUI(); }
+function radioSave(){ try{ localStorage.setItem('cassette_radio',JSON.stringify({on:S.radio,voice:S.radioVoice,freq:S.radioFreq})); }catch(_){} }
+function radioSyncUI(){
+  const c=$('radioChk'); if(c)c.checked=!!S.radio;
+  const v=$('radioVoice'); if(v)v.value=S.radioVoice||'gemini';
+  const f=$('radioFreq'); if(f)f.value=String(S.radioFreq||2);
+  const p=$('radioPill'); if(p){ p.style.color=S.radio?'var(--ember)':''; p.style.borderColor=S.radio?'var(--ember)':''; p.textContent=S.radio?'📻 on air':'📻'; }
+}
+function radioCtx(){ if(!RADIO.ctx){ try{ RADIO.ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){} } if(RADIO.ctx&&RADIO.ctx.state==='suspended'){ try{RADIO.ctx.resume();}catch(_){} } return RADIO.ctx; }
+document.addEventListener('click',()=>{ if(S.radio) radioCtx(); },true);
+
+function djPrompt(t){
+  const heartsBit=(S.profile.loved||[]).slice(-3).map(x=>x.artist+' — '+x.title).join('; ');
+  return 'You are the charismatic late-night host of "Cassette FM", a one-person radio station broadcasting from Cairo. '
+    +'Write ONLY the words you say on air — no stage directions, no quotes, no markdown. 2-3 short sentences, under 55 words. '
+    +'Introduce the next track with ONE surprising, true piece of trivia about the artist or the song (if unsure of a fact, keep it general rather than inventing one). '
+    +'Warm, witty, a little sly. If the song is Arabic you may slip one short Arabic phrase in naturally. End by announcing the track. '
+    +(heartsBit?('The listener recently hearted: '+heartsBit+'. Reference their taste only if it is natural. '):'')
+    +'Next track: "'+(t.title||'')+'" by '+(t.artist||'unknown')+(t.genre?(' ('+t.genre+')'):'')+'.';
+}
+async function djText(t){
+  if(t._djText) return t._djText;
+  const txt=await geminiRaw(djPrompt(t));
+  t._djText=(txt||'').replace(/^["'\s]+|["'\s]+$/g,'').slice(0,420);
+  return t._djText;
+}
+async function djTTS(text){
+  while(RADIO.mi<RADIO.models.length){
+    const model=RADIO.models[RADIO.mi];
+    const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(gKey()),{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:'Read this like an excited but smooth late-night radio host: '+text}]}],
+        generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Puck'}}}}})});
+    let r;
+    while(true){ r=await call(); if(r.status===429&&rotateGemini())continue; break; }
+    if(r.status===404){ RADIO.mi++; continue; }          // model retired → try next known TTS model
+    if(!r.ok) throw new Error('tts '+r.status);
+    const d=await r.json();
+    const part=(((d.candidates||[])[0]||{}).content||{}).parts||[];
+    const inline=(part.find(x=>x.inlineData)||{}).inlineData;
+    if(!inline||!inline.data) throw new Error('tts empty');
+    return pcmToBuffer(inline.data, inline.mimeType||'');
+  }
+  throw new Error('tts no model');
+}
+function pcmToBuffer(b64,mime){
+  const ctx=radioCtx(); if(!ctx) throw new Error('no audioctx');
+  const rate=+((/rate=(\d+)/.exec(mime)||[])[1]||24000);
+  const bin=atob(b64), n=bin.length>>1;
+  const buf=ctx.createBuffer(1,n,rate), ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++){ let v=bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8); if(v>=32768)v-=65536; ch[i]=v/32768; }
+  return buf;
+}
+async function radioPrefetch(){
+  if(!S.radio) return;
+  const t=(S.queue||[])[0]; if(!t) return;
+  const k=(t.artist||'')+'|'+(t.title||''); if(RADIO.prefKey===k) return; RADIO.prefKey=k;
+  try{
+    await djText(t);
+    if(S.radioVoice==='gemini' && !t._djBuf) t._djBuf=await djTTS(t._djText);
+  }catch(_){ /* announce-time fallback will handle it */ }
+}
+function radioCancel(){
+  RADIO.tok++;
+  if(RADIO.src){ try{RADIO.src.stop();}catch(_){} RADIO.src=null; }
+  try{ speechSynthesis.cancel(); }catch(_){}
+  $('onAir').classList.remove('show');
+}
+function speakWeb(text){
+  return new Promise(res=>{
+    try{
+      const u=new SpeechSynthesisUtterance(text);
+      u.lang=/[\u0600-\u06FF]/.test(text)?'ar':'en-US';
+      u.rate=1.03; u.pitch=1.0;
+      u.onend=res; u.onerror=res;
+      speechSynthesis.speak(u);
+      setTimeout(res, 25000);                             // hard cap — never trap the listener
+    }catch(_){ res(); }
+  });
+}
+function speakBuf(buf){
+  return new Promise(res=>{
+    const ctx=radioCtx(); if(!ctx||!buf){res();return;}
+    try{
+      const src=ctx.createBufferSource(); src.buffer=buf; src.connect(ctx.destination);
+      src.onended=res; RADIO.src=src; src.start();
+      setTimeout(res, 40000);
+    }catch(_){ res(); }
+  });
+}
+async function radioAnnounce(t){
+  const my=++RADIO.tok;
+  $('onAir').classList.add('show');
+  const prevReason=$('npReason').innerHTML;
+  try{
+    const text=await djText(t);
+    if(my!==RADIO.tok) return;
+    $('npReason').innerHTML='📻 '+escapeHtml(text);
+    let buf=t._djBuf||null;
+    if(S.radioVoice==='gemini' && !buf){ try{ buf=await djTTS(text); }catch(_){ buf=null; } }
+    if(my!==RADIO.tok) return;
+    if(buf) await speakBuf(buf); else await speakWeb(text);
+  }catch(_){ /* no text — stay silent, just play the song */ }
+  finally{
+    if(my===RADIO.tok){ $('onAir').classList.remove('show'); RADIO.src=null; if($('npReason').innerHTML.indexOf('📻')===0) $('npReason').innerHTML=prevReason; }
+  }
+}
+/* every playback path funnels through playYT — intercept it for the announcer */
+const _playYT=playYT;
+playYT=function(t){
+  radioCancel();
+  if(S.radio && t && t.videoId && !t._announced && t.reason!=='you searched for this'){
+    t._announced=true;
+    RADIO.n++;
+    if(RADIO.n===1 || RADIO.n%(S.radioFreq||2)===0){
+      setArt(t);
+      radioAnnounce(t).then(()=>{ _playYT(t); });
+      return;
+    }
+  }
+  _playYT(t);
+};
+$('radioPill').onclick=()=>{ S.radio=!S.radio; radioSave(); radioSyncUI(); if(S.radio){ radioCtx(); toast('📻 Cassette FM — on air'); radioPrefetch(); } else { radioCancel(); toast('Radio off'); } };
+$('radioChk').onchange=e=>{ S.radio=e.target.checked; radioSave(); radioSyncUI(); if(!S.radio)radioCancel(); };
+$('radioVoice').onchange=e=>{ S.radioVoice=e.target.value; radioSave(); };
+$('radioFreq').onchange=e=>{ S.radioFreq=+e.target.value||2; radioSave(); };
+radioLoad();
+
 /* ---------- music-player chrome ---------- */
 function setArt(t){ if(t&&t.videoId) $('artBox').style.backgroundImage="url('https://i.ytimg.com/vi/"+t.videoId+"/hqdefault.jpg')"; }
 $('vidToggle').onclick=()=>{ $('videoShell').classList.toggle('vbig'); };
@@ -1596,7 +1750,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 24 · 2026-07-17 · music-player redesign';
+const BUILD='Cassette · build 25 · 2026-07-17 · 📻 radio host (Gemini TTS + device fallback)';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
