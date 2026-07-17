@@ -78,7 +78,7 @@
   .pill{background:rgba(255,255,255,.07);border:1px solid transparent;color:var(--muted);border-radius:999px;padding:9px 15px;font-family:var(--sans);font-size:12px;font-weight:600;transition:.2s}
   .pill:hover{background:rgba(255,255,255,.13);color:var(--ink)}
   .pill.on{border-color:var(--ember);color:#f0a49f}
-  .hdr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0}
+  .hdr-actions{display:flex;gap:8px;align-items:center}
   .homebtn{width:34px;height:34px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--amber);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;transition:.15s}
   .homebtn:hover{border-color:var(--amber);transform:scale(1.05)}
   @media(max-width:560px){
@@ -152,9 +152,6 @@
   .editbtn{display:block;width:100%;margin-top:14px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px;font-family:var(--mono);font-size:12px;cursor:pointer;transition:.15s}
   .editbtn:hover{border-color:var(--amber);color:var(--amber)}
   .mlist-hint{font-family:var(--mono);font-size:10px;color:var(--faint);text-align:center;margin:8px 0 4px}
-  html,body{max-width:100vw;overflow-x:hidden}
-  #tabDNA{overflow-x:hidden}
-  #tabDNA .mrow .txt,#tabDNA .chip,#tabDNA b{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
   .videoshell .placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--faint);font-family:var(--mono);font-size:12px;text-align:center;padding:24px}
   .np-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
   .np-head .np-t{min-width:0;flex:1}
@@ -387,10 +384,6 @@
             <option value="off">off — show video</option>
             <option value="on">on — audio only, less data</option>
           </select>
-        </div>
-        <div class="field">
-          <label>🔊 Background play <span class="hint">— if the system pauses the music when you leave the app, Cassette restarts it (works best on Android Chrome)</span></label>
-          <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="bgChk" style="width:17px;height:17px;accent-color:var(--amber)"> Keep playing in the background</label>
         </div>
         <div class="field">
           <label>📻 Radio host <span class="hint">— an announcer introduces tracks with a bit of trivia between songs</span></label>
@@ -1011,15 +1004,10 @@ function onState(e){
   if(e.data===YT.PlayerState.ENDED){ if(S.repeat){ try{S.player.seekTo(0,true);S.player.playVideo();}catch(_){ } } else completed(); }
   else if(e.data===YT.PlayerState.PLAYING){ S.playing=true; S.userPaused=false; syncPlayIco(); $('livedot').classList.add('live');
     try{ navigator.mediaSession.playbackState='playing'; }catch(_){}
-    S._bgTries=0;
     radioPrefetch();
   }
   else if(e.data===YT.PlayerState.PAUSED){ S.playing=false; syncPlayIco(); $('livedot').classList.remove('live');
     try{ navigator.mediaSession.playbackState='paused'; }catch(_){}
-    if(S.bgPlay!==false && document.hidden && !S.userPaused && S.started && (S._bgTries||0)<4){
-      S._bgTries=(S._bgTries||0)+1;
-      setTimeout(()=>{ try{ if(document.hidden && !S.userPaused && S.player) S.player.playVideo(); }catch(_){} }, 420);
-    }
   }
 }
 function onErr(){ // unavailable / not embeddable -> system skip, replace (does NOT count as user dislike)
@@ -1618,7 +1606,7 @@ window.addEventListener('resize',moveTabInd);
 
 /* ---------- 📻 radio host — Gemini TTS with device-voice fallback ---------- */
 const RADIO={ctx:null,src:null,tok:0,n:0,models:['gemini-3.1-flash-tts-preview','gemini-2.5-flash-preview-tts'],mi:0,prefKey:''};
-function radioLoad(){ try{ const r=JSON.parse(localStorage.getItem('cassette_radio')||'{}'); S.radio=!!r.on; S.radioVoice=r.voice||'gemini'; S.radioFreq=+r.freq||2; }catch(_){ S.radio=false;S.radioVoice='gemini';S.radioFreq=2; } try{ S.bgPlay=localStorage.getItem('cassette_bg')!=='0'; }catch(_){ S.bgPlay=true; } const bc=$('bgChk'); if(bc){ bc.checked=S.bgPlay!==false; bc.onchange=e=>{ S.bgPlay=e.target.checked; try{localStorage.setItem('cassette_bg',S.bgPlay?'1':'0');}catch(_){} }; } radioSyncUI(); }
+function radioLoad(){ try{ const r=JSON.parse(localStorage.getItem('cassette_radio')||'{}'); S.radio=!!r.on; S.radioVoice=r.voice||'gemini'; S.radioFreq=+r.freq||2; }catch(_){ S.radio=false;S.radioVoice='gemini';S.radioFreq=2; } radioSyncUI(); }
 function radioSave(){ try{ localStorage.setItem('cassette_radio',JSON.stringify({on:S.radio,voice:S.radioVoice,freq:S.radioFreq})); }catch(_){} }
 function radioSyncUI(){
   const c=$('radioChk'); if(c)c.checked=!!S.radio;
@@ -1766,7 +1754,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 27 · 2026-07-17 · background play · layout overflow fixes';
+const BUILD='Cassette · build 26 · 2026-07-17 · Arabic host · video toggle · Explore/Search bar · pill restyle';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
