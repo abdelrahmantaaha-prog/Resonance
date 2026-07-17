@@ -1646,7 +1646,7 @@ function djPrompt(t){
     +'Write ONLY the words you say on air, ENTIRELY IN ARABIC (عامية مصرية بسيطة), no stage directions, no quotes, no markdown, no English except unavoidable proper names. '
     +'2-3 short sentences, under 55 words. '+prev
     +'REQUIRED, not optional: include ONE genuinely interesting piece of background about the coming song or its artist — the story behind it, who wrote or composed it, the album or era it belongs to, or what it meant when it came out. If unsure of a specific fact, speak truthfully about the artist\'s era or style instead of inventing details. '
-    +'Tone: warm, calm, sincere — the quiet intimacy of late-night radio. NO sarcasm, no mockery, no forced jokes, no hype, no exclamation marks. Gentle humor only when it arises on its own. Never address or compliment the listener. '
+    +'Tone: warm, alive, and sincere — a host who genuinely loves the music, with the easy rhythm of late-night radio, never flat or sleepy. A light joke or playful remark now and then is welcome when it fits naturally — but never sarcasm, never mockery, no hype. Write for the ear: short sentences, natural spoken rhythm, the way people actually talk on air. Never address or compliment the listener. '
     +'End by naming the track naturally. Next track: "'+(t.title||'')+'" by '+(t.artist||'unknown')+(t.genre?(' ('+t.genre+')'):'')+'.';
 }
 async function djText(t){
@@ -1660,7 +1660,7 @@ async function djTTS(text){
     const model=RADIO.models[RADIO.mi];
     const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(gKey()),{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{parts:[{text:'اقرأ الكلام ده بصوت مذيع إذاعة مصري في برنامج سهرة هادي: بهدوء ودفء، إيقاع طبيعي بطيء شوية، من غير حماس مبالغ فيه ومن غير أداء تمثيلي: '+text}]}],
+      body:JSON.stringify({contents:[{parts:[{text:text}]}],
         generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Charon'}}}}})});
     let r;
     while(true){ r=await call(); if(r.status===429&&rotateGemini())continue; break; }
@@ -1713,7 +1713,7 @@ function speakBuf(buf){
   return new Promise(res=>{
     const ctx=radioCtx(); if(!ctx||!buf){res();return;}
     try{
-      const src=ctx.createBufferSource(); src.buffer=buf; src.connect(ctx.destination);
+      const src=ctx.createBufferSource(); src.buffer=buf; try{src.playbackRate.value=1.07;}catch(_){} src.connect(ctx.destination);
       src.onended=res; RADIO.src=src; src.start();
       setTimeout(res, 40000);
     }catch(_){ res(); }
@@ -1787,7 +1787,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 30 · 2026-07-18 · sincere host · trivia required · natural-end trigger only';
+const BUILD='Cassette · build 31 · 2026-07-18 · host: no recited instructions · livelier pace · jokes allowed';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
