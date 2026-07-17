@@ -78,7 +78,8 @@
   .pill{background:rgba(255,255,255,.07);border:1px solid transparent;color:var(--muted);border-radius:999px;padding:9px 15px;font-family:var(--sans);font-size:12px;font-weight:600;transition:.2s}
   .pill:hover{background:rgba(255,255,255,.13);color:var(--ink)}
   .pill.on{border-color:var(--ember);color:#f0a49f}
-  .hdr-actions{display:flex;gap:8px;align-items:center}
+  .hdr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0}
+  #searchPill,#explorePill,.hdr-actions .appswitch{display:none}
   .homebtn{width:34px;height:34px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--amber);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;transition:.15s}
   .homebtn:hover{border-color:var(--amber);transform:scale(1.05)}
   @media(max-width:560px){
@@ -152,6 +153,9 @@
   .editbtn{display:block;width:100%;margin-top:14px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px;font-family:var(--mono);font-size:12px;cursor:pointer;transition:.15s}
   .editbtn:hover{border-color:var(--amber);color:var(--amber)}
   .mlist-hint{font-family:var(--mono);font-size:10px;color:var(--faint);text-align:center;margin:8px 0 4px}
+  html,body{max-width:100vw;overflow-x:hidden}
+  #tabDNA{overflow-x:hidden}
+  #tabDNA .mrow .txt,#tabDNA .chip,#tabDNA b{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
   .videoshell .placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--faint);font-family:var(--mono);font-size:12px;text-align:center;padding:24px}
   .np-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
   .np-head .np-t{min-width:0;flex:1}
@@ -360,6 +364,7 @@
         <div class="field">
           <label>YouTube Data API key(s) <span class="hint">— recommended · one per line for auto-rotation</span></label>
           <textarea id="ytKey" class="keybox" placeholder="AIza… key 1&#10;AIza… key 2 (optional)" autocomplete="off" spellcheck="false"></textarea>
+          <span class="hint">⚠ YouTube quota is per Google Cloud <b>project</b>, not per key. Two keys from the same project share one daily quota — for real rotation, create key 2 in a <b>separate project</b> (console.cloud.google.com → new project → enable YouTube Data API v3 → new key).</span>
         </div>
         <div class="field">
           <label>Last.fm API key <span class="hint">— optional · real listening-data similarity · last.fm/api</span></label>
@@ -384,6 +389,10 @@
             <option value="off">off — show video</option>
             <option value="on">on — audio only, less data</option>
           </select>
+        </div>
+        <div class="field">
+          <label>🔊 Background play <span class="hint">— if the system pauses the music when you leave the app, Cassette restarts it (works best on Android Chrome)</span></label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="bgChk" style="width:17px;height:17px;accent-color:var(--amber)"> Keep playing in the background</label>
         </div>
         <div class="field">
           <label>📻 Radio host <span class="hint">— an announcer introduces tracks with a bit of trivia between songs</span></label>
@@ -417,6 +426,7 @@
     <button class="tab on" data-tab="now">▶ <span>Now</span><i class="badge hidden" id="tabBadge" style="display:none"></i></button>
     <button class="tab" id="tabExplore">🎲 <span>Explore</span></button>
     <button class="tab" id="tabSearch">🔍 <span>Search</span></button>
+    <button class="tab" id="tabPip">🪟 <span>PiP</span></button>
     <button class="tab" data-tab="dna">⬡ <span>Sound DNA</span></button>
   </nav>
 
@@ -784,16 +794,24 @@ async function resolveVideoIdRaw(cand, allowSeen){
         const hit=(d.items||[]).find(i=>i.id&&i.id.videoId&&(allowSeen||!S.seenIds.has(i.id.videoId)));
         if(hit) return hit.id.videoId;
         break; // valid response, just no usable hit — stop, use Gemini id fallback
-      } else if(r.status===403 || r.status===400){
-        let reason=''; try{ const e=await r.json(); reason=((e.error&&e.error.errors&&e.error.errors[0]&&e.error.errors[0].reason)||'')+' '+((e.error&&e.error.message)||''); }catch(_){}
-        if(/quotaExceeded|dailyLimitExceeded|rateLimitExceeded|userRateLimitExceeded/i.test(reason)){
-          if(rotateYT()) continue;     // spent key → try next silently
+      } else {
+        /* Google has been migrating quota errors from 403/quotaExceeded to 429/RESOURCE_EXHAUSTED
+           with "Quota exceeded" (space!) in the message — handle every generation of the format,
+           and when the failure is unrecognizable, rotate anyway before giving up. */
+        let reason=''; try{ const e=await r.json(); reason=((e.error&&e.error.status)||'')+' '+((e.error&&e.error.errors&&e.error.errors[0]&&e.error.errors[0].reason)||'')+' '+((e.error&&e.error.message)||''); }catch(_){}
+        const quotaish = r.status===429 || /quotaExceeded|dailyLimitExceeded|rateLimitExceeded|userRateLimitExceeded|RESOURCE_EXHAUSTED|Quota exceeded|queries per (day|minute)/i.test(reason);
+        const badkey = /keyInvalid|API key not valid|keyExpired|accessNotConfigured|SERVICE_DISABLED|forbidden|PERMISSION_DENIED|blocked/i.test(reason);
+        if(quotaish){
+          if(rotateYT()) continue;
           break;                       // all YT keys spent → fall through to Gemini-id guess
-        } else if(/keyInvalid|API key not valid|keyExpired|accessNotConfigured|forbidden|PERMISSION_DENIED|blocked/i.test(reason)){
-          if(rotateYT()){ toast('A YouTube key was rejected — trying the next one'); continue; }  // bad key → rotation covers this too now
+        }
+        if(badkey){
+          if(rotateYT()){ toast('A YouTube key was rejected — trying the next one'); continue; }
           S.ytBad=true; setStatus('<b>All YouTube keys were rejected.</b> Check them in Settings — falling back to Gemini guesses.'); break;
-        } else { S.ytBad=true; setStatus('<b>YouTube key issue.</b> Falling back to Gemini guesses.'); break; }
-      } else break;
+        }
+        if(rotateYT()){ toast('YouTube error '+r.status+' on this key — trying the next one'); continue; }
+        setStatus('<b>YouTube error '+r.status+'.</b> Falling back to Gemini guesses.'); break;
+      }
     }catch(e){ break; }
   }
   if(cand.youtubeId && /^[\w-]{11}$/.test(cand.youtubeId) && (allowSeen||!S.seenIds.has(cand.youtubeId))) return cand.youtubeId;
@@ -806,7 +824,7 @@ function quotaStop(){
   const who = S.geminiQuotaOut ? 'Gemini' : 'YouTube';
   const qt = $('quotaWall'); if(!qt) return;
   qt.querySelector('.qw-t').textContent = who+"'s daily quota is used up";
-  qt.querySelector('.qw-s').textContent = 'It resets daily. Until then you can play your favorites'+(canHearts?'':' (heart some songs first)')+', or add a different key in Settings.';
+  qt.querySelector('.qw-s').textContent = 'It resets daily (midnight Pacific). Until then you can play your favorites'+(canHearts?'':' (heart some songs first)')+'. Note: keys from the SAME Google Cloud project share one quota — a second key only helps if it comes from a separate project.';
   setStatus('<b>'+who+' daily quota is used up.</b> '+(canHearts?'You can still play your favorites.':'Add favorites, or a new key in Settings.'));
   qt.classList.remove('hidden');
   $('quotaFavBtn').style.display = canHearts ? '' : 'none';
@@ -972,7 +990,7 @@ async function runSearch(){
     const u='https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=8&type=video&videoEmbeddable=true&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(yKey());
     const r=await fetch(u);
     if(!r.ok){
-      if((r.status===403||r.status===400) && rotateYT()){ runSearch(); return; }
+      if(rotateYT()){ runSearch(); return; }
       throw 0;
     }
     const hits=(((await r.json()).items)||[]).filter(i=>i.id&&i.id.videoId);
@@ -1004,10 +1022,15 @@ function onState(e){
   if(e.data===YT.PlayerState.ENDED){ if(S.repeat){ try{S.player.seekTo(0,true);S.player.playVideo();}catch(_){ } } else completed(); }
   else if(e.data===YT.PlayerState.PLAYING){ S.playing=true; S.userPaused=false; syncPlayIco(); $('livedot').classList.add('live');
     try{ navigator.mediaSession.playbackState='playing'; }catch(_){}
+    S._bgTries=0;
     radioPrefetch();
   }
   else if(e.data===YT.PlayerState.PAUSED){ S.playing=false; syncPlayIco(); $('livedot').classList.remove('live');
     try{ navigator.mediaSession.playbackState='paused'; }catch(_){}
+    if(S.bgPlay!==false && document.hidden && !S.userPaused && S.started && (S._bgTries||0)<4){
+      S._bgTries=(S._bgTries||0)+1;
+      setTimeout(()=>{ try{ if(document.hidden && !S.userPaused && S.player) S.player.playVideo(); }catch(_){} }, 420);
+    }
   }
 }
 function onErr(){ // unavailable / not embeddable -> system skip, replace (does NOT count as user dislike)
@@ -1606,7 +1629,7 @@ window.addEventListener('resize',moveTabInd);
 
 /* ---------- 📻 radio host — Gemini TTS with device-voice fallback ---------- */
 const RADIO={ctx:null,src:null,tok:0,n:0,models:['gemini-3.1-flash-tts-preview','gemini-2.5-flash-preview-tts'],mi:0,prefKey:''};
-function radioLoad(){ try{ const r=JSON.parse(localStorage.getItem('cassette_radio')||'{}'); S.radio=!!r.on; S.radioVoice=r.voice||'gemini'; S.radioFreq=+r.freq||2; }catch(_){ S.radio=false;S.radioVoice='gemini';S.radioFreq=2; } radioSyncUI(); }
+function radioLoad(){ try{ const r=JSON.parse(localStorage.getItem('cassette_radio')||'{}'); S.radio=!!r.on; S.radioVoice=r.voice||'gemini'; S.radioFreq=+r.freq||2; }catch(_){ S.radio=false;S.radioVoice='gemini';S.radioFreq=2; } try{ S.bgPlay=localStorage.getItem('cassette_bg')!=='0'; }catch(_){ S.bgPlay=true; } const bc=$('bgChk'); if(bc){ bc.checked=S.bgPlay!==false; bc.onchange=e=>{ S.bgPlay=e.target.checked; try{localStorage.setItem('cassette_bg',S.bgPlay?'1':'0');}catch(_){} }; } radioSyncUI(); }
 function radioSave(){ try{ localStorage.setItem('cassette_radio',JSON.stringify({on:S.radio,voice:S.radioVoice,freq:S.radioFreq})); }catch(_){} }
 function radioSyncUI(){
   const c=$('radioChk'); if(c)c.checked=!!S.radio;
@@ -1731,6 +1754,14 @@ playYT=function(t){
 };
 $('tabExplore').onclick=()=>{ $('explorePill').click(); setTimeout(()=>{ $('tabExplore').classList.toggle('on',!!S.exploreMode); showTab(S.tab); },0); };
 $('tabSearch').onclick=()=>openSearch();
+$('tabPip').onclick=async()=>{
+  if(!S.started||!S.player){ toast('Start playing something first'); return; }
+  if(!$('videoShell').classList.contains('vbig')) $('vidToggle').click();   // PiP needs the video visible
+  try{
+    await $('artBox').requestFullscreen();
+    toast('📱 Now press Home — the video pops into picture-in-picture');
+  }catch(_){ toast('Fullscreen was blocked — tap the video, use its own fullscreen, then press Home'); }
+};
 $('radioPill').onclick=()=>{ S.radio=!S.radio; radioSave(); radioSyncUI(); if(S.radio){ radioCtx(); toast('📻 Cassette FM — on air'); radioPrefetch(); } else { radioCancel(); toast('Radio off'); } };
 $('radioChk').onchange=e=>{ S.radio=e.target.checked; radioSave(); radioSyncUI(); if(!S.radio)radioCancel(); };
 $('radioVoice').onchange=e=>{ S.radioVoice=e.target.value; radioSave(); };
@@ -1754,7 +1785,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 26 · 2026-07-17 · Arabic host · video toggle · Explore/Search bar · pill restyle';
+const BUILD='Cassette · build 29 · 2026-07-18 · YT rotation: 429/RESOURCE_EXHAUSTED formats + rotate-on-unknown';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
