@@ -1019,7 +1019,7 @@ function applyDataSaver(){
   $('dsTag').classList.toggle('hidden', !on);
 }
 function onState(e){
-  if(e.data===YT.PlayerState.ENDED){ if(S.repeat){ try{S.player.seekTo(0,true);S.player.playVideo();}catch(_){ } } else completed(); }
+  if(e.data===YT.PlayerState.ENDED){ if(S.repeat){ try{S.player.seekTo(0,true);S.player.playVideo();}catch(_){ } } else { S._naturalEnd=Date.now(); completed(); } }
   else if(e.data===YT.PlayerState.PLAYING){ S.playing=true; S.userPaused=false; syncPlayIco(); $('livedot').classList.add('live');
     try{ navigator.mediaSession.playbackState='playing'; }catch(_){}
     S._bgTries=0;
@@ -1641,13 +1641,13 @@ function radioCtx(){ if(!RADIO.ctx){ try{ RADIO.ctx=new (window.AudioContext||wi
 document.addEventListener('click',()=>{ if(S.radio) radioCtx(); },true);
 
 function djPrompt(t){
-  const prev=RADIO.last?('You just finished playing "'+RADIO.last.title+'" by '+RADIO.last.artist+'. '):'';
-  return 'You are the late-night host of "كاسيت إف إم", an Egyptian radio station in Cairo. '
-    +'Write ONLY the words you say on air, ENTIRELY IN ARABIC (natural Egyptian colloquial, عامية مصرية) — no stage directions, no quotes, no markdown, no English words except unavoidable names. '
-    +'2-3 short sentences, under 50 words. '+prev
-    +'Sound like a real FM host between songs: casual, lighthearted, flows naturally — a segue from the last song, a small aside about the night or the city, or ONE true piece of trivia about the artist or the song (if unsure of a fact, stay general — never invent one). '
-    +'NEVER compliment the listener or talk about their taste. Never say things like ذوقك or أنت. You talk about the music, not the audience. '
-    +'End by announcing the track. Next track: "'+(t.title||'')+'" by '+(t.artist||'unknown')+(t.genre?(' ('+t.genre+')'):'')+'.';
+  const prev=RADIO.last?('The song that just ended was "'+RADIO.last.title+'" by '+RADIO.last.artist+'. Segue from it naturally if it fits. '):'';
+  return 'You are the host of a late-night music program on Egyptian radio — the calm, sincere register of الإذاعة المصرية after midnight. '
+    +'Write ONLY the words you say on air, ENTIRELY IN ARABIC (عامية مصرية بسيطة), no stage directions, no quotes, no markdown, no English except unavoidable proper names. '
+    +'2-3 short sentences, under 55 words. '+prev
+    +'REQUIRED, not optional: include ONE genuinely interesting piece of background about the coming song or its artist — the story behind it, who wrote or composed it, the album or era it belongs to, or what it meant when it came out. If unsure of a specific fact, speak truthfully about the artist\'s era or style instead of inventing details. '
+    +'Tone: warm, calm, sincere — the quiet intimacy of late-night radio. NO sarcasm, no mockery, no forced jokes, no hype, no exclamation marks. Gentle humor only when it arises on its own. Never address or compliment the listener. '
+    +'End by naming the track naturally. Next track: "'+(t.title||'')+'" by '+(t.artist||'unknown')+(t.genre?(' ('+t.genre+')'):'')+'.';
 }
 async function djText(t){
   if(t._djText) return t._djText;
@@ -1660,8 +1660,8 @@ async function djTTS(text){
     const model=RADIO.models[RADIO.mi];
     const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(gKey()),{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{parts:[{text:'اقرأ ده بصوت مذيع راديو مصري في برنامج سهرة، أداء طبيعي ودافئ وسلس: '+text}]}],
-        generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Puck'}}}}})});
+      body:JSON.stringify({contents:[{parts:[{text:'اقرأ الكلام ده بصوت مذيع إذاعة مصري في برنامج سهرة هادي: بهدوء ودفء، إيقاع طبيعي بطيء شوية، من غير حماس مبالغ فيه ومن غير أداء تمثيلي: '+text}]}],
+        generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Charon'}}}}})});
     let r;
     while(true){ r=await call(); if(r.status===429&&rotateGemini())continue; break; }
     if(r.status===404){ RADIO.mi++; continue; }          // model retired → try next known TTS model
@@ -1740,10 +1740,12 @@ async function radioAnnounce(t){
 const _playYT=playYT;
 playYT=function(t){
   radioCancel();
-  if(S.radio && t && t.videoId && !t._announced && t.reason!=='you searched for this'){
+  const natural=!!(S._naturalEnd && (Date.now()-S._naturalEnd)<15000);   // fresh natural end only
+  S._naturalEnd=0;
+  if(S.radio && natural && t && t.videoId && !t._announced && t.reason!=='you searched for this'){
     t._announced=true;
     RADIO.n++;
-    if(RADIO.n===1 || RADIO.n%(S.radioFreq||2)===0){
+    if(RADIO.n%(S.radioFreq||2)===0 || (S.radioFreq||2)===1){
       setArt(t);
       radioAnnounce(t).then(()=>{ RADIO.last={title:t.title||'',artist:t.artist||''}; _playYT(t); });
       return;
@@ -1785,7 +1787,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 29 · 2026-07-18 · YT rotation: 429/RESOURCE_EXHAUSTED formats + rotate-on-unknown';
+const BUILD='Cassette · build 30 · 2026-07-18 · sincere host · trivia required · natural-end trigger only';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();

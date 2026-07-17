@@ -265,6 +265,20 @@
   .pcard .pbtns button:hover{border-color:var(--gold);color:var(--gold)}
   .pcard .badge-seen{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.74);border:1px solid var(--line);color:var(--teal);border-radius:7px;font-family:var(--mono);font-size:9.5px;padding:2px 6px;z-index:2}
   .tchips{display:flex;gap:6px;flex-wrap:wrap;padding:14px 18px 0}
+  #tabList .card,#tabTrend .card,#tabQueue .card{background:transparent;border:0;box-shadow:none;border-radius:0}
+  #tabList .panel-h,#tabTrend .panel-h,#tabQueue .panel-h{background:transparent;border:0;padding:0 2px 2px;font-family:var(--sans);font-weight:700;font-size:16px;letter-spacing:-.2px;color:var(--ink)}
+  #tabList .model,#tabTrend .model{padding-left:0;padding-right:0}
+  .wnext{padding:6px 4px 7px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--gold);font-weight:600}
+  .hrail{scroll-snap-type:x proximity}
+  .hrail>.pcard,.cwrow>.cwitem{scroll-snap-align:start}
+  @keyframes railIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+  .hrail>.pcard{animation:railIn .34s cubic-bezier(.22,1,.36,1) backwards}
+  .hrail>.pcard:nth-child(2){animation-delay:.04s}
+  .hrail>.pcard:nth-child(3){animation-delay:.08s}
+  .hrail>.pcard:nth-child(4){animation-delay:.12s}
+  .hrail>.pcard:nth-child(5){animation-delay:.16s}
+  .hrail>.pcard:nth-child(n+6){animation-delay:.2s}
+  @media (prefers-reduced-motion:reduce){.hrail>.pcard{animation:none}}
   .hrail{display:flex;gap:10px;overflow-x:auto;padding:12px 2px 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .hrail::-webkit-scrollbar{display:none}
   .hrail .pcard{flex:0 0 112px}
@@ -665,7 +679,7 @@ function moveTabInd(){
 }
 window.addEventListener('resize',moveTabInd);
 
-const BUILD='Reel · build 24 · 2026-07-18 · watched tracker · next-in-line · rails everywhere';
+const BUILD='Reel · build 25 · 2026-07-18 · poster-only rails · in-place watched toggle · on-air filter';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -931,7 +945,15 @@ async function fillEpisodes(m,sn){
       +'<div class="ept"><b>E'+e.n+'</b>'+(e.name?(' · '+esc(e.name)):'')+(e.date?('<span class="epdate">'+esc(e.date)+'</span>'):'')+'</div></div>';
   }).join('')+'</div>';
   list.querySelectorAll('[data-ep]').forEach(b=>b.onclick=ev=>{ if(ev.target.closest('.epchk'))return; playEpisode(m,sn,+b.dataset.ep); });
-  list.querySelectorAll('[data-epw]').forEach(b=>b.onclick=ev=>{ ev.stopPropagation(); const n=+b.dataset.epw; const w=!!(m.watchedEps&&m.watchedEps[epK(sn,n)]); markWatchedEp(m,sn,n,!w); fillEpisodes(m,sn); });
+  list.querySelectorAll('[data-epw]').forEach(b=>b.onclick=ev=>{
+    ev.stopPropagation();
+    const n=+b.dataset.epw;
+    const w=!!(m.watchedEps&&m.watchedEps[epK(sn,n)]);
+    markWatchedEp(m,sn,n,!w);
+    const card=b.closest('.epcard'); if(card) card.classList.toggle('watched',!w);
+    b.textContent=!w?'✓':'';
+    if(S.tab==='list') renderWatching();
+  });
 }
 function epK(s,e){return s+'-'+e;}
 function markWatchedEp(m,s,e,on){
@@ -1112,11 +1134,11 @@ function renderQueue(){
     el.innerHTML='<div class="qslot-empty">'+((S.thinking||S.resolving)?'<span class="thinking">thinking</span>':'slot open')+'</div>';
   } else {
     el.innerHTML='<div class="hrail" style="padding:10px 2px 6px">'+items.map((m,i)=>{
-      const why=esc(String(S.mode==='fav'?'all-time favorite ★':(m.reason||'')).slice(0,90));
-      return '<div class="pcard" style="flex:0 0 158px">'
-        +(m.poster?('<img class="pimg" loading="lazy" src="'+esc(m.poster)+'" alt="">'):('<div class="pnop" style="aspect-ratio:16/10;color:var(--ink);font-size:12.5px">'+esc(m.title)+'</div>'))
-        +'<div class="pt">'+(i===0?'▶ next':'then')+' · '+esc(m.title)+' <span class="py">'+esc(m.year||'')+'</span>'
-        +(why?('<div class="py" style="margin-top:3px;white-space:normal">'+why+'</div>'):'')+'</div></div>';
+      const why=String(S.mode==='fav'?'all-time favorite ★':(m.reason||'')).slice(0,120);
+      return '<div class="pcard" title="'+esc(m.title)+(m.year?(' ('+m.year+')'):'')+(why?(' — '+esc(why)):'')+'">'
+        +(m.poster?('<img class="pimg" loading="lazy" src="'+esc(m.poster)+'" alt="">'):('<div class="pnop">'+esc(m.title)+'</div>'))
+        +(i===0?'<span class="badge-seen">▶ next</span>':'')
+        +'</div>';
     }).join('')+'</div>';
   }
   $('qcount').textContent=S.mode==='fav'?'★ favorites':((S.thinking||S.resolving)?'planning…':(S.queue.length+' ready'));
@@ -1128,10 +1150,10 @@ function renderWatchlist(){
   if(!wl.length){ box.innerHTML='<div class="mlist-hint">Nothing saved yet — hit ＋ Watchlist on any film you want to see.</div>'; return; }
   box.innerHTML='<div class="mlist-hint">tap a poster to open · ★ watched &amp; loved · ✕ remove</div>'
     +'<div class="hrail" style="padding:8px 2px 4px">'+wl.map((m,i)=>
-    '<div class="pcard" tabindex="0" data-wp="'+i+'">'
+    '<div class="pcard" tabindex="0" data-wp="'+i+'" title="'+esc(m.title)+(m.year?(' ('+m.year+')'):'')+'">'
     +(m.poster?('<img class="pimg" loading="lazy" src="'+esc(m.poster)+'" alt="">'):('<div class="pnop">'+esc(m.title)+'</div>'))
     +'<div class="pbtns"><button data-wlv="'+i+'" title="Watched it — loved it">★</button><button data-wx="'+i+'" title="Remove">✕</button></div>'
-    +'<div class="pt">'+esc(m.title)+' <span class="py">'+esc(m.year||'')+(m.type==='tv'?' · TV':'')+'</span></div></div>').join('')+'</div>';
+    +'</div>').join('')+'</div>';
   box.querySelectorAll('[data-wp]').forEach(c=>c.onclick=e=>{ if(e.target.closest('button'))return; playSpecific(S.profile.watchlist[+c.dataset.wp]); });
   box.querySelectorAll('[data-wx]').forEach(b=>b.onclick=e=>{e.stopPropagation();const i=+b.dataset.wx;const m=S.profile.watchlist[i];S.profile.watchlist.splice(i,1);S.seen.delete(mkey(m));saveLocal();renderWatchlist();toast('Removed');});
   box.querySelectorAll('[data-wlv]').forEach(b=>b.onclick=e=>{e.stopPropagation();const i=+b.dataset.wlv;const m=S.profile.watchlist.splice(i,1)[0];addTo('loved',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,3));bump(S.profile.dirScore,m.director,3);saveLocal();renderWatchlist();renderModel();toast('★ moved to favorites');});
@@ -1231,24 +1253,22 @@ function renderWatching(){
     if(air) air.innerHTML='<div class="mlist-hint">Air dates for tracked shows appear here.</div>';
     return;
   }
-  /* box 1 — your place in each show */
-  box.innerHTML=w.map((sh,i)=>{
+  /* box 1 — your place in each show, as a rail */
+  box.innerHTML='<div class="hrail" style="padding:10px 2px 6px">'+w.map((sh,i)=>{
     const nx=nextInLine(sh);
-    const line=sh.lastWatched
-      ? ('you\'re on S'+sh.lastWatched.s+'E'+sh.lastWatched.e+' · <span class="new">up next: S'+nx.s+'E'+nx.e+'</span>')
-      : 'not started · <span class="new">up next: S1E1</span>';
-    return '<div class="wshow">'+(sh.poster?('<img src="'+esc(sh.poster)+'" alt="">'):'')
-      +'<div style="min-width:0"><div class="wt">'+esc(sh.title)+'</div><div class="ws">'+line+'</div></div>'
-      +'<div class="wbtns"><button class="mbtn" data-wn="'+i+'" title="Play next in line">▶</button></div></div>';
-  }).join('');
+    return '<div class="pcard" tabindex="0" data-wn="'+i+'" title="'+esc(sh.title)+' — play S'+nx.s+'E'+nx.e+'">'
+      +(sh.poster?('<img class="pimg" loading="lazy" src="'+esc(sh.poster)+'" alt="">'):('<div class="pnop">'+esc(sh.title)+'</div>'))
+      +'<div class="wnext">▶ S'+nx.s+'E'+nx.e+(sh.lastWatched?'':' · start')+'</div></div>';
+  }).join('')+'</div>';
   box.querySelectorAll('[data-wn]').forEach(b=>b.onclick=()=>watchNext(S.profile.watching[+b.dataset.wn]));
-  /* box 2 — broadcast schedule */
+  /* box 2 — broadcast schedule (running shows only) */
   if(!air) return;
-  air.innerHTML=w.map((sh,i)=>{
+  const onAir=w.map((sh,i)=>({sh,i})).filter(x=>!/^(Ended|Cancell?ed)$/i.test(x.sh.status||''));
+  if(!onAir.length){ air.innerHTML='<div class="mlist-hint">none of your tracked shows are currently on air</div>'; }
+  else air.innerHTML=onAir.map(({sh,i})=>{
     const isNew=hasNewEp(sh);
     const line = isNew ? ('<span class="new">● NEW — S'+sh.lastS+'E'+sh.lastE+' aired '+esc(sh.lastAir)+'</span>')
       : sh.nextAir ? ('next on air: S'+sh.nextS+'E'+sh.nextE+' · '+esc(sh.nextAir))
-      : (sh.status==='Ended'||sh.status==='Canceled') ? esc(sh.status.toLowerCase())
       : (sh.lastAir?('caught up · last aired '+esc(sh.lastAir)):'checking air dates…');
     return '<div class="wshow">'+(sh.poster?('<img src="'+esc(sh.poster)+'" alt="">'):'')
       +'<div style="min-width:0"><div class="wt">'+esc(sh.title)+'</div><div class="ws">'+line+'</div></div>'
@@ -1291,10 +1311,10 @@ function renderContinue(){
   row.innerHTML=cw.map((e,i)=>{
     const sub = (e.type==='tv'&&e.se) ? ('S'+e.se.s+'E'+e.se.e)
       : e.pos ? ('~'+Math.max(1,Math.floor(e.pos/60))+' min in') : 'started';
-    return '<div class="cwitem" tabindex="0" data-cw="'+i+'">'
+    return '<div class="cwitem" tabindex="0" data-cw="'+i+'" title="'+esc(e.title)+'">'
       +(e.poster?('<img class="pimg" loading="lazy" src="'+esc(e.poster)+'" alt="">'):('<div class="pnop">'+esc(e.title)+'</div>'))
       +'<button class="cwx" data-cwx="'+i+'" title="Remove">✕</button>'
-      +'<div class="pt">'+esc(e.title)+'<div class="py">'+sub+'</div></div></div>';
+      +'<div class="wnext">'+sub+'</div></div>';
   }).join('');
   row.querySelectorAll('[data-cw]').forEach(c=>c.onclick=ev=>{ if(ev.target.closest('button'))return; resumeContinue(S.profile.continueWatching[+c.dataset.cw]); });
   row.querySelectorAll('[data-cwx]').forEach(b=>b.onclick=ev=>{ ev.stopPropagation(); S.profile.continueWatching.splice(+b.dataset.cwx,1); saveLocal(); renderContinue(); });
@@ -1336,11 +1356,11 @@ async function renderTrending(){
   grid.innerHTML=items.map((m,i)=>{
     const seen=S.seen.has(mkey(m));
     const onList=S.profile.watchlist.some(x=>mkey(x)===mkey(m));
-    return '<div class="pcard" tabindex="0" data-ti="'+i+'">'
+    return '<div class="pcard" tabindex="0" data-ti="'+i+'" title="'+esc(m.title)+(m.year?(' ('+m.year+')'):'')+(m.rating?(' · ★'+m.rating):'')+'">'
       +(m.poster?('<img class="pimg" loading="lazy" src="'+esc(m.poster)+'" alt="">'):('<div class="pnop">'+esc(m.title)+'</div>'))
       +(seen?'<span class="badge-seen">✓</span>':(onList?'<span class="badge-seen">🔖</span>':''))
       +'<div class="pbtns"><button data-tw="'+i+'" title="'+(onList?'Already on watchlist':'Add to watchlist')+'">'+(onList?'✓':'＋')+'</button></div>'
-      +'<div class="pt">'+esc(m.title)+' <span class="py">'+esc(m.year||'')+(m.type==='tv'?' · TV':'')+(m.rating?(' · ★'+m.rating):'')+'</span></div></div>';
+      +'</div>';
   }).join('');
   grid.querySelectorAll('[data-ti]').forEach(c=>c.onclick=async e=>{
     if(e.target.closest('button'))return;
