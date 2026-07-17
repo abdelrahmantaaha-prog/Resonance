@@ -10,30 +10,30 @@
 <title>Reel — a critic that learns your taste</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0C0B10; --panel:#151319; --panel-2:#1C1922; --line:#282430;
-    --ink:#ECE7DE; --muted:#8A8397; --faint:#5C566B;
-    --gold:#E7B44C;    /* love / masterpiece */
+    --bg:#0b0b0f; --panel:#16161d; --panel-2:#1d1d25; --line:#26262f;
+    --ink:#f2f2f5; --muted:#a3a3b0; --faint:#63636e;
+    --gold:#E6B14A;    /* accent / love */
     --teal:#4CC0A8;    /* like */
     --rust:#C8583F;    /* dislike / never */
-    --violet:#8A7BD8;  /* accent */
-    --r:14px;
+    --violet:#8A7BD8;
+    --r:12px;
     --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
-    --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,sans-serif;
-    --disp:'Fraunces',Georgia,serif;
+    --sans:'Figtree',system-ui,-apple-system,Segoe UI,sans-serif;
+    --disp:'Figtree',system-ui,sans-serif;
   }
   *{box-sizing:border-box}
   html,body{margin:0;overflow-x:hidden;max-width:100vw}
-  body{background:radial-gradient(1100px 650px at 80% -10%, #1a1526 0%, var(--bg) 55%) fixed, var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
   a{color:var(--gold)}
   button{font-family:inherit;cursor:pointer}
   .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 118px}
   header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:20px}
   .brand{display:flex;align-items:baseline;gap:11px}
   .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 14px var(--gold);align-self:center}
-  .brand h1{font-family:var(--disp);font-weight:900;font-size:29px;letter-spacing:-.02em;margin:0}
+  .brand h1{font-family:var(--disp);font-weight:800;font-size:26px;letter-spacing:-.03em;margin:0}
   .brand .sub{font-family:var(--mono);font-size:12px;color:var(--muted)}
   .hdr-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
   .homebtn{width:34px;height:34px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--gold);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;transition:.15s}
@@ -69,29 +69,39 @@
   .sheet-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px}
   input[type=file]{display:none}
 
-  .tabbar{position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
-    width:min(calc(100% - 20px),640px);z-index:50;display:flex;gap:4px;padding:6px;margin:0;
-    background:rgba(8,7,12,.66);backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);
-    border:1px solid rgba(255,255,255,.09);border-radius:18px;box-shadow:0 12px 34px rgba(0,0,0,.5);
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;gap:0;padding:7px 4px calc(9px + env(safe-area-inset-bottom,0px));margin:0;
+    background:rgba(11,11,15,.88);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border-top:1px solid var(--line);
     overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .tabbar::-webkit-scrollbar{display:none}
   .tabbar.hidden{display:none}
-  .tind{position:absolute;top:6px;bottom:6px;left:0;width:0;border-radius:13px;background:rgba(231,180,76,.14);border:1px solid rgba(231,180,76,.42);
-    transition:transform .38s cubic-bezier(.3,1.35,.35,1),width .38s cubic-bezier(.3,1.35,.35,1),opacity .2s;opacity:0;pointer-events:none}
-  .tab{flex:1 0 auto;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:7px;background:transparent;border:1px solid transparent;color:var(--muted);border-radius:13px;padding:11px 12px;font-family:var(--mono);font-size:12.5px;position:relative;z-index:1;transition:color .25s,transform .2s}
-  .tab:active{transform:scale(.93)}
+  .tind{display:none}
+  .tab{flex:1 0 auto;min-width:64px;white-space:nowrap;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:transparent;border:0;color:var(--faint);padding:3px 8px;font-size:19px;line-height:1;position:relative;transition:color .2s,transform .2s}
+  .tab span{font-family:var(--sans);font-size:10px;font-weight:600;line-height:1.2}
+  .tab:active{transform:scale(.95)}
   .tabpane.on{animation:paneIn .3s cubic-bezier(.22,1,.36,1)}
   @keyframes paneIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
   @media (prefers-reduced-motion:reduce){.tind{transition:opacity .2s}.tabpane.on{animation:none}.tab:active{transform:none}}
-  .tab.on{color:var(--gold);background:transparent;border-color:transparent}
+  .tab.on{color:var(--ink);transform:translateY(-1px)}
   .tabpane{display:none}
   .tabpane.on{display:block;animation:fade .2s ease}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
 
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-  .poster-wrap{position:relative;width:100%;height:56vh;background:#000}
-  .poster-wrap img{width:100%;height:100%;object-fit:contain;background:#000}
-  .poster-wrap .ph{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--faint);font-family:var(--mono);font-size:12px}
+  .poster-wrap{position:relative;width:100%;height:56vh;min-height:420px;background-color:#101014;background-size:cover;background-position:center 20%;display:flex;flex-direction:column;justify-content:flex-end}
+  .poster-wrap::before{content:"";position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(180deg, rgba(11,11,15,.05) 0%, rgba(11,11,15,.45) 52%, rgba(11,11,15,.94) 88%, var(--bg) 100%)}
+  #poster{display:none}
+  .poster-wrap .ph{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--faint);font-family:var(--mono);font-size:12px;z-index:1}
+  .hero-body{position:relative;z-index:2;padding:0 20px 18px}
+  .hero-body .mv-eyebrow{margin-bottom:6px}
+  .hplay{display:inline-flex;align-items:center;gap:8px;background:#fff;color:#0b0b0f !important;border-radius:8px;padding:11px 26px;font-size:14.5px;font-weight:700;text-decoration:none;cursor:pointer;transition:.15s}
+  .hplay:hover{background:#e8e8ea}
+  .hglass{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.14);color:var(--ink) !important;border-radius:8px;padding:11px 16px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;backdrop-filter:blur(8px);transition:.15s}
+  .hglass:hover{background:rgba(255,255,255,.22)}
+  .hglass.on{background:rgba(230,177,74,.22);color:var(--gold) !important}
+  .hcir{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.12);color:var(--ink) !important;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;backdrop-filter:blur(8px);transition:.15s;flex:none}
+  .hcir:hover{background:rgba(255,255,255,.22)}
+  .hcir.on{background:rgba(76,192,168,.28);color:var(--teal) !important}
   .rank{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.7);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-family:var(--mono);font-size:12px}
   .rank b{color:var(--gold)}
   .mv-body{padding:18px 20px 20px}
@@ -127,8 +137,7 @@
   .mv-overview{font-size:13.5px;color:var(--muted);margin-bottom:14px;max-height:120px;overflow-y:auto}
   .chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
   .gchip{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
-  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-  .actions a{flex:1 1 auto;min-width:96px;white-space:nowrap;text-align:center;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px 8px;font-family:var(--mono);font-size:12px;text-decoration:none;transition:.15s}
+  .actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:12px 0 2px}
   .actions a:hover{border-color:var(--gold);color:var(--gold)}
   .watch{margin-bottom:14px}
   .watch .wl{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-bottom:7px;text-transform:uppercase;letter-spacing:.08em}
@@ -137,7 +146,9 @@
   .prov img{width:20px;height:20px;border-radius:5px}
   .prov.none{color:var(--faint);font-family:var(--mono);font-size:11.5px}
 
-  .rate{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .rate{display:flex;flex-wrap:wrap;gap:8px}
+  .rate .rb{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:999px !important;padding:10px 16px !important}
+  .rate .rb .ico{font-size:14px}
   .rb{display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 4px;color:var(--muted);transition:.14s}
   .rb:active{transform:scale(.94)}
   .rb .ico{font-size:17px}
@@ -224,7 +235,7 @@
   body.tv .rate button{min-height:56px}
   body.tv .srow,body.tv .wshow{padding:12px}
   body.tv .pgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}
-  body.tv .poster-wrap{height:42vh}
+  body.tv .poster-wrap{height:48vh;min-height:360px}
   body.tv ::-webkit-scrollbar{width:0;height:0}
 
   /* ---- direct search ---- */
@@ -385,6 +396,13 @@
           <img id="poster" class="hidden" alt="">
           <div class="ph" id="posterPh">finding your first pick…</div>
           <div class="rank hidden" id="rank"></div>
+          <div class="hero-body">
+            <div class="mv-eyebrow" id="mvMode">◈ Recommended for you</div>
+            <h2 class="mv-title" id="mvTitle">—</h2>
+            <div class="mv-meta" id="mvMeta"></div>
+            <div class="mv-reason" id="mvReason"></div>
+            <div class="actions" id="mvActions"></div>
+          </div>
         </div>
         <div class="mv-body">
           <div class="mediaSwitch" id="mediaSwitch">
@@ -392,18 +410,13 @@
             <button class="mchip" data-m="tv">📺 Series</button>
             <button class="mchip" data-m="both">🔀 Both</button>
           </div>
-          <div class="mv-eyebrow" id="mvMode">◈ Recommended for you</div>
           <div class="quotaWall hidden" id="quotaWall">
             <div class="qw-t" id="qwT">Gemini's daily quota is used up</div>
             <div class="qw-s" id="qwS">It resets daily. Play your favorites, or add another key in Settings.</div>
             <div><button class="btn sm" id="quotaFavBtn">★ Play my favorites</button> <button class="btn ghost sm" id="quotaRetryBtn">↻ Try again</button> <button class="btn ghost sm" id="quotaSettingsBtn">⚙ Settings</button></div>
           </div>
-          <h2 class="mv-title" id="mvTitle">—</h2>
-          <div class="mv-meta" id="mvMeta"></div>
-          <div class="mv-reason" id="mvReason"></div>
           <div class="chiprow" id="mvGenres"></div>
           <div class="mv-overview" id="mvOverview"></div>
-          <div class="actions" id="mvActions"></div>
           <div class="watchlink">
             <div class="wlrow">
               <input id="srcIn" type="text" placeholder="▶ paste a watch link — YouTube, Vimeo, archive.org, .mp4/.m3u8, or any embed URL">
@@ -622,7 +635,7 @@ function moveTabInd(){
 }
 window.addEventListener('resize',moveTabInd);
 
-const BUILD='Reel · build 19 · 2026-07-17 · bottom glass nav · fluid motion';
+const BUILD='Reel · build 21 · 2026-07-17 · streaming redesign';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
@@ -758,6 +771,7 @@ async function tmdbDetails(id,type){
     seasons: tv?(d.number_of_seasons||0):0,
     genres:(d.genres||[]).map(g=>g.name), director:dir?dir.name:'',
     overview:d.overview||'', poster:d.poster_path?(S.imgBase+'w500'+d.poster_path):'',
+    backdrop:d.backdrop_path?(S.imgBase+'w780'+d.backdrop_path):'',
     rating:d.vote_average?d.vote_average.toFixed(1):'', runtime: tv?((d.episode_run_time||[])[0]||0):(d.runtime||0),
     trailer:trailer?('https://www.youtube.com/watch?v='+trailer.key):'',
     tmdbUrl:'https://www.themoviedb.org/'+(tv?'tv':'movie')+'/'+d.id,
@@ -903,8 +917,8 @@ function showMovie(m,pushHist){
   if(pushHist!==false && S.current)S.history.push(S.current);
   S.current=m;
   $('posterPh').classList.add('hidden');
-  const img=$('poster');
-  if(m.poster){img.src=m.poster;img.classList.remove('hidden');}else img.classList.add('hidden');
+  const bd=m.backdrop||m.poster||'';
+  $('posterWrap').style.backgroundImage=bd?("url('"+bd+"')"):'none';
   $('mvTitle').textContent=m.title;
   const bits=[m.type==='tv'?'📺 series':'',m.year,m.seasons?(m.seasons+' season'+(m.seasons>1?'s':'')):'',m.runtime?(m.runtime+' min'+(m.type==='tv'?'/ep':'')):'',m.director?((m.type==='tv'?'by ':'dir. ')+m.director):''].filter(Boolean).join(' · ');
   const rt=[];
@@ -916,14 +930,15 @@ function showMovie(m,pushHist){
   $('mvGenres').innerHTML=(m.genres||[]).map(g=>'<span class="gchip">'+esc(g)+'</span>').join('');
   $('mvOverview').textContent=m.overview||'';
   const acts=[];
-  if(m.trailer)acts.push('<a href="'+m.trailer+'" target="_blank" rel="noopener">▶ Trailer</a>');
-  if(m.imdbUrl)acts.push('<a href="'+m.imdbUrl+'" target="_blank" rel="noopener">IMDb</a>');
-  acts.push('<a href="'+m.tmdbUrl+'" target="_blank" rel="noopener">ⓘ TMDB</a>');
-  if(m.provLink)acts.push('<a href="'+m.provLink+'" target="_blank" rel="noopener">↗ Where to watch</a>');
+  acts.push('<a id="heroPlay" class="hplay">▶ Play</a>');
   const onList=S.profile.watchlist.some(x=>mkey(x)===mkey(m));
-  acts.push('<a id="wlBtn" style="cursor:pointer;'+(onList?'border-color:var(--gold);color:var(--gold)':'')+'">'+(onList?'✓ On watchlist':'＋ Watchlist')+'</a>');
-  if(m.type==='tv'){ const w=isWatching(m); acts.push('<a id="wtBtn" style="cursor:pointer;'+(w?'border-color:var(--teal);color:var(--teal)':'')+'">'+(w?'✓ Watching':'📺 Watching')+'</a>'); }
+  acts.push('<a id="wlBtn" class="hglass'+(onList?' on':'')+'">'+(onList?'✓ My List':'＋ My List')+'</a>');
+  if(m.trailer)acts.push('<a class="hcir" href="'+m.trailer+'" target="_blank" rel="noopener" title="Trailer">▷</a>');
+  if(m.imdbUrl)acts.push('<a class="hcir" href="'+m.imdbUrl+'" target="_blank" rel="noopener" title="IMDb" style="font-size:10px">IMDb</a>');
+  acts.push('<a class="hcir" href="'+m.tmdbUrl+'" target="_blank" rel="noopener" title="TMDB">ⓘ</a>');
+  if(m.type==='tv'){ const w=isWatching(m); acts.push('<a id="wtBtn" class="hcir'+(w?' on':'')+'" title="Track new episodes">📺</a>'); }
   $('mvActions').innerHTML=acts.join('');
+  $('heroPlay').onclick=()=>{ const v=$('srcIn').value.trim(); if(v){playSource(v);} else {toast('Paste a watch link below, or set an embed template in Settings');$('srcIn').focus();} };
   const wl=$('wlBtn'); if(wl) wl.onclick=addWatchlist;
   const wt=$('wtBtn'); if(wt) wt.onclick=toggleWatching;
   closePlayer();
@@ -1015,7 +1030,7 @@ function renderProviders(m){
 
 /* ---------- ratings ---------- */
 function love(){const m=S.current;if(!m)return;if(S.mode==='fav'){toast('Already a favorite ★');return;}addTo('loved',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,3));bump(S.profile.dirScore,m.director,3);flash('★ masterpiece · logged');after(m);}
-function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.profile.watchlist.some(x=>mkey(x)===k)){S.profile.watchlist=S.profile.watchlist.filter(x=>mkey(x)!==k);saveLocal();renderModel();toast('Removed from watchlist');const wl=$('wlBtn');if(wl){wl.textContent='＋ Watchlist';wl.style.color='';wl.style.borderColor='';}return;}S.profile.watchlist.push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,type:m.type||'movie',poster:m.poster});S.seen.add(k);S.seenT.add(tkey(m));saveLocal();renderModel();toast('＋ Saved to watchlist · advancing');advance();}
+function addWatchlist(){const m=S.current;if(!m)return;const k=mkey(m);if(S.profile.watchlist.some(x=>mkey(x)===k)){S.profile.watchlist=S.profile.watchlist.filter(x=>mkey(x)!==k);saveLocal();renderModel();toast('Removed from watchlist');const wl=$('wlBtn');if(wl){wl.textContent='＋ My List';wl.classList.remove('on');}return;}S.profile.watchlist.push({title:m.title,year:m.year,director:m.director,genres:m.genres,id:m.id,type:m.type||'movie',poster:m.poster});S.seen.add(k);S.seenT.add(tkey(m));saveLocal();renderModel();toast('＋ Saved to watchlist · advancing');advance();}
 function like(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){advance();return;}addTo('liked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,1));bump(S.profile.dirScore,m.director,1);flash('liked · more like it');after(m);}
 function meh(){const m=S.current;if(!m)return;if(S.mode==='fav'){nextFav();return;}if(S.profile.loved.some(x=>mkey(x)===mkey(m))){toast('Still a favorite ★');advance();return;}addTo('disliked',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-1));flash('noted · steering away');after(m);}
 function never(){const m=S.current;if(!m)return;if(S.mode==='fav'){S.profile.loved=S.profile.loved.filter(x=>mkey(x)!==mkey(m));saveLocal();renderModel();toast('Removed from favorites');nextFav();return;}addTo('banned',m);(m.genres||[]).forEach(g=>bump(S.profile.genreScore,g,-2));S.queue=S.queue.filter(q=>mkey(q)!==mkey(m));S.candidates=S.candidates.filter(q=>tkey(q)!==tkey(m));flash('⦸ never again · this film only');after(m);}
@@ -1105,7 +1120,7 @@ function toggleWatching(){
     checkEpisodes(true);
   }
   saveLocal();
-  const wt=$('wtBtn'); if(wt){ const w=isWatching(m); wt.textContent=w?'✓ Watching':'📺 Watching'; wt.style.color=w?'var(--teal)':''; wt.style.borderColor=w?'var(--teal)':''; }
+  const wt=$('wtBtn'); if(wt){ const w=isWatching(m); wt.textContent=w?'✓':'📺'; wt.classList.toggle('on',w); }
   updateEpBadge();
 }
 function hasNewEp(sh){ return !!(sh.lastAir && (!sh.seenAir || sh.lastAir>sh.seenAir)); }
