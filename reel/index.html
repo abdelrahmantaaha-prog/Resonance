@@ -46,8 +46,8 @@
   .appswitch .seg.on{color:#221a0a;font-weight:600;background:linear-gradient(135deg,var(--gold),#d89b3a);box-shadow:0 2px 10px rgba(231,180,76,.35)}
   .appswitch .seg.on .ic{filter:none}
   .appswitch .seg:not(.on):hover .ic{filter:none}
-  .pill{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:8px 14px;font-family:var(--mono);font-size:11.5px;transition:.15s}
-  .pill:hover{color:var(--ink);border-color:var(--faint)}
+  .pill{background:rgba(255,255,255,.07);border:1px solid transparent;color:var(--muted);border-radius:999px;padding:9px 15px;font-family:var(--sans);font-size:12px;font-weight:600;transition:.2s}
+  .pill:hover{background:rgba(255,255,255,.13);color:var(--ink)}
   .status{width:100%;font-family:var(--mono);font-size:12px;color:var(--muted)}
   .status b{color:var(--gold);font-weight:500}
 
@@ -62,9 +62,9 @@
   .field input,.field select,.field textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:11px 12px;font-family:var(--mono);font-size:13px;outline:none}
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--gold)}
   .keybox{min-height:52px;resize:vertical;line-height:1.5}
-  .btn{background:var(--gold);color:#221a0a;border:none;border-radius:10px;padding:12px 20px;font-weight:600;font-size:14px;transition:.15s}
+  .btn{background:var(--ink);color:#0b0b0f;border:none;border-radius:999px;padding:12px 24px;font-family:var(--sans);font-weight:700;font-size:14px;transition:.15s}
   .btn:hover{filter:brightness(1.08)}
-  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .btn.ghost{background:rgba(255,255,255,.08);color:var(--ink);border:0}
   .btn.sm{padding:8px 13px;font-size:12px}
   .sheet-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px}
   input[type=file]{display:none}
@@ -124,7 +124,8 @@
   .eplist .mrow.playing .mbtn{color:var(--gold);border-color:var(--gold)}
   .eplist .epdate{color:var(--faint);font-size:10px;margin-left:6px}
   .mediaSwitch{display:flex;gap:6px;margin-bottom:10px}
-  .mchip{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:5px 12px;font-family:var(--mono);font-size:11px;transition:.15s}
+  .mchip{background:rgba(255,255,255,.07);border:1px solid transparent;color:var(--muted);border-radius:999px;padding:6px 13px;font-family:var(--sans);font-size:11.5px;font-weight:600;transition:.2s}
+  .mchip:hover{background:rgba(255,255,255,.13);color:var(--ink)}
   .mchip.on{border-color:var(--gold);color:var(--gold)}
   .mv-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
   .mv-title{font-family:var(--disp);font-weight:600;font-size:26px;line-height:1.15;margin:0 0 2px}
@@ -635,7 +636,7 @@ function moveTabInd(){
 }
 window.addEventListener('resize',moveTabInd);
 
-const BUILD='Reel · build 21 · 2026-07-17 · streaming redesign';
+const BUILD='Reel · build 22 · 2026-07-17 · streaming redesign · pill/button restyle';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}

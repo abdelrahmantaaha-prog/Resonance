@@ -69,14 +69,14 @@
   .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--amber)}
   .keybox{min-height:56px;resize:vertical;line-height:1.5}
   .row-actions{display:flex;gap:12px;align-items:center;margin-top:18px;flex-wrap:wrap}
-  .btn{background:var(--amber);color:#211a0d;border:none;border-radius:10px;padding:12px 20px;font-weight:600;font-size:14px;letter-spacing:.01em;transition:.15s}
+  .btn{background:var(--ink);color:#141317;border:none;border-radius:999px;padding:12px 24px;font-family:var(--sans);font-weight:700;font-size:14px;letter-spacing:.01em;transition:.15s}
   .btn:hover{filter:brightness(1.08)}
   .btn:disabled{opacity:.5;cursor:not-allowed}
-  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .btn.ghost{background:rgba(255,255,255,.08);color:var(--ink);border:0}
   .btn.ghost:hover{color:var(--ink);border-color:var(--faint)}
   .btn.sm{padding:8px 13px;font-size:12px}
-  .pill{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:7px 14px;font-family:var(--mono);font-size:11.5px;transition:.15s}
-  .pill:hover{color:var(--ink);border-color:var(--faint)}
+  .pill{background:rgba(255,255,255,.07);border:1px solid transparent;color:var(--muted);border-radius:999px;padding:9px 15px;font-family:var(--sans);font-size:12px;font-weight:600;transition:.2s}
+  .pill:hover{background:rgba(255,255,255,.13);color:var(--ink)}
   .pill.on{border-color:var(--ember);color:#f0a49f}
   .hdr-actions{display:flex;gap:8px;align-items:center}
   .homebtn{width:34px;height:34px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--amber);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;transition:.15s}
@@ -110,7 +110,7 @@
   .now{padding:0}
   .videoshell{position:relative;width:100%;padding:22px 22px 4px;display:flex;justify-content:center;background:transparent}
   .art{position:relative;width:min(72vw,320px);aspect-ratio:1/1;border-radius:14px;overflow:hidden;background-color:#1a1820;background-size:cover;background-position:center;box-shadow:0 26px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.05);transition:.3s}
-  #player{position:absolute;right:10px;bottom:10px;width:150px;height:85px;border-radius:9px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.55);z-index:2;transition:.3s}
+  #player{position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;transition:.3s}
   .onair{position:absolute;top:10px;left:10px;z-index:3;background:rgba(224,82,75,.92);color:#fff;font-family:var(--mono);font-size:9.5px;letter-spacing:2px;font-weight:600;padding:4px 9px;border-radius:7px;display:none;align-items:center;gap:6px}
   .onair.show{display:flex;animation:onairPulse 1.3s ease-in-out infinite}
   .onair i{width:6px;height:6px;border-radius:50%;background:#fff}
@@ -119,7 +119,7 @@
   .vtog{position:absolute;top:10px;right:10px;z-index:3;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);color:#eee;border-radius:8px;padding:5px 9px;font-size:11px;cursor:pointer;backdrop-filter:blur(6px)}
   .vtog:hover{border-color:var(--amber);color:var(--amber)}
   .videoshell.vbig .art{width:100%;aspect-ratio:16/9;border-radius:12px}
-  .videoshell.vbig #player{top:0;left:0;right:auto;bottom:auto;width:100%;height:100%;border-radius:12px}
+  .videoshell.vbig #player{top:0;left:0;right:auto;bottom:auto;width:100%;height:100%;opacity:1;pointer-events:auto;border-radius:12px}
   .videoshell.mini{aspect-ratio:auto;height:0;padding-bottom:0;overflow:hidden}
   .videoshell.mini #player{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
   .lyricsPanel{border-top:1px solid var(--line);padding:12px 18px 12px}
@@ -414,8 +414,9 @@
 
   <!-- TAB BAR -->
   <nav class="tabbar hidden" id="tabbar">
-    <button class="tab on" data-tab="now">▶ <span>Now</span></button>
-    <button class="tab" data-tab="queue">◷ <span>Up next</span><i class="badge" id="tabBadge"></i></button>
+    <button class="tab on" data-tab="now">▶ <span>Now</span><i class="badge hidden" id="tabBadge" style="display:none"></i></button>
+    <button class="tab" id="tabExplore">🎲 <span>Explore</span></button>
+    <button class="tab" id="tabSearch">🔍 <span>Search</span></button>
     <button class="tab" data-tab="dna">⬡ <span>Sound DNA</span></button>
   </nav>
 
@@ -441,7 +442,7 @@
       <div class="videoshell" id="videoShell">
         <div class="art" id="artBox">
           <div id="player"></div>
-          <button class="vtog" id="vidToggle">⛶ video</button>
+          <button class="vtog" id="vidToggle">▶ video</button>
           <div class="onair" id="onAir"><i></i>ON AIR</div>
           <div class="placeholder" id="playerPh">building your first pick…</div>
         </div>
@@ -1448,7 +1449,7 @@ function showTab(name){
   const paneId = {now:'tabNow', queue:'tabQueue', dna:'tabDNA'}[name];
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
   document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on', p.id===paneId));
-  if(name==='queue'){ $('tabBadge').classList.remove('show'); }
+  if(name==='queue'){ const b=$('tabBadge'); if(b)b.classList.remove('show'); }
   if(name==='dna'){ renderModel(); }
   moveTabInd();
 }
@@ -1617,13 +1618,13 @@ function radioCtx(){ if(!RADIO.ctx){ try{ RADIO.ctx=new (window.AudioContext||wi
 document.addEventListener('click',()=>{ if(S.radio) radioCtx(); },true);
 
 function djPrompt(t){
-  const heartsBit=(S.profile.loved||[]).slice(-3).map(x=>x.artist+' — '+x.title).join('; ');
-  return 'You are the charismatic late-night host of "Cassette FM", a one-person radio station broadcasting from Cairo. '
-    +'Write ONLY the words you say on air — no stage directions, no quotes, no markdown. 2-3 short sentences, under 55 words. '
-    +'Introduce the next track with ONE surprising, true piece of trivia about the artist or the song (if unsure of a fact, keep it general rather than inventing one). '
-    +'Warm, witty, a little sly. If the song is Arabic you may slip one short Arabic phrase in naturally. End by announcing the track. '
-    +(heartsBit?('The listener recently hearted: '+heartsBit+'. Reference their taste only if it is natural. '):'')
-    +'Next track: "'+(t.title||'')+'" by '+(t.artist||'unknown')+(t.genre?(' ('+t.genre+')'):'')+'.';
+  const prev=RADIO.last?('You just finished playing "'+RADIO.last.title+'" by '+RADIO.last.artist+'. '):'';
+  return 'You are the late-night host of "كاسيت إف إم", an Egyptian radio station in Cairo. '
+    +'Write ONLY the words you say on air, ENTIRELY IN ARABIC (natural Egyptian colloquial, عامية مصرية) — no stage directions, no quotes, no markdown, no English words except unavoidable names. '
+    +'2-3 short sentences, under 50 words. '+prev
+    +'Sound like a real FM host between songs: casual, lighthearted, flows naturally — a segue from the last song, a small aside about the night or the city, or ONE true piece of trivia about the artist or the song (if unsure of a fact, stay general — never invent one). '
+    +'NEVER compliment the listener or talk about their taste. Never say things like ذوقك or أنت. You talk about the music, not the audience. '
+    +'End by announcing the track. Next track: "'+(t.title||'')+'" by '+(t.artist||'unknown')+(t.genre?(' ('+t.genre+')'):'')+'.';
 }
 async function djText(t){
   if(t._djText) return t._djText;
@@ -1636,7 +1637,7 @@ async function djTTS(text){
     const model=RADIO.models[RADIO.mi];
     const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(gKey()),{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{parts:[{text:'Read this like an excited but smooth late-night radio host: '+text}]}],
+      body:JSON.stringify({contents:[{parts:[{text:'اقرأ ده بصوت مذيع راديو مصري في برنامج سهرة، أداء طبيعي ودافئ وسلس: '+text}]}],
         generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Puck'}}}}})});
     let r;
     while(true){ r=await call(); if(r.status===429&&rotateGemini())continue; break; }
@@ -1677,7 +1678,7 @@ function speakWeb(text){
   return new Promise(res=>{
     try{
       const u=new SpeechSynthesisUtterance(text);
-      u.lang=/[\u0600-\u06FF]/.test(text)?'ar':'en-US';
+      u.lang='ar-EG';
       u.rate=1.03; u.pitch=1.0;
       u.onend=res; u.onerror=res;
       speechSynthesis.speak(u);
@@ -1721,12 +1722,15 @@ playYT=function(t){
     RADIO.n++;
     if(RADIO.n===1 || RADIO.n%(S.radioFreq||2)===0){
       setArt(t);
-      radioAnnounce(t).then(()=>{ _playYT(t); });
+      radioAnnounce(t).then(()=>{ RADIO.last={title:t.title||'',artist:t.artist||''}; _playYT(t); });
       return;
     }
   }
+  RADIO.last={title:(t&&t.title)||'',artist:(t&&t.artist)||''};
   _playYT(t);
 };
+$('tabExplore').onclick=()=>{ $('explorePill').click(); setTimeout(()=>{ $('tabExplore').classList.toggle('on',!!S.exploreMode); showTab(S.tab); },0); };
+$('tabSearch').onclick=()=>openSearch();
 $('radioPill').onclick=()=>{ S.radio=!S.radio; radioSave(); radioSyncUI(); if(S.radio){ radioCtx(); toast('📻 Cassette FM — on air'); radioPrefetch(); } else { radioCancel(); toast('Radio off'); } };
 $('radioChk').onchange=e=>{ S.radio=e.target.checked; radioSave(); radioSyncUI(); if(!S.radio)radioCancel(); };
 $('radioVoice').onchange=e=>{ S.radioVoice=e.target.value; radioSave(); };
@@ -1735,7 +1739,7 @@ radioLoad();
 
 /* ---------- music-player chrome ---------- */
 function setArt(t){ if(t&&t.videoId) $('artBox').style.backgroundImage="url('https://i.ytimg.com/vi/"+t.videoId+"/hqdefault.jpg')"; }
-$('vidToggle').onclick=()=>{ $('videoShell').classList.toggle('vbig'); };
+$('vidToggle').onclick=()=>{ const big=$('videoShell').classList.toggle('vbig'); $('vidToggle').textContent=big?'🖼 artwork':'▶ video'; };
 $('restartBtn').onclick=()=>ctrlSeek0();
 $('rptBtn').onclick=()=>{ S.repeat=!S.repeat; $('rptBtn').classList.toggle('on',S.repeat); toast(S.repeat?'↻ Repeating this track':'Repeat off'); };
 $('shufBtn').onclick=()=>{ $('explorePill').click(); setTimeout(()=>$('shufBtn').classList.toggle('on',!!S.exploreMode),0); };
@@ -1750,7 +1754,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 25 · 2026-07-17 · 📻 radio host (Gemini TTS + device fallback)';
+const BUILD='Cassette · build 26 · 2026-07-17 · Arabic host · video toggle · Explore/Search bar · pill restyle';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
