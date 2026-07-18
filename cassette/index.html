@@ -83,6 +83,9 @@
   /* ---- left drawer ---- */
   .menuBtn{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:12px;z-index:70;width:42px;height:42px;border-radius:12px;background:rgba(18,17,20,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--line);color:var(--ink);font-size:17px;cursor:pointer;transition:.2s}
   .menuBtn:hover{color:var(--amber);border-color:var(--amber)}
+  .radioFab{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:12px;z-index:70;height:42px;padding:0 14px;border-radius:12px;background:rgba(18,17,20,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--line);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:6px}
+  .radioFab:hover{color:var(--amber);border-color:var(--amber)}
+  .radioFab.on{color:var(--ember);border-color:var(--ember);background:rgba(224,82,75,.12)}
   .drawerScrim{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.52);z-index:75;opacity:0;pointer-events:none;transition:opacity .3s}
   .drawerScrim.show{opacity:1;pointer-events:auto}
   #sideDrawer{position:fixed;top:0;left:0;bottom:0;width:min(80vw,300px);z-index:80;background:rgba(22,21,25,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-right:1px solid var(--line);transform:translateX(-105%);transition:transform .36s cubic-bezier(.22,1,.36,1);padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));overflow-y:auto}
@@ -338,6 +341,7 @@
 <body>
 <div class="wrap">
   <button class="menuBtn" id="menuBtn" title="Menu">☰</button>
+  <button class="radioFab" id="radioFab" title="Radio — time-based hosted segments">📻</button>
   <div class="drawerScrim" id="drawerScrim"></div>
   <aside id="sideDrawer">
     <button class="xbtn drawerX" id="drawerCloseBtn" title="Close">✕</button>
@@ -902,8 +906,8 @@ function getTime(){ try{ return (S.player&&S.player.getCurrentTime)?S.player.get
 function getDur(){ try{ return (S.player&&S.player.getDuration)?S.player.getDuration():0; }catch(_){ return 0; } }
 function ctrlPlay(){ S.userPaused=false; try{ S.player.playVideo(); }catch(_){}}
 function ctrlPause(){ S.userPaused=true; try{ S.player.pauseVideo(); }catch(_){}}
-function ctrlSeek0(){ try{ S.player.seekTo(0,true); }catch(_){}}
-function seekToFrac(f){ try{ const d=getDur(); if(d) S.player.seekTo(Math.max(0,Math.min(1,f))*d, true); }catch(_){}}
+function ctrlSeek0(){ if(S.radio){ toast('No skipping in radio 📻'); return; } try{ S.player.seekTo(0,true); }catch(_){}}
+function seekToFrac(f){ if(S.radio) return; try{ const d=getDur(); if(d) S.player.seekTo(Math.max(0,Math.min(1,f))*d, true); }catch(_){}}
 
 function startTrack(t, pushHistory){
   if(pushHistory!==false && S.current) S.history.push(S.current);
@@ -979,7 +983,7 @@ function previousTrack(){
   if(!S.history.length){ ctrlSeek0(); return; }
   startTrack(S.history.pop(), false);
 }
-function neutralNext(){ S.mode==='hearts' ? nextHeart() : loadNext(); }
+function neutralNext(){ if(S.radio){ toast('No skipping in radio 📻'); return; } S.mode==='hearts' ? nextHeart() : loadNext(); }
 async function playSpecific(t){
   const c={...t, reason:'you chose this'};
   if(!(c.videoId && /^[\w-]{11}$/.test(c.videoId))){
@@ -1076,7 +1080,7 @@ function startProg(){
   const preview=f=>{ $('progFill').style.width=(f*100)+'%'; $('progKnob').style.left=(f*100)+'%'; const d=getDur(); if(d) $('tCur').textContent=fmt(f*d); };
   const down=e=>{ if(!S.current) return; S.seeking=true; bar.classList.add('seeking'); preview(fracFromEvent(e)); e.preventDefault(); };
   const move=e=>{ if(!S.seeking) return; preview(fracFromEvent(e)); e.preventDefault(); };
-  const up=e=>{ if(!S.seeking) return; seekToFrac(fracFromEvent(e)); S.seeking=false; bar.classList.remove('seeking'); };
+  const up=e=>{ if(!S.seeking) return; if(!S.radio) seekToFrac(fracFromEvent(e)); S.seeking=false; bar.classList.remove('seeking'); };
   bar.addEventListener('mousedown',down); window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
   bar.addEventListener('touchstart',down,{passive:false}); window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
 })();
@@ -1248,6 +1252,8 @@ function updateMediaMeta(){
 ============================================================ */
 function completed(){                     // listened to the end = COOL (liked) → advance
   const t=S.current; if(!t) return;
+  S._naturalEnd=Date.now();                // song finished on its own → radio host may speak
+
   if(S.mode==='hearts'){ nextHeart(); return; }   // favorites mode: no learning, just next
   if(S.profile.loved.some(x=>key(x)===key(t))){ loadNext(); return; }  // already hearted — verdict given, don't demote to "liked"
   addTo('liked',t); bump(S.profile.genreScore,t.genre,1); bump(S.profile.artistScore,t.artist,1);
@@ -1690,6 +1696,9 @@ function radioSyncUI(){
   const c=$('radioChk'); if(c)c.checked=!!S.radio;
   const seg=segmentForNow();
   const p=$('radioPill'); if(p){ p.style.color=S.radio?'var(--ember)':''; p.style.borderColor=S.radio?'var(--ember)':''; p.textContent=S.radio?(seg.emoji+' '+seg.name):'📻'; }
+  const fab=$('radioFab'); if(fab){ fab.classList.toggle('on',!!S.radio); fab.textContent=S.radio?(seg.emoji+' '+seg.name):'📻'; }
+  // rebuild the YouTube player so controls/seek match radio state (native controls off in radio)
+  if(S.player && S._radioCtrls!==!!S.radio){ S._radioCtrls=!!S.radio; try{ const vid=S.current&&S.current.videoId; S.player.destroy(); S.player=null; if(vid&&S.started) playYT(S.current); }catch(_){} }
 }
 function radioCtx(){ if(!RADIO.ctx){ try{ RADIO.ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){} } if(RADIO.ctx&&RADIO.ctx.state==='suspended'){ try{RADIO.ctx.resume();}catch(_){} } return RADIO.ctx; }
 document.addEventListener('click',()=>{ if(S.radio) radioCtx(); },true);
@@ -1775,13 +1784,16 @@ async function radioSpeak(seg, chunk){
 async function radioPrepNext(){
   if(!S.radio || RADIO.prefetching) return;
   const seg=RADIO.seg; if(!seg) return;
-  const next=(S.queue||[])[0]; if(!next || next._link) return;
+  const next=(S.queue||[])[0];
+  if(!next){ RADIO.nextLink=null; RADIO.nextKey=null; return; }
+  const nk=(next.artist||'')+'|'+(next.title||'');
+  if(RADIO.nextKey===nk && RADIO.nextLink) return;   // already prepared for this exact upcoming track
   RADIO.prefetching=true;
   try{
     const text=await djLink(seg, RADIO.last, next);
     let buf=null; try{ buf=await djTTS(text, seg.voice); }catch(_){}
-    next._link={text, buf};
-  }catch(_){ } finally { RADIO.prefetching=false; }
+    RADIO.nextLink={text, buf}; RADIO.nextKey=nk;
+  }catch(_){ RADIO.nextLink=null; RADIO.nextKey=null; } finally { RADIO.prefetching=false; }
 }
 
 /* ---- segment interception: patter rides between songs, clock picks the persona ---- */
@@ -1802,8 +1814,11 @@ playYT = function(t){
       return;
     }
     if(natural){
+      const tk=(t.artist||'')+'|'+(t.title||'');
+      const link=(RADIO.nextKey===tk)?RADIO.nextLink:null;
+      RADIO.nextLink=null; RADIO.nextKey=null;
       setArt(t);
-      (async()=>{ await radioSpeak(seg, t._link || null);
+      (async()=>{ await radioSpeak(seg, link);
         RADIO.last={title:t.title||'',artist:t.artist||''}; _playYT_radio(t); radioPrepNext(); })();
       return;
     }
@@ -1825,6 +1840,25 @@ function radioStop(){ S.segment=''; RADIO.seg=null; radioCancel(); S.candidates=
 
 $('radioPill').onclick=()=>{ S.radio=!S.radio; radioSave(); radioSyncUI(); if(S.radio) radioStart(); else radioStop(); };
 $('radioChk').onchange=e=>{ S.radio=e.target.checked; radioSave(); radioSyncUI(); if(S.radio)radioStart(); else radioStop(); };
+/* drawer + bottom-bar wiring (restored) */
+function drawerOpen(){ $('sideDrawer').classList.add('open'); $('drawerScrim').classList.add('show'); }
+function drawerShut(){ $('sideDrawer').classList.remove('open'); $('drawerScrim').classList.remove('show'); }
+$('menuBtn').onclick=drawerOpen;
+$('drawerScrim').onclick=drawerShut;
+$('drawerCloseBtn').onclick=drawerShut;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') drawerShut(); });
+$('sideDrawer').addEventListener('click',e=>{ if(e.target.closest('.pill,.homebtn,.seg')) setTimeout(drawerShut,140); });
+$('tabExplore').onclick=()=>{ $('explorePill').click(); setTimeout(()=>{ $('tabExplore').classList.toggle('on',!!S.exploreMode); showTab(S.tab); },0); };
+$('tabSearch').onclick=()=>openSearch();
+$('tabPip').onclick=async()=>{
+  if(!S.started||!S.player){ toast('Start playing something first'); return; }
+  if(!$('videoShell').classList.contains('vbig')) $('vidToggle').click();
+  try{ await $('artBox').requestFullscreen(); toast('📱 Now press Home — the video pops into picture-in-picture'); }
+  catch(_){ toast('Fullscreen was blocked — tap the video, use its own fullscreen, then press Home'); }
+};
+/* radio toggle now lives on the floating FAB + the settings checkbox */
+$('radioFab').onclick=()=>{ S.radio=!S.radio; radioSave(); radioSyncUI(); if(S.radio) radioStart(); else radioStop(); };
+
 (function(){ const el=$('radioSched'); if(el) el.innerHTML=SEGMENTS.slice().sort((a,b)=>a.from-b.from).map(s=>{
   const f=(s.from%12||12)+(s.from<12?'am':'pm'), tt=(s.to%12||12)+(s.to<12||s.to===24?'am':'pm');
   return s.emoji+' '+String(s.from).padStart(2,'0')+':00–'+String(s.to%24).padStart(2,'0')+':00 · <b style="color:var(--muted)">'+s.name+'</b>';
@@ -1848,7 +1882,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 33 · 2026-07-18 · radio segments — time-based personas, genre lanes, lazy TTS';
+const BUILD='Cassette · build 34 · 2026-07-18 · radio fixes — host continuity · no seek/skip · floating toggle · drawer restored';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
