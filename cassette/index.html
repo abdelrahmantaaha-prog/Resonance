@@ -41,7 +41,7 @@
   }
   a{color:var(--amber)}
   button{font-family:inherit; cursor:pointer}
-  .wrap{max-width:1180px;margin:0 auto;padding:26px 16px 118px;overflow-x:clip}
+  .wrap{max-width:1180px;margin:0 auto;padding:62px 16px 118px;overflow-x:clip}
 
   /* header */
   header{display:flex; align-items:baseline; justify-content:space-between; gap:18px; margin-bottom:22px; flex-wrap:wrap}
@@ -80,6 +80,25 @@
   .pill.on{border-color:var(--ember);color:#f0a49f}
   .hdr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0}
   #searchPill,#explorePill,.hdr-actions .appswitch{display:none}
+  /* ---- left drawer ---- */
+  .menuBtn{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:12px;z-index:70;width:42px;height:42px;border-radius:12px;background:rgba(18,17,20,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--line);color:var(--ink);font-size:17px;cursor:pointer;transition:.2s}
+  .menuBtn:hover{color:var(--amber);border-color:var(--amber)}
+  .drawerScrim{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.52);z-index:75;opacity:0;pointer-events:none;transition:opacity .3s}
+  .drawerScrim.show{opacity:1;pointer-events:auto}
+  #sideDrawer{position:fixed;top:0;left:0;bottom:0;width:min(80vw,300px);z-index:80;background:rgba(22,21,25,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-right:1px solid var(--line);transform:translateX(-105%);transition:transform .36s cubic-bezier(.22,1,.36,1);padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));overflow-y:auto}
+  #sideDrawer.open{transform:none}
+  .drawerX{position:absolute;top:12px;right:12px}
+  #sideDrawer header{display:block;margin:0}
+  #sideDrawer .brand{margin-bottom:4px}
+  #sideDrawer .status{margin:10px 0 16px;font-size:12px}
+  #sideDrawer .hdr-actions{flex-direction:column;align-items:stretch;gap:8px}
+  #sideDrawer .hdr-actions .pill{text-align:left;padding:12px 14px;font-size:13px;width:100%}
+  #sideDrawer .homebtn{display:block;padding:12px 14px;border-radius:999px;background:rgba(255,255,255,.07);color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;transition:.2s}
+  #sideDrawer .homebtn:hover{background:rgba(255,255,255,.13);color:var(--ink)}
+  #sideDrawer #searchPill,#sideDrawer #explorePill{display:block}
+  #sideDrawer .appswitch{display:flex;flex-direction:column;gap:4px;background:transparent;border:0;padding:6px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:4px 0;border-radius:0}
+  #sideDrawer .appswitch .seg{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;width:100%}
+  @media (prefers-reduced-motion:reduce){#sideDrawer{transition:none}.drawerScrim{transition:none}}
   .homebtn{width:34px;height:34px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--amber);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;transition:.15s}
   .homebtn:hover{border-color:var(--amber);transform:scale(1.05)}
   @media(max-width:560px){
@@ -318,6 +337,10 @@
 </head>
 <body>
 <div class="wrap">
+  <button class="menuBtn" id="menuBtn" title="Menu">☰</button>
+  <div class="drawerScrim" id="drawerScrim"></div>
+  <aside id="sideDrawer">
+    <button class="xbtn drawerX" id="drawerCloseBtn" title="Close">✕</button>
   <header>
     <div class="brand">
       <span class="dot" id="livedot"></span>
@@ -339,6 +362,7 @@
     </div>
     <div class="status" id="status">Add a Gemini key and a seed to begin.</div>
   </header>
+  </aside>
 
   <div id="sandboxWarn" class="warnbar hidden">
     <b>Playback blocked here.</b> This preview sandbox is stopping YouTube's player script. Download this file and serve it locally (see below) — everything works there.
@@ -1755,6 +1779,13 @@ playYT=function(t){
   _playYT(t);
 };
 $('tabExplore').onclick=()=>{ $('explorePill').click(); setTimeout(()=>{ $('tabExplore').classList.toggle('on',!!S.exploreMode); showTab(S.tab); },0); };
+function drawerOpen(){ $('sideDrawer').classList.add('open'); $('drawerScrim').classList.add('show'); }
+function drawerShut(){ $('sideDrawer').classList.remove('open'); $('drawerScrim').classList.remove('show'); }
+$('menuBtn').onclick=drawerOpen;
+$('drawerScrim').onclick=drawerShut;
+$('drawerCloseBtn').onclick=drawerShut;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') drawerShut(); });
+$('sideDrawer').addEventListener('click',e=>{ if(e.target.closest('.pill,.homebtn,.seg')) setTimeout(drawerShut,140); });
 $('tabSearch').onclick=()=>openSearch();
 $('tabPip').onclick=async()=>{
   if(!S.started||!S.player){ toast('Start playing something first'); return; }
@@ -1787,7 +1818,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 31 · 2026-07-18 · host: no recited instructions · livelier pace · jokes allowed';
+const BUILD='Cassette · build 32 · 2026-07-18 · left drawer — player-first layout';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();

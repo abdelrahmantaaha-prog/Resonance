@@ -636,7 +636,8 @@ function applyTvMode(){
 }
 (function(){
   const q=new URLSearchParams(location.search);
-  if(q.has('tv')){ S.tvMode=q.get('tv')!=='0'; try{localStorage.setItem('reel_tv',S.tvMode?'1':'0');}catch(_){} }
+  if(/ReelTV/.test(navigator.userAgent)){ S.tvMode=true; }   // native TV shell → TV mode always, no URL param needed
+  else if(q.has('tv')){ S.tvMode=q.get('tv')!=='0'; try{localStorage.setItem('reel_tv',S.tvMode?'1':'0');}catch(_){} }
   else S.tvMode=(function(){try{return localStorage.getItem('reel_tv')==='1';}catch(_){return false;}})();
   applyTvMode();
 })();
@@ -647,7 +648,11 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'){
     if(editing)return;
     const el=(document.activeElement&&document.activeElement!==document.body)?document.activeElement:document.querySelector('.tvfocus');
-    if(el){ e.preventDefault(); e.stopPropagation(); el.click(); }
+    if(el){
+      e.preventDefault(); e.stopPropagation();
+      if(/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)){ try{el.focus();}catch(_){} }  // editors: real focus so the TV keyboard opens
+      else el.click();
+    }
     return;
   }
   if(e.key==='Escape'||e.key==='Backspace'||e.key==='GoBack'){
@@ -679,7 +684,7 @@ function moveTabInd(){
 }
 window.addEventListener('resize',moveTabInd);
 
-const BUILD='Reel · build 25 · 2026-07-18 · poster-only rails · in-place watched toggle · on-air filter';
+const BUILD='Reel · build 26 · 2026-07-18 · TV shell auto-detect · editor focus fix';
 
 /* ---------- utils ---------- */
 function toast(m){const e=$('toast');e.innerHTML=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
