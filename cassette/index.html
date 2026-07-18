@@ -419,20 +419,10 @@
           <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="bgChk" style="width:17px;height:17px;accent-color:var(--amber)"> Keep playing in the background</label>
         </div>
         <div class="field">
-          <label>📻 Radio host <span class="hint">— an announcer introduces tracks with a bit of trivia between songs</span></label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="radioChk" style="width:17px;height:17px;accent-color:var(--amber)"> On air</label>
-            <select id="radioVoice" style="flex:1;min-width:150px">
-              <option value="gemini">Gemini voice — sounds human, spends key quota</option>
-              <option value="web">Device voice — free &amp; instant</option>
-            </select>
-            <select id="radioFreq" style="min-width:110px">
-              <option value="1">every track</option>
-              <option value="2">every 2nd track</option>
-              <option value="3">every 3rd track</option>
-            </select>
-          </div>
-          <span class="hint">Gemini voice falls back to the device voice automatically if quota runs out.</span>
+          <label>📻 Radio <span class="hint">— time-based hosted segments; the clock picks the persona &amp; genre, the taste engine fills the songs fresh</span></label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="radioChk" style="width:17px;height:17px;accent-color:var(--amber)"> On air — play the current time slot</label>
+          <div id="radioSched" style="font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:8px;line-height:1.7"></div>
+          <span class="hint">Gemini TTS voices each host in Egyptian Arabic; falls back to the device voice if quota runs out. No skips — it's radio.</span>
         </div>
         <div class="sheet-actions">
           <button class="btn" id="startBtn">Start listening</button>
@@ -613,7 +603,7 @@ const S = {
   player: null, ytReady:false, playing:false, resolving:false, thinking:false, started:false,
   progTimer:null, mode:'discover', heartQueue:[], history:[], userPaused:false,
   pendingTrack:null, dataSaver:'off', ytQuotaOut:false, geminiQuotaOut:false, tab:'now', seeking:false,
-  geminiKeys:[], gi:0, ytKeys:[], yi:0, lastfm:'', exploreMode:false, focus:'',
+  geminiKeys:[], gi:0, ytKeys:[], yi:0, lastfm:'', exploreMode:false, focus:'', segment:'',
   lyrics:null, lyricsLines:[], lyricIdx:-1, lyricsFor:'', lyricsOn:true, translated:false, editOpen:true,
 };
 
@@ -743,8 +733,10 @@ async function askGemini(n){
   const poolLine = pool.length
     ? 'CANDIDATE POOL from real listening data (people who love this listener\'s songs also play these). STRONGLY prefer selecting from this pool; you may add outside picks only if the pool cannot satisfy the rules: '+pool.map(c=>c.title+' — '+c.artist).join(' / ')
     : '';
+  const lane = S.segment ? SEGMENTS.find(x=>x.id===S.segment) : null;
   const lines = [
     'You are a precise music recommendation engine. Suggest '+n+' songs to play NEXT for this listener.',
+    lane ? ('RADIO SEGMENT — this is a themed radio show. Every pick MUST fit this lane: '+lane.laneDesc+'. This is a DISCOVERY radio: draw the best, most iconic and beloved songs of this lane freely — you are NOT limited to what the listener has rated, and you SHOULD surface tracks they have never heard. Use their taste below only as a light steer on mood within the lane, never as a filter that narrows the lane.') : '',
     S.focus ? ('SESSION FOCUS — hard constraint the listener set for RIGHT NOW; every single pick must fit it, it overrides general taste: "'+S.focus+'"') : '',
     S.exploreMode ? 'EXPLORATION MODE — the listener wants to EXPAND their palate: pick from genres and scenes they have NOT rated. Choose the most beloved gateway songs of unfamiliar genres, adjacent enough to their taste to land. Do NOT pick from their usual genres. Still respect banned songs/genres and the session focus if set.' : '',
     poolLine,
@@ -761,7 +753,7 @@ async function askGemini(n){
     'Rules:',
     '- Real songs that exist on YouTube. Prefer official audio/video.',
     '- Never suggest a banned genre. Steer clear of anything close to Disliked.',
-    '- Lean toward the mood of the Favorites and Liked list, but DIVERSIFY: never more than 2 songs of the same genre in one batch; rotate across the FULL breadth of genres in the listener\'s history, not just recent ones.',
+    (S.segment ? '- Stay entirely within the segment lane; variety comes from era, artist, and tempo WITHIN the lane, not from switching genres.' : '- Lean toward the mood of the Favorites and Liked list, but DIVERSIFY: never more than 2 songs of the same genre in one batch; rotate across the FULL breadth of genres in the listener\'s history, not just recent ones.'),
     '- Of the '+n+', make most of them safe/close picks and at most one a tasteful exploration.',
     '- Vary artists; do not stack the same artist.',
     '',
@@ -1651,44 +1643,83 @@ function moveTabInd(){
 }
 window.addEventListener('resize',moveTabInd);
 
-/* ---------- 📻 radio host — Gemini TTS with device-voice fallback ---------- */
-const RADIO={ctx:null,src:null,tok:0,n:0,models:['gemini-3.1-flash-tts-preview','gemini-2.5-flash-preview-tts'],mi:0,prefKey:''};
-function radioLoad(){ try{ const r=JSON.parse(localStorage.getItem('cassette_radio')||'{}'); S.radio=!!r.on; S.radioVoice=r.voice||'gemini'; S.radioFreq=+r.freq||2; }catch(_){ S.radio=false;S.radioVoice='gemini';S.radioFreq=2; } try{ S.bgPlay=localStorage.getItem('cassette_bg')!=='0'; }catch(_){ S.bgPlay=true; } const bc=$('bgChk'); if(bc){ bc.checked=S.bgPlay!==false; bc.onchange=e=>{ S.bgPlay=e.target.checked; try{localStorage.setItem('cassette_bg',S.bgPlay?'1':'0');}catch(_){} }; } radioSyncUI(); }
-function radioSave(){ try{ localStorage.setItem('cassette_radio',JSON.stringify({on:S.radio,voice:S.radioVoice,freq:S.radioFreq})); }catch(_){} }
+/* ---------- 📻 RADIO — time-based hosted segments ---------- */
+/* Config grid: one persona = one genre lane = one time slot. Editable without touching logic. */
+const SEGMENTS = [
+  { id:'morning',  from:6,  to:9,   emoji:'🌅', name:'Morning Drive',
+    persona:'a fast, warm, feel-good Egyptian morning-drive radio host — the "صباح الفل يا أحلى ناس" energy, upbeat and affectionate, waking the city up',
+    lang:'ar', voice:'Puck',
+    laneDesc:'light, upbeat Arabic and international pop — feel-good morning hits, nothing heavy or sad' },
+  { id:'comedian', from:9,  to:14,  emoji:'🎭', name:'The Midday Show',
+    persona:'a slow, deadpan, absurdist Egyptian radio comedian in the Ahmed Younes tradition — dry wit, unexpected tangents, comic timing, never hyper',
+    lang:'ar', voice:'Charon',
+    laneDesc:'a nostalgic mixed bag of well-loved Arabic songs across eras — familiar, singalong, conversation-friendly' },
+  { id:'golden',   from:14, to:17,  emoji:'📻', name:'Zaman',
+    persona:'a formal, dramatic golden-age Egyptian radio announcer in the tradition of "هنا القاهرة" — فصحى-tinged gravitas, stately and reverent toward the music',
+    lang:'ar', voice:'Charon',
+    laneDesc:'classic tarab and the golden age: Umm Kulthum, Abdel Halim Hafez, Warda, Fairuz, Mohammed Abdel Wahab' },
+  { id:'youth',    from:17, to:20,  emoji:'🔥', name:'Drive FM',
+    persona:'a hyped, contemporary Egyptian youth-FM host — high energy, request-show buzz, current slang, fun and loud',
+    lang:'ar', voice:'Fenrir',
+    laneDesc:'new Arabic releases and مهرجانات-adjacent tracks — current, energetic, of-the-moment' },
+  { id:'latenight',from:20, to:24,  emoji:'🌙', name:'Layali',
+    persona:'a low, intimate, unhurried late-night Egyptian radio confidant — warm and close, speaking softly to listeners still awake, dedications and quiet company',
+    lang:'ar', voice:'Charon',
+    laneDesc:'ballads, oud, romantic and melancholic Arabic songs — intimate, slow, late-night listening' },
+  { id:'whisperer',from:0,  to:6,   emoji:'🌌', name:'The Small Hours',
+    persona:'a sparse, philosophical near-silent Egyptian radio voice for the small hours — few words, contemplative, long pauses, speaking to the sleepless',
+    lang:'ar', voice:'Charon',
+    laneDesc:'deep cuts, ambient tarab, instrumental and meditative Arabic music — sparse, atmospheric, for the dead of night' },
+];
+function segmentForNow(){
+  const hIt = new Date().getHours();
+  return SEGMENTS.find(s => s.from <= s.to ? (hIt>=s.from && hIt<s.to) : (hIt>=s.from || hIt<s.to)) || SEGMENTS[0];
+}
+
+const RADIO = { ctx:null, src:null, tok:0, models:['gemini-3.1-flash-tts-preview','gemini-2.5-flash-preview-tts'], mi:0,
+                seg:null, phase:'off', last:null, prefetching:false };
+
+function radioLoad(){
+  try{ const r=JSON.parse(localStorage.getItem('cassette_radio')||'{}'); S.radio=!!r.on; }catch(_){ S.radio=false; }
+  try{ S.bgPlay=localStorage.getItem('cassette_bg')!=='0'; }catch(_){ S.bgPlay=true; }
+  const bc=$('bgChk'); if(bc){ bc.checked=S.bgPlay!==false; bc.onchange=e=>{ S.bgPlay=e.target.checked; try{localStorage.setItem('cassette_bg',S.bgPlay?'1':'0');}catch(_){} }; }
+  radioSyncUI();
+}
+function radioSave(){ try{ localStorage.setItem('cassette_radio',JSON.stringify({on:S.radio})); }catch(_){} }
 function radioSyncUI(){
   const c=$('radioChk'); if(c)c.checked=!!S.radio;
-  const v=$('radioVoice'); if(v)v.value=S.radioVoice||'gemini';
-  const f=$('radioFreq'); if(f)f.value=String(S.radioFreq||2);
-  const p=$('radioPill'); if(p){ p.style.color=S.radio?'var(--ember)':''; p.style.borderColor=S.radio?'var(--ember)':''; p.textContent=S.radio?'📻 on air':'📻'; }
+  const seg=segmentForNow();
+  const p=$('radioPill'); if(p){ p.style.color=S.radio?'var(--ember)':''; p.style.borderColor=S.radio?'var(--ember)':''; p.textContent=S.radio?(seg.emoji+' '+seg.name):'📻'; }
 }
 function radioCtx(){ if(!RADIO.ctx){ try{ RADIO.ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){} } if(RADIO.ctx&&RADIO.ctx.state==='suspended'){ try{RADIO.ctx.resume();}catch(_){} } return RADIO.ctx; }
 document.addEventListener('click',()=>{ if(S.radio) radioCtx(); },true);
 
-function djPrompt(t){
-  const prev=RADIO.last?('The song that just ended was "'+RADIO.last.title+'" by '+RADIO.last.artist+'. Segue from it naturally if it fits. '):'';
-  return 'You are the host of a late-night music program on Egyptian radio — the calm, sincere register of الإذاعة المصرية after midnight. '
-    +'Write ONLY the words you say on air, ENTIRELY IN ARABIC (عامية مصرية بسيطة), no stage directions, no quotes, no markdown, no English except unavoidable proper names. '
-    +'2-3 short sentences, under 55 words. '+prev
-    +'REQUIRED, not optional: include ONE genuinely interesting piece of background about the coming song or its artist — the story behind it, who wrote or composed it, the album or era it belongs to, or what it meant when it came out. If unsure of a specific fact, speak truthfully about the artist\'s era or style instead of inventing details. '
-    +'Tone: warm, alive, and sincere — a host who genuinely loves the music, with the easy rhythm of late-night radio, never flat or sleepy. A light joke or playful remark now and then is welcome when it fits naturally — but never sarcasm, never mockery, no hype. Write for the ear: short sentences, natural spoken rhythm, the way people actually talk on air. Never address or compliment the listener. '
-    +'End by naming the track naturally. Next track: "'+(t.title||'')+'" by '+(t.artist||'unknown')+(t.genre?(' ('+t.genre+')'):'')+'.';
+/* ---- persona scripts: one call writes each patter chunk whole (title lives inside it) ---- */
+function personaBase(seg){
+  const dialect = seg.lang==='ar'
+    ? 'Write ENTIRELY in natural Egyptian colloquial Arabic (عامية مصرية) — never MSA/فصحى unless the persona explicitly calls for a فصحى-tinged flavor. No stage directions, no quotes, no markdown, no English except unavoidable proper names.'
+    : 'Write in warm, natural spoken English.';
+  return 'You are '+seg.persona+', hosting the radio segment "'+seg.name+'". '+dialect+' Write ONLY the words spoken on air. Never compliment the listener or mention their "taste". Sound like real radio — spoken rhythm, short sentences.';
 }
-async function djText(t){
-  if(t._djText) return t._djText;
-  const txt=await geminiRaw(djPrompt(t));
-  t._djText=(txt||'').replace(/^["'\s]+|["'\s]+$/g,'').slice(0,420);
-  return t._djText;
+async function djIntro(seg,t){
+  const prompt = personaBase(seg)+' Open the segment in character: one or two sentences setting the mood of the show, then lead naturally into the first track. Under 45 words total. First track: "'+(t.title||'')+'" by '+(t.artist||'')+'. Name it naturally at the end.';
+  return clean(await geminiRaw(prompt));
 }
-async function djTTS(text){
+async function djLink(seg,prev,next){
+  const prompt = personaBase(seg)+' The song that just ended was "'+(prev&&prev.title||'')+'" by '+(prev&&prev.artist||'')+'. In character, say one brief line reacting or reflecting, then introduce the next track — include ONE genuine piece of background about it or its artist (if unsure, speak to the era/style truthfully, never invent). Under 50 words. Next track: "'+(next.title||'')+'" by '+(next.artist||'')+'. Name it naturally at the end.';
+  return clean(await geminiRaw(prompt));
+}
+function clean(s){ return (s||'').replace(/^["'\s]+|["'\s]+$/g,'').slice(0,460); }
+
+async function djTTS(text, voice){
   while(RADIO.mi<RADIO.models.length){
     const model=RADIO.models[RADIO.mi];
     const call=()=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(gKey()),{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({contents:[{parts:[{text:text}]}],
-        generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Charon'}}}}})});
-    let r;
-    while(true){ r=await call(); if(r.status===429&&rotateGemini())continue; break; }
-    if(r.status===404){ RADIO.mi++; continue; }          // model retired → try next known TTS model
+        generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice||'Charon'}}}}})});
+    let r; while(true){ r=await call(); if(r.status===429&&rotateGemini())continue; break; }
+    if(r.status===404){ RADIO.mi++; continue; }
     if(!r.ok) throw new Error('tts '+r.status);
     const d=await r.json();
     const part=(((d.candidates||[])[0]||{}).content||{}).parts||[];
@@ -1706,99 +1737,98 @@ function pcmToBuffer(b64,mime){
   for(let i=0;i<n;i++){ let v=bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8); if(v>=32768)v-=65536; ch[i]=v/32768; }
   return buf;
 }
-async function radioPrefetch(){
-  if(!S.radio) return;
-  const t=(S.queue||[])[0]; if(!t) return;
-  const k=(t.artist||'')+'|'+(t.title||''); if(RADIO.prefKey===k) return; RADIO.prefKey=k;
-  try{
-    await djText(t);
-    if(S.radioVoice==='gemini' && !t._djBuf) t._djBuf=await djTTS(t._djText);
-  }catch(_){ /* announce-time fallback will handle it */ }
-}
 function radioCancel(){
   RADIO.tok++;
   if(RADIO.src){ try{RADIO.src.stop();}catch(_){} RADIO.src=null; }
   try{ speechSynthesis.cancel(); }catch(_){}
   $('onAir').classList.remove('show');
 }
-function speakWeb(text){
-  return new Promise(res=>{
-    try{
-      const u=new SpeechSynthesisUtterance(text);
-      u.lang='ar-EG';
-      u.rate=1.03; u.pitch=1.0;
-      u.onend=res; u.onerror=res;
-      speechSynthesis.speak(u);
-      setTimeout(res, 25000);                             // hard cap — never trap the listener
-    }catch(_){ res(); }
-  });
+function speakWeb(text,lang){
+  return new Promise(res=>{ try{
+    const u=new SpeechSynthesisUtterance(text); u.lang=lang==='ar'?'ar-EG':'en-US'; u.rate=1.03;
+    u.onend=res; u.onerror=res; speechSynthesis.speak(u); setTimeout(res,28000);
+  }catch(_){ res(); } });
 }
 function speakBuf(buf){
-  return new Promise(res=>{
-    const ctx=radioCtx(); if(!ctx||!buf){res();return;}
-    try{
-      const src=ctx.createBufferSource(); src.buffer=buf; try{src.playbackRate.value=1.07;}catch(_){} src.connect(ctx.destination);
-      src.onended=res; RADIO.src=src; src.start();
-      setTimeout(res, 40000);
-    }catch(_){ res(); }
-  });
+  return new Promise(res=>{ const ctx=radioCtx(); if(!ctx||!buf){res();return;}
+    try{ const src=ctx.createBufferSource(); src.buffer=buf; try{src.playbackRate.value=1.06;}catch(_){}
+      src.connect(ctx.destination); src.onended=res; RADIO.src=src; src.start(); setTimeout(res,45000);
+    }catch(_){ res(); } });
 }
-async function radioAnnounce(t){
+/* speak a prepared patter chunk (text + optional prebaked buffer) */
+async function radioSpeak(seg, chunk){
+  if(!chunk) return;
   const my=++RADIO.tok;
   $('onAir').classList.add('show');
   const prevReason=$('npReason').innerHTML;
   try{
-    const text=await djText(t);
+    $('npReason').innerHTML='📻 '+escapeHtml(chunk.text);
+    let buf=chunk.buf;
+    if(!buf){ try{ buf=await djTTS(chunk.text, seg.voice); }catch(_){ buf=null; } }
     if(my!==RADIO.tok) return;
-    $('npReason').innerHTML='📻 '+escapeHtml(text);
-    let buf=t._djBuf||null;
-    if(S.radioVoice==='gemini' && !buf){ try{ buf=await djTTS(text); }catch(_){ buf=null; } }
-    if(my!==RADIO.tok) return;
-    if(buf) await speakBuf(buf); else await speakWeb(text);
-  }catch(_){ /* no text — stay silent, just play the song */ }
-  finally{
-    if(my===RADIO.tok){ $('onAir').classList.remove('show'); RADIO.src=null; if($('npReason').innerHTML.indexOf('📻')===0) $('npReason').innerHTML=prevReason; }
-  }
+    if(buf) await speakBuf(buf); else await speakWeb(chunk.text, seg.lang);
+  }catch(_){}
+  finally{ if(my===RADIO.tok){ $('onAir').classList.remove('show'); RADIO.src=null; if($('npReason').innerHTML.indexOf('📻')===0) $('npReason').innerHTML=prevReason; } }
 }
-/* every playback path funnels through playYT — intercept it for the announcer */
-const _playYT=playYT;
-playYT=function(t){
+
+/* ---- lazy one-ahead prep: script + TTS the NEXT link while the current song plays ---- */
+async function radioPrepNext(){
+  if(!S.radio || RADIO.prefetching) return;
+  const seg=RADIO.seg; if(!seg) return;
+  const next=(S.queue||[])[0]; if(!next || next._link) return;
+  RADIO.prefetching=true;
+  try{
+    const text=await djLink(seg, RADIO.last, next);
+    let buf=null; try{ buf=await djTTS(text, seg.voice); }catch(_){}
+    next._link={text, buf};
+  }catch(_){ } finally { RADIO.prefetching=false; }
+}
+
+/* ---- segment interception: patter rides between songs, clock picks the persona ---- */
+const _playYT_radio = playYT;
+playYT = function(t){
   radioCancel();
-  const natural=!!(S._naturalEnd && (Date.now()-S._naturalEnd)<15000);   // fresh natural end only
-  S._naturalEnd=0;
-  if(S.radio && natural && t && t.videoId && !t._announced && t.reason!=='you searched for this'){
+  const natural=!!(S._naturalEnd && (Date.now()-S._naturalEnd)<15000); S._naturalEnd=0;
+  if(S.radio && t && t.videoId && !t._announced && t.reason!=='you searched for this'){
     t._announced=true;
-    RADIO.n++;
-    if(RADIO.n%(S.radioFreq||2)===0 || (S.radioFreq||2)===1){
+    const seg=segmentForNow();
+    // segment changed (or first song of the session) → fresh intro; else the prepared link
+    if(!RADIO.seg || RADIO.seg.id!==seg.id){
+      RADIO.seg=seg; radioSyncUI();
       setArt(t);
-      radioAnnounce(t).then(()=>{ RADIO.last={title:t.title||'',artist:t.artist||''}; _playYT(t); });
+      (async()=>{ let text; try{ text=await djIntro(seg,t); }catch(_){ text=''; }
+        await radioSpeak(seg, text?{text}:null);
+        RADIO.last={title:t.title||'',artist:t.artist||''}; _playYT_radio(t); radioPrepNext(); })();
+      return;
+    }
+    if(natural){
+      setArt(t);
+      (async()=>{ await radioSpeak(seg, t._link || null);
+        RADIO.last={title:t.title||'',artist:t.artist||''}; _playYT_radio(t); radioPrepNext(); })();
       return;
     }
   }
   RADIO.last={title:(t&&t.title)||'',artist:(t&&t.artist)||''};
-  _playYT(t);
+  _playYT_radio(t); if(S.radio) radioPrepNext();
 };
-$('tabExplore').onclick=()=>{ $('explorePill').click(); setTimeout(()=>{ $('tabExplore').classList.toggle('on',!!S.exploreMode); showTab(S.tab); },0); };
-function drawerOpen(){ $('sideDrawer').classList.add('open'); $('drawerScrim').classList.add('show'); }
-function drawerShut(){ $('sideDrawer').classList.remove('open'); $('drawerScrim').classList.remove('show'); }
-$('menuBtn').onclick=drawerOpen;
-$('drawerScrim').onclick=drawerShut;
-$('drawerCloseBtn').onclick=drawerShut;
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') drawerShut(); });
-$('sideDrawer').addEventListener('click',e=>{ if(e.target.closest('.pill,.homebtn,.seg')) setTimeout(drawerShut,140); });
-$('tabSearch').onclick=()=>openSearch();
-$('tabPip').onclick=async()=>{
-  if(!S.started||!S.player){ toast('Start playing something first'); return; }
-  if(!$('videoShell').classList.contains('vbig')) $('vidToggle').click();   // PiP needs the video visible
-  try{
-    await $('artBox').requestFullscreen();
-    toast('📱 Now press Home — the video pops into picture-in-picture');
-  }catch(_){ toast('Fullscreen was blocked — tap the video, use its own fullscreen, then press Home'); }
-};
-$('radioPill').onclick=()=>{ S.radio=!S.radio; radioSave(); radioSyncUI(); if(S.radio){ radioCtx(); toast('📻 Cassette FM — on air'); radioPrefetch(); } else { radioCancel(); toast('Radio off'); } };
-$('radioChk').onchange=e=>{ S.radio=e.target.checked; radioSave(); radioSyncUI(); if(!S.radio)radioCancel(); };
-$('radioVoice').onchange=e=>{ S.radioVoice=e.target.value; radioSave(); };
-$('radioFreq').onchange=e=>{ S.radioFreq=+e.target.value||2; radioSave(); };
+
+function radioStart(){
+  const seg=segmentForNow();
+  S.segment=seg.id; RADIO.seg=null;   // force intro on first track
+  radioCtx(); radioSyncUI();
+  toast(seg.emoji+' '+seg.name+' — on air');
+  // reset the queue so the lane's discover picks replace generic taste picks
+  S.candidates=[]; S.queue=[];
+  if(S.started){ if(S.mode==='hearts') exitHearts(); else loadNext(); }
+}
+function radioStop(){ S.segment=''; RADIO.seg=null; radioCancel(); S.candidates=[]; toast('Radio off'); }
+
+$('radioPill').onclick=()=>{ S.radio=!S.radio; radioSave(); radioSyncUI(); if(S.radio) radioStart(); else radioStop(); };
+$('radioChk').onchange=e=>{ S.radio=e.target.checked; radioSave(); radioSyncUI(); if(S.radio)radioStart(); else radioStop(); };
+(function(){ const el=$('radioSched'); if(el) el.innerHTML=SEGMENTS.slice().sort((a,b)=>a.from-b.from).map(s=>{
+  const f=(s.from%12||12)+(s.from<12?'am':'pm'), tt=(s.to%12||12)+(s.to<12||s.to===24?'am':'pm');
+  return s.emoji+' '+String(s.from).padStart(2,'0')+':00–'+String(s.to%24).padStart(2,'0')+':00 · <b style="color:var(--muted)">'+s.name+'</b>';
+}).join('<br>'); })();
 radioLoad();
 
 /* ---------- music-player chrome ---------- */
@@ -1818,7 +1848,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 32 · 2026-07-18 · left drawer — player-first layout';
+const BUILD='Cassette · build 33 · 2026-07-18 · radio segments — time-based personas, genre lanes, lazy TTS';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
