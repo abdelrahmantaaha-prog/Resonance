@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cassette's own --bg, so the adaptive icon reads as one piece with the app -->
+    <color name="ic_launcher_background">#121114</color>
+</resources>

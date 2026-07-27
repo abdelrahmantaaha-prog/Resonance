@@ -181,10 +181,23 @@
   .videoshell .placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--faint);font-family:var(--mono);font-size:12px;text-align:center;padding:24px}
   .np-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
   .np-head .np-t{min-width:0;flex:1}
+  .np-acts{display:flex;align-items:center;gap:2px;flex:none}
   .hearticon{background:none;border:0;font-size:25px;color:var(--muted);cursor:pointer;padding:2px 4px;transition:transform .2s cubic-bezier(.3,1.8,.4,1),color .2s;line-height:1}
   .hearticon:hover{color:var(--ember)}
   .hearticon.on{color:var(--ember)}
   .hearticon:active{transform:scale(1.25)}
+  /* 📡 station — one song becomes the whole lane */
+  .stbtn{background:none;border:0;font-size:21px;color:var(--muted);cursor:pointer;padding:2px 4px;line-height:1;transition:transform .2s cubic-bezier(.3,1.8,.4,1),color .2s}
+  .stbtn:hover{color:var(--amber)}
+  .stbtn.on{color:var(--amber);text-shadow:0 0 14px rgba(232,162,75,.5)}
+  .stbtn:active{transform:scale(1.22)}
+  .stationbar{display:flex;align-items:center;gap:9px;background:rgba(232,162,75,.08);border:1px solid rgba(232,162,75,.32);border-radius:10px;padding:8px 11px;margin:0 0 14px}
+  .stationbar .sb-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .stationbar .sb-t b{color:var(--amber);font-weight:500}
+  .stationbar button{background:transparent;border:1px solid rgba(232,162,75,.4);color:var(--amber);border-radius:7px;padding:4px 10px;font-family:var(--mono);font-size:11px;flex:none;transition:.15s}
+  .stationbar button:hover{background:rgba(232,162,75,.16)}
+  .srow .sst{background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:7px;padding:5px 9px;font-size:13px;line-height:1;flex:none;transition:.15s}
+  .srow .sst:hover{color:var(--amber);border-color:var(--amber)}
   .transport{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 2px}
   .t-sm,.t-md{background:none;border:0;color:var(--muted);cursor:pointer;line-height:1;transition:.15s;padding:6px}
   .t-sm{font-size:19px}.t-md{font-size:25px;color:var(--ink)}
@@ -487,12 +500,19 @@
             <button class="btn ghost sm" id="quotaSettingsBtn">⚙ Open settings</button>
           </div>
         </div>
+        <div class="stationbar hidden" id="stationBar">
+          <span class="sb-t" id="stationLabel"></span>
+          <button id="stationOff">✕ end station</button>
+        </div>
         <div class="np-head">
           <div class="np-t">
             <h3 class="np-title" id="npTitle">—</h3>
             <div class="np-artist" id="npArtist"></div>
           </div>
-          <button class="hearticon" id="btnHeart" title="All-time favorite"><span class="ico">♥</span></button>
+          <div class="np-acts">
+            <button class="stbtn" id="btnStation" title="Start a station from this song — fills the queue with more like this">📡</button>
+            <button class="hearticon" id="btnHeart" title="All-time favorite"><span class="ico">♥</span></button>
+          </div>
         </div>
         <div class="np-reason" id="npReason"></div>
 
@@ -573,6 +593,7 @@
   <footer>
     Cassette learns only from your four signals. Nothing leaves your browser except calls to Google's Gemini and YouTube with your own keys.<br>
     Finish → liked · Heart → favorite · Skip → not your type · Never → genre banned.<br>
+    📡 Station builds the whole queue out of one song. In the car app: wheel ⏮ = ♥ favorite, ⏭ = skip that teaches nothing.<br>
     <span id="buildStamp" style="opacity:.6"></span>
   </footer>
 </div>
@@ -586,11 +607,17 @@
         <button class="btn sm" id="searchGo">Search</button>
       </div>
       <div id="searchRes" style="margin-top:12px;max-height:60vh;overflow-y:auto"></div>
-      <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:10px">Playing a search result teaches nothing — heart it if you want Cassette to learn from it.</div>
+      <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:10px">Playing a search result teaches nothing — heart it if you want Cassette to learn from it. Tap <b>📡</b> on any result to build a whole station around it.</div>
     </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- Capacitor core runtime (10 KB, vendored from @capacitor/core 6.2.1).
+     In a browser it detects platform "web" and does nothing. Inside the car APK
+     it gives this un-bundled page registerPlugin(), which is how we reach the
+     native MediaSession — steering-wheel buttons. Safe to load either way. -->
+<script src="capacitor-core.js"></script>
 
 <script>
 /* ============================================================
@@ -608,6 +635,7 @@ const S = {
   progTimer:null, mode:'discover', heartQueue:[], history:[], userPaused:false,
   pendingTrack:null, dataSaver:'off', ytQuotaOut:false, geminiQuotaOut:false, tab:'now', seeking:false,
   geminiKeys:[], gi:0, ytKeys:[], yi:0, lastfm:'', exploreMode:false, focus:'', segment:'',
+  station:null,             // 📡 {title,artist,genre} — seed song the whole queue is built around
   lyrics:null, lyricsLines:[], lyricIdx:-1, lyricsFor:'', lyricsOn:true, translated:false, editOpen:true,
 };
 
@@ -710,12 +738,15 @@ function topKeys(obj,n){ return Object.entries(obj).filter(([,v])=>v>0).sort((a,
    track.getSimilar = collaborative filtering from decades of scrobbles. */
 async function lastfmSimilarPool(){
   if(!S.lastfm) return [];
-  const anchors=sampleDiverse(S.profile.loved.concat(S.profile.liked),3);
+  /* 📡 station: the seed song IS the anchor — this is literally "more like this",
+     straight from scrobble data, so pull deeper than the usual taste sample. */
+  const anchors = S.station ? [S.station] : sampleDiverse(S.profile.loved.concat(S.profile.liked),3);
+  const per = S.station ? 40 : 12;
   if(!anchors.length) return [];
   const pool=[]; const poolKeys=new Set();
   await Promise.all(anchors.map(async a=>{
     try{
-      const u='https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&autocorrect=1&limit=12&format=json'
+      const u='https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&autocorrect=1&limit='+per+'&format=json'
         +'&api_key='+encodeURIComponent(S.lastfm)
         +'&artist='+encodeURIComponent(a.artist||'')+'&track='+encodeURIComponent(a.title||'');
       const r=await fetch(u); if(!r.ok) return;
@@ -728,18 +759,26 @@ async function lastfmSimilarPool(){
       });
     }catch(_){}
   }));
-  return pool.slice(0,30);
+  return pool.slice(0, S.station ? 40 : 30);
 }
 async function askGemini(n){
   const p = S.profile;
   const avoid = [...S.seenKeys].slice(-45).join('; ') || 'none yet';
+  const st = S.station;
   const pool = S.exploreMode ? [] : await lastfmSimilarPool();   // similarity pool contradicts exploration
   const poolLine = pool.length
-    ? 'CANDIDATE POOL from real listening data (people who love this listener\'s songs also play these). STRONGLY prefer selecting from this pool; you may add outside picks only if the pool cannot satisfy the rules: '+pool.map(c=>c.title+' — '+c.artist).join(' / ')
+    ? (st
+      ? 'CANDIDATE POOL from real listening data — these are the tracks scrobblers most often play alongside the seed song itself. STRONGLY prefer selecting from this pool; add outside picks only if the pool cannot satisfy the rules: '+pool.map(c=>c.title+' — '+c.artist).join(' / ')
+      : 'CANDIDATE POOL from real listening data (people who love this listener\'s songs also play these). STRONGLY prefer selecting from this pool; you may add outside picks only if the pool cannot satisfy the rules: '+pool.map(c=>c.title+' — '+c.artist).join(' / '))
     : '';
-  const lane = S.segment ? SEGMENTS.find(x=>x.id===S.segment) : null;
+  const lane = (S.segment && !st) ? SEGMENTS.find(x=>x.id===S.segment) : null;   // a station outranks the radio lane
   const lines = [
     'You are a precise music recommendation engine. Suggest '+n+' songs to play NEXT for this listener.',
+    st ? ('STATION MODE — the listener pressed "station" on ONE song and wants MORE LIKE THIS. That seed song, not the taste profile, defines this batch.'
+      +'\nSEED SONG: "'+st.title+'" by '+(st.artist||'unknown artist')+(st.genre?(' ['+st.genre+']'):'')
+      +'\nEvery single pick must sit in the seed\'s immediate sonic neighbourhood — comparable genre and subgenre, era, language, instrumentation, tempo, production and emotional register. Someone who put this song on repeat should recognise every pick as belonging with it.'
+      +'\nOrder the batch from closest match outward: start with near-twins, end with close cousins. Never jump to a different scene, and never widen into the listener\'s other genres just for variety.'
+      +'\nInclude the seed\'s own artist at most once, and never the seed song itself. The taste profile below is only a tie-breaker between two equally close candidates.') : '',
     lane ? ('RADIO SEGMENT — this is a themed radio show. Every pick MUST fit this lane: '+lane.laneDesc+'. This is a DISCOVERY radio: draw the best, most iconic and beloved songs of this lane freely — you are NOT limited to what the listener has rated, and you SHOULD surface tracks they have never heard. Use their taste below only as a light steer on mood within the lane, never as a filter that narrows the lane.') : '',
     S.focus ? ('SESSION FOCUS — hard constraint the listener set for RIGHT NOW; every single pick must fit it, it overrides general taste: "'+S.focus+'"') : '',
     S.exploreMode ? 'EXPLORATION MODE — the listener wants to EXPAND their palate: pick from genres and scenes they have NOT rated. Choose the most beloved gateway songs of unfamiliar genres, adjacent enough to their taste to land. Do NOT pick from their usual genres. Still respect banned songs/genres and the session focus if set.' : '',
@@ -757,12 +796,17 @@ async function askGemini(n){
     'Rules:',
     '- Real songs that exist on YouTube. Prefer official audio/video.',
     '- Never suggest a banned genre. Steer clear of anything close to Disliked.',
-    (S.segment ? '- Stay entirely within the segment lane; variety comes from era, artist, and tempo WITHIN the lane, not from switching genres.' : '- Lean toward the mood of the Favorites and Liked list, but DIVERSIFY: never more than 2 songs of the same genre in one batch; rotate across the FULL breadth of genres in the listener\'s history, not just recent ones.'),
-    '- Of the '+n+', make most of them safe/close picks and at most one a tasteful exploration.',
+    (st ? '- Stay inside the seed song\'s lane. Variety comes from artist and era WITHIN that lane — never from switching genre or mood.'
+        : S.segment ? '- Stay entirely within the segment lane; variety comes from era, artist, and tempo WITHIN the lane, not from switching genres.'
+        : '- Lean toward the mood of the Favorites and Liked list, but DIVERSIFY: never more than 2 songs of the same genre in one batch; rotate across the FULL breadth of genres in the listener\'s history, not just recent ones.'),
+    (st ? '- All '+n+' must be close matches. There is no exploration slot in a station.'
+        : '- Of the '+n+', make most of them safe/close picks and at most one a tasteful exploration.'),
     '- Vary artists; do not stack the same artist.',
     '',
     'Return ONLY a raw JSON array, no markdown, no commentary:',
-    '[{"title":"","artist":"","genre":"","reason":"max 12 words, why it fits THIS listener","searchQuery":"Artist Title official audio","youtubeId":"11-char id if you are confident, else empty string"}]'
+    (st
+      ? '[{"title":"","artist":"","genre":"","reason":"max 12 words, what it shares with the seed song","searchQuery":"Artist Title official audio","youtubeId":"11-char id if you are confident, else empty string"}]'
+      : '[{"title":"","artist":"","genre":"","reason":"max 12 words, why it fits THIS listener","searchQuery":"Artist Title official audio","youtubeId":"11-char id if you are confident, else empty string"}]')
   ].filter(Boolean).join('\n');
 
   const call = async(model)=>fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(gKey()),
@@ -965,6 +1009,7 @@ async function nextHeart(){
 }
 function enterHearts(){
   if(!S.profile.loved.length){ toast('Heart a few songs first — or add them in Sound DNA'); return; }
+  if(S.station){ S.station=null; renderStation(); }        // favorites-only replaces the station lane
   S.mode='hearts'; S.heartQueue = shuffleArr(S.profile.loved);
   renderModel(); updateModePill(); setStatus('<b>\u2665 Close to my heart</b> \u00b7 favorites only, on shuffle');
   showTab('now'); nextHeart();
@@ -978,6 +1023,59 @@ function updateModePill(){
   if(S.mode==='hearts'){ b.classList.add('on'); b.textContent='← discovery'; }
   else { b.classList.remove('on'); b.textContent='♥ favorites'; }
 }
+/* ============================================================
+   📡 STATION — one song becomes the whole lane.
+   Everything after the seed is "more like this": Last.fm anchors the
+   similarity pool on the seed track itself, Gemini curates that pool
+   into close matches, and the normal 2-ahead lookahead keeps refilling
+   from the same seed until the station is ended.
+============================================================ */
+function stationTitle(){ return S.station ? (S.station.title+(S.station.artist?(' — '+S.station.artist):'')) : ''; }
+function renderStation(){
+  const bar=$('stationBar'); if(!bar) return;
+  bar.classList.toggle('hidden', !S.station);
+  if(S.station) $('stationLabel').innerHTML='📡 Station · more like <b>'+escapeHtml(stationTitle())+'</b>';
+  const b=$('btnStation'); if(b){ b.classList.toggle('on', !!S.station); b.title = S.station ? 'Station running — press to rebuild it around this song' : 'Start a station from this song — fills the queue with more like this'; }
+  const m=$('npMode'); if(m && S.current) m.textContent = S.station ? '📡 Station' : (S.mode==='hearts' ? '♥ Close to my heart' : '◈ Now playing');
+}
+async function startStation(t, playSeed){
+  if(!S.started){ toast('Start listening first'); return; }
+  if(!t || !t.title){ toast('Nothing to build a station from'); return; }
+
+  S.station = { title:t.title, artist:t.artist||'', genre:t.genre||'' };
+  if(S.mode==='hearts'){ S.mode='discover'; S.heartQueue=[]; updateModePill(); }   // a station is its own lane
+  if(S.exploreMode){ S.exploreMode=false; }        // "more like this" is the opposite of exploring
+  S.candidates=[]; S.queue=[];                     // the old queue was built for a different taste
+  S.seenKeys.add(key(t));                          // never suggest the seed back to itself
+  refreshSessionUI(); renderStation(); renderQueue(); showTab('now');
+  toast('📡 Station · more like <span class="k">'+escapeHtml(t.title)+'</span>');
+  setStatus('<b>📡 Station</b> · building songs like <b>'+escapeHtml(t.title)+'</b>');
+
+  if(playSeed){
+    const c={...t, reason:'the song this station is built on'};
+    if(!(c.videoId && /^[\w-]{11}$/.test(c.videoId))){
+      const res=await resolveTrack({artist:c.artist,title:c.title}, true);
+      if(res) Object.assign(c,res);
+    }
+    if(c.videoId) startTrack(c);
+    else toast('Couldn’t play the seed — station still building');
+  }
+  await ensureQueue();
+  if(S.queue.length) setStatus('<b>📡 Station</b> · more like <b>'+escapeHtml(stationTitle())+'</b>');
+}
+function stopStation(){
+  if(!S.station) return;
+  S.station=null; S.candidates=[]; S.queue=[];
+  renderStation(); renderQueue();
+  toast('Station ended · back to your taste');
+  setStatus('Back to discovery');
+  if(S.started) ensureQueue();
+}
+function stationFromCurrent(){
+  if(!S.current){ toast('Nothing playing yet'); return; }
+  startStation(S.current, false);      // it's already playing — just rebuild what comes after it
+}
+
 function previousTrack(){
   if(getTime() > 5){ ctrlSeek0(); return; }
   if(!S.history.length){ ctrlSeek0(); return; }
@@ -1018,12 +1116,20 @@ async function runSearch(){
     $('searchRes').innerHTML=hits.map((h,i)=>{
       const th=((h.snippet.thumbnails&&(h.snippet.thumbnails.medium||h.snippet.thumbnails.default))||{}).url||'';
       return '<div class="srow" data-si="'+i+'">'+(th?('<img src="'+escapeHtml(th)+'" alt="">'):'')
-        +'<div style="min-width:0"><div class="st">'+escapeHtml(deent(h.snippet.title))+'</div><div class="ss">'+escapeHtml(deent(h.snippet.channelTitle||''))+'</div></div></div>';
+        +'<div style="min-width:0;flex:1"><div class="st">'+escapeHtml(deent(h.snippet.title))+'</div><div class="ss">'+escapeHtml(deent(h.snippet.channelTitle||''))+'</div></div>'
+        +'<button class="sst" data-sst="'+i+'" title="Start a station from this song">📡</button></div>';
     }).join('');
+    const asTrack=h=>({ title:deent(h.snippet.title), artist:deent(h.snippet.channelTitle||''), videoId:h.id.videoId });
     $('searchRes').querySelectorAll('[data-si]').forEach(el=>el.onclick=()=>{
       const h=hits[+el.dataset.si];
       closeSearchOv(); showTab('now');
-      startTrack({ title:deent(h.snippet.title), artist:deent(h.snippet.channelTitle||''), videoId:h.id.videoId, reason:'you searched for this' });
+      startTrack(Object.assign(asTrack(h), {reason:'you searched for this'}));
+    });
+    $('searchRes').querySelectorAll('[data-sst]').forEach(b=>b.onclick=e=>{
+      e.stopPropagation();
+      const h=hits[+b.dataset.sst];
+      closeSearchOv();
+      startStation(asTrack(h), true);
     });
   }catch(_){ $('searchRes').innerHTML='<div class="mlist-hint">search failed — YouTube key or quota</div>'; }
 }
@@ -1041,12 +1147,12 @@ function applyDataSaver(){
 function onState(e){
   if(e.data===YT.PlayerState.ENDED){ if(S.repeat){ try{S.player.seekTo(0,true);S.player.playVideo();}catch(_){ } } else { S._naturalEnd=Date.now(); completed(); } }
   else if(e.data===YT.PlayerState.PLAYING){ S.playing=true; S.userPaused=false; syncPlayIco(); $('livedot').classList.add('live');
-    try{ navigator.mediaSession.playbackState='playing'; }catch(_){}
+    msPlaybackState();
     S._bgTries=0;
-    radioPrefetch();
+    radioPrepNext();          // (was radioPrefetch — undefined, threw on every play event)
   }
   else if(e.data===YT.PlayerState.PAUSED){ S.playing=false; syncPlayIco(); $('livedot').classList.remove('live');
-    try{ navigator.mediaSession.playbackState='paused'; }catch(_){}
+    msPlaybackState();
     if(S.bgPlay!==false && document.hidden && !S.userPaused && S.started && (S._bgTries||0)<4){
       S._bgTries=(S._bgTries||0)+1;
       setTimeout(()=>{ try{ if(document.hidden && !S.userPaused && S.player) S.player.playVideo(); }catch(_){} }, 420);
@@ -1066,6 +1172,7 @@ function startProg(){
     $('progKnob').style.left=pct+'%';
     $('tCur').textContent=fmt(c); $('tDur').textContent=fmt(d);
     lyricsTick(c, d);
+    msPositionState(c, d);
   },300);
 }
 /* seekable progress bar (works even when video is hidden in data-saver) */
@@ -1201,48 +1308,80 @@ function toggleTranslation(){
    metadata for environments that let the page claim the session
    (works on desktop Chrome; varies on Android).
 ============================================================ */
-/* Native (Capacitor) media-session plugin, when running inside the car wrapper.
-   The Android WebView doesn't support the web MediaSession API, so inside the
-   wrapper we route through the Capawesome plugin instead. Same handlers → same
-   Cassette functions, so steering-wheel / lock-screen buttons drive the app. */
-function nativeMS(){ try{ return window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.MediaSession; }catch(_){ return null; } }
+/* Native (Capacitor) media session, when running inside the car APK.
+   Android's WebView has no Media Session API at all, so in the wrapper we route
+   through @jofr/capacitor-media-session — a real MediaSessionCompat plus the
+   foreground service that keeps audio alive with the screen off. Same handlers
+   as the web path, so the steering wheel drives Cassette directly.
+
+   The car mapping, deliberately different from the on-screen transport:
+     PREVIOUS  → ♥ favorite   (the one judgement worth making at 100 km/h)
+     NEXT      → neutral skip (moves on, teaches the model NOTHING) */
+let CAP_MS = null;
+(function initNativeMediaSession(){
+  try{
+    const C = window.Capacitor;
+    if(!C || !(C.isNativePlatform && C.isNativePlatform())) return;   // browser → use the web API below
+    const reg = (window.capacitorExports && window.capacitorExports.registerPlugin) || C.registerPlugin;
+    CAP_MS = reg ? reg('MediaSession') : ((C.Plugins && C.Plugins.MediaSession) || null);
+  }catch(_){ CAP_MS = null; }
+})();
+function isCar(){ return !!CAP_MS; }
+
+function msFavorite(){                      // wheel PREVIOUS — heart without leaving the song
+  const t=S.current; if(!t){ return; }
+  if(S.profile.loved.some(x=>key(x)===key(t))){ toast('Already a favorite ♥'); return; }
+  heart();
+}
+const MS_ACTIONS = {
+  play:  ()=>{ S.userPaused=false; try{S.player.playVideo()}catch(_){} },
+  pause: ()=>{ S.userPaused=true;  try{S.player.pauseVideo()}catch(_){} },
+  stop:  ()=>{ S.userPaused=true;  try{S.player.pauseVideo()}catch(_){} },
+  nexttrack:     ()=>neutralNext(),   // teaches NOTHING — protects the model from car-seat skips
+  previoustrack: ()=>msFavorite(),    // ♥ favorite
+  seekto: d=>{ const s=d&&d.seekTime; if(S.radio||typeof s!=='number') return; try{ S.player.seekTo(s,true); }catch(_){} },
+};
 function initMediaSession(){
-  const MS = nativeMS();
-  if(MS){
-    // register the actions we support, then listen for them
-    ['play','pause','nexttrack','previoustrack'].forEach(a=>{ try{ MS.registerActionHandler({action:a}); }catch(_){} });
-    try{ MS.addListener('action', ev=>{
-      const a = ev && ev.action;
-      if(a==='play'){ S.userPaused=false; try{S.player.playVideo()}catch(_){} }
-      else if(a==='pause'){ S.userPaused=true; try{S.player.pauseVideo()}catch(_){} }
-      else if(a==='nexttrack'){ neutralNext(); }
-      else if(a==='previoustrack'){ previousTrack(); }
-    }); }catch(_){}
+  if(CAP_MS){
+    Object.keys(MS_ACTIONS).forEach(a=>{
+      try{ CAP_MS.setActionHandler({action:a}, d=>{ try{ MS_ACTIONS[a](d); }catch(_){} }); }catch(_){}
+    });
     return;
   }
   if(!('mediaSession' in navigator)) return;
   const ms = navigator.mediaSession;
   const safe=(n,f)=>{ try{ ms.setActionHandler(n,f); }catch(_){} };
-  safe('play',  ()=>{ S.userPaused=false; try{S.player.playVideo()}catch(_){} });
-  safe('pause', ()=>{ S.userPaused=true;  try{S.player.pauseVideo()}catch(_){} });
-  safe('nexttrack',     ()=>neutralNext());   // car "next" = just move on, teaches NOTHING (protects the model)
-  safe('previoustrack', ()=>previousTrack());
+  Object.keys(MS_ACTIONS).forEach(a=>safe(a, d=>MS_ACTIONS[a](d)));
+}
+/* play/pause state — drives the notification + the car's play button */
+function msPlaybackState(){
+  const st = S.playing ? 'playing' : 'paused';
+  if(CAP_MS){ try{ CAP_MS.setPlaybackState({playbackState:st}); }catch(_){} return; }
+  try{ navigator.mediaSession.playbackState = st; }catch(_){}
+}
+/* scrub position — head units draw their own progress bar from this */
+function msPositionState(cur,dur){
+  if(!CAP_MS || !dur || !isFinite(dur)) return;
+  if(S._msPosAt && Date.now()-S._msPosAt < 1000) return;
+  S._msPosAt = Date.now();
+  try{ CAP_MS.setPositionState({duration:dur, position:Math.min(cur||0,dur), playbackRate:1}); }catch(_){}
 }
 function updateMediaMeta(){
   if(!S.current) return;
   const art='https://i.ytimg.com/vi/'+S.current.videoId+'/hqdefault.jpg';
-  const album = S.mode==='hearts' ? 'Close to my heart ♥' : 'Cassette';
-  const MS = nativeMS();
-  if(MS){
-    try{ MS.setMetadata({ title:S.current.title, artist:S.current.artist, album, artwork:[{src:art,sizes:'480x360',type:'image/jpeg'}] }); }catch(_){}
-    try{ MS.setPlaybackState({ playbackState: S.playing?'playing':'paused' }); }catch(_){}
+  const album = S.station ? ('📡 more like '+S.station.title)
+              : S.mode==='hearts' ? 'Close to my heart ♥' : 'Cassette';
+  const artwork=[{src:art, sizes:'480x360', type:'image/jpeg'}];
+  if(CAP_MS){
+    /* artwork must always be present — the native side reads it unconditionally */
+    try{ CAP_MS.setMetadata({ title:S.current.title||'', artist:S.current.artist||'', album, artwork }); }catch(_){}
+    msPlaybackState();
     return;
   }
   if(!('mediaSession' in navigator)) return;
   try{
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: S.current.title, artist: S.current.artist, album,
-      artwork: [{src:art, sizes:'480x360', type:'image/jpeg'}]
+      title: S.current.title, artist: S.current.artist, album, artwork
     });
   }catch(_){}
 }
@@ -1305,10 +1444,12 @@ function renderNow(){
   $('npTitle').textContent=t.title;
   $('npArtist').textContent=t.artist + (t.genre?(' · '+t.genre):'');
   $('npReason').innerHTML = t.reason ? '<b>picked because</b> '+escapeHtml(t.reason) : '';
-  syncPlayIco(); updateMediaMeta();
+  syncPlayIco(); updateMediaMeta(); renderStation();
   loadLyrics(t);
-  $('npMode').textContent = S.mode==='hearts' ? '♥ Close to my heart' : '◈ Now playing';
-  setStatus(S.mode==='hearts'
+  $('npMode').textContent = S.station ? '📡 Station' : (S.mode==='hearts' ? '♥ Close to my heart' : '◈ Now playing');
+  setStatus(S.station
+    ? '<b>📡 Station</b> · more like <b>'+escapeHtml(stationTitle())+'</b>'
+    : S.mode==='hearts'
     ? '<b>♥ Close to my heart</b> · '+S.profile.loved.length+' favorites on shuffle'
     : 'Playing · <b>'+escapeHtml(t.genre||'—')+'</b> · queue keeps 2 ready');
 }
@@ -1329,7 +1470,9 @@ function renderQueue(){
 }
 function updateQCount(){
   const n = S.mode==='hearts' ? S.heartQueue.length : S.queue.length;
-  $('qcount').textContent = S.mode==='hearts' ? '♥ favorites' : ((S.thinking||S.resolving) ? 'planning…' : (S.queue.length+' ready'));
+  $('qcount').textContent = S.mode==='hearts' ? '♥ favorites'
+    : (S.thinking||S.resolving) ? (S.station?'tuning the station…':'planning…')
+    : (S.queue.length+' ready');
   const badge=$('tabBadge');
   if(badge){
     const show = S.tab!=='queue' && n>0 && !S.mode.includes('hearts');
@@ -1392,15 +1535,17 @@ function renderMList(){
       h+=`<div class="mrow">
         <button class="mbtn" data-play="${bucket}:${i}" title="Play now">▶</button>
         <span class="txt">${icon} ${escapeHtml(t.title||'')}${t.artist?(' — '+escapeHtml(t.artist)):''}</span>
+        <button class="mbtn" data-station="${bucket}:${i}" title="Start a station from this song">📡</button>
         <button class="mbtn" data-edit="${bucket}:${i}" title="Edit">✎</button>
         <button class="mbtn del" data-del="${bucket}:${i}" title="Remove">✕</button>
       </div>`;
     });
     return h+'</div></div>';
   };
-  wrap.innerHTML = `<div class="mlist-hint">▶ play any song · ✎ edit · ✕ remove</div>` +
+  wrap.innerHTML = `<div class="mlist-hint">▶ play any song · 📡 station · ✎ edit · ✕ remove</div>` +
     sect('loved','♥ favorites','♥') + sect('liked','you like','♪') + sect('disliked','not my type','·') + sect('banned','⦸ never again','⦸');
   wrap.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{ const [bk,i]=b.dataset.play.split(':'); playSpecific(S.profile[bk][+i]); });
+  wrap.querySelectorAll('[data-station]').forEach(b=>b.onclick=()=>{ const [bk,i]=b.dataset.station.split(':'); startStation(S.profile[bk][+i], true); });
   wrap.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const [bk,i]=b.dataset.del.split(':'); const t=S.profile[bk][+i]; S.seenKeys.delete(key(t)); S.profile[bk].splice(+i,1); saveLocal(); renderModel(); toast('Removed'); });
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{ const [bk,i]=b.dataset.edit.split(':'); editEntry(bk,+i); });
 }
@@ -1434,6 +1579,8 @@ $('quotaFavBtn').onclick=()=>{ $('quotaWall').classList.add('hidden'); enterHear
 $('quotaRetryBtn').onclick=()=>{ S.gi=0; S.yi=0; S.geminiQuotaOut=false; S.ytQuotaOut=false; S.gQuotaAt=0; S.yQuotaAt=0; $('quotaWall').classList.add('hidden'); setStatus('<b>Retrying…</b>'); if(S.mode==='hearts')exitHearts(); else loadNext(); };
 $('quotaSettingsBtn').onclick=()=>{ $('quotaWall').classList.add('hidden'); openSettings(); };
 $('btnHeart').onclick=heart;
+$('btnStation').onclick=stationFromCurrent;
+$('stationOff').onclick=stopStation;
 $('btnSkip').onclick=skip;
 $('btnDown').onclick=down;
 $('btnNext').onclick=neutralNext;
@@ -1507,6 +1654,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='ArrowLeft')previousTrack();
   if(e.key.toLowerCase()==='n')neutralNext();
   if(e.key.toLowerCase()==='h')heart();
+  if(e.key.toLowerCase()==='s')stationFromCurrent();
 });
 
 /* ---- manual anchoring ---- */
@@ -1570,6 +1718,7 @@ function reSteer(msg){
 $('explorePill').onclick=()=>{
   S.exploreMode=!S.exploreMode;
   if(S.exploreMode && S.mode==='hearts') exitHearts();
+  if(S.exploreMode && S.station){ S.station=null; renderStation(); }   // exploring is the opposite of "more like this"
   refreshSessionUI();
   reSteer(S.exploreMode?'🎲 exploring beyond your taste':'back to your taste');
 };
@@ -1875,21 +2024,25 @@ function renderUpNextMini(){
   const box=$('upnextMini'); if(!box)return;
   const q=(S.queue||[]).slice(0,3);
   if(!q.length){ box.innerHTML=''; return; }
-  box.innerHTML='<div class="un-h">UP NEXT · FROM YOUR TASTE</div>'+q.map((t,i)=>'<div class="unrow" data-un="'+i+'">'
+  const head = S.station ? ('UP NEXT · MORE LIKE '+String(S.station.title||'').toUpperCase()) : 'UP NEXT · FROM YOUR TASTE';
+  box.innerHTML='<div class="un-h">'+escapeHtml(head)+'</div>'+q.map((t,i)=>'<div class="unrow" data-un="'+i+'">'
     +'<div class="una"'+(t.videoId?(' style="background-image:url(\'https://i.ytimg.com/vi/'+t.videoId+'/default.jpg\')"'):'')+'></div>'
     +'<div class="unt"><b>'+escapeHtml(t.title||'')+'</b><span>'+escapeHtml(t.artist||'')+'</span></div></div>').join('');
   box.querySelectorAll('[data-un]').forEach(el=>el.onclick=()=>{ const t=S.queue.splice(+el.dataset.un,1)[0]; if(t) startTrack(t); });
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 34 · 2026-07-18 · radio fixes — host continuity · no seek/skip · floating toggle · drawer restored';
+const BUILD='Cassette · build 35 · 2026-07-27 · 📡 stations (more like this) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
 openSettings();
 
-/* PWA: network-first SW so new builds land immediately (no stale cache) */
-if('serviceWorker' in navigator && location.protocol==='https:'){
+/* PWA: network-first SW so new builds land immediately (no stale cache).
+   Skipped inside the car APK: Capacitor already serves the assets locally from
+   https://localhost, and a SW cache there outlives an app update — it would keep
+   handing back the previous build's index.html after you install a new APK. */
+if('serviceWorker' in navigator && location.protocol==='https:' && !isCar()){
   navigator.serviceWorker.register('sw.js').then(reg=>{ try{ reg.update(); }catch(_){}}).catch(()=>{});
 }
 </script>

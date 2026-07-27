@@ -1,0 +1,7 @@
+# The Gradle wrapper is executed as ./gradlew by the Linux CI runner — if git
+# ever checks it out with CRLF, bash fails with "bad interpreter".
+car/android/gradlew text eol=lf
+
+*.jar binary
+*.png binary
+*.apk binary

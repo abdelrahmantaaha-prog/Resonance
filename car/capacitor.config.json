@@ -1,0 +1,13 @@
+{
+  "appId": "com.rewind.cassette",
+  "appName": "Cassette",
+  "webDir": "../cassette",
+  "android": {
+    "backgroundColor": "#121114",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

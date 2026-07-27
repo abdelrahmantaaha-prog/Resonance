@@ -1,0 +1,8 @@
+node_modules/
+package-lock.json.bak
+
+# Signing material — never commit these. The release workflow reads them from
+# GitHub secrets and writes the keystore at build time.
+*.jks
+*.keystore
+keystore.properties
