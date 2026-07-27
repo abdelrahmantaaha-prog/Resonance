@@ -1,0 +1,63 @@
+name: Cassette car APK
+
+# Builds the Capacitor wrapper in car/ into an installable Android APK.
+# Runs on any push that touches the app or the wrapper, and on demand.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cassette/**'
+      - 'car/**'
+      - '.github/workflows/cassette-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Gradle 8.2.1 + AGP 8.2.1 (what Capacitor 6 pins) require JDK 17.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: car/package-lock.json
+
+      - name: Install Capacitor toolchain
+        working-directory: car
+        run: npm ci
+
+      # Copies ../cassette into android/app/src/main/assets/public and regenerates
+      # the plugin wiring. Both are gitignored, so this step is what makes the
+      # committed android/ project buildable.
+      - name: Sync web assets into the Android project
+        working-directory: car
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: car/android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Name the artifact
+        id: name
+        run: echo "stamp=$(date +%Y%m%d)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cassette-${{ steps.name.outputs.stamp }}-debug-apk
+          path: car/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 60
