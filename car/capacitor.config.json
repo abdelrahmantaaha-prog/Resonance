@@ -9,5 +9,10 @@
   },
   "server": {
     "androidScheme": "https"
+  },
+  "plugins": {
+    "MediaSession": {
+      "foregroundService": "always"
+    }
   }
 }

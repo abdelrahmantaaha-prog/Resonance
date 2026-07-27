@@ -1328,15 +1328,51 @@ function toggleTranslation(){
      PREVIOUS  → ♥ favorite   (the one judgement worth making at 100 km/h)
      NEXT      → neutral skip (moves on, teaches the model NOTHING) */
 let CAP_MS = null;
+/* Why the bridge ended up where it did. registerPlugin() hands back a proxy
+   even when no native plugin answers, so a truthy CAP_MS proves nothing on its
+   own — its calls just reject later. Every failure below used to vanish into an
+   empty catch, which made "the wheel does nothing" undiagnosable. */
+const MS_DIAG = { platform:'?', native:false, bridge:'not attempted', calls:0, errors:[] };
 (function initNativeMediaSession(){
   try{
     const C = window.Capacitor;
-    if(!C || !(C.isNativePlatform && C.isNativePlatform())) return;   // browser → use the web API below
+    MS_DIAG.platform = (C && C.getPlatform && C.getPlatform()) || (C ? 'unknown' : 'no Capacitor global');
+    if(!C || !(C.isNativePlatform && C.isNativePlatform())){   // browser → use the web API below
+      MS_DIAG.bridge = 'web platform — using navigator.mediaSession';
+      return;
+    }
+    MS_DIAG.native = true;
     const reg = (window.capacitorExports && window.capacitorExports.registerPlugin) || C.registerPlugin;
-    CAP_MS = reg ? reg('MediaSession') : ((C.Plugins && C.Plugins.MediaSession) || null);
-  }catch(_){ CAP_MS = null; }
+    if(!reg){
+      CAP_MS = (C.Plugins && C.Plugins.MediaSession) || null;
+      MS_DIAG.bridge = CAP_MS ? 'via Capacitor.Plugins (no registerPlugin)' : 'FAILED — no registerPlugin and no Plugins.MediaSession';
+      return;
+    }
+    CAP_MS = reg('MediaSession');
+    MS_DIAG.bridge = CAP_MS ? 'registerPlugin("MediaSession") ok' : 'FAILED — registerPlugin returned nothing';
+  }catch(e){ CAP_MS = null; MS_DIAG.bridge = 'threw: '+(e && e.message || e); }
 })();
 function isCar(){ return !!CAP_MS; }
+
+/* Single funnel for native calls. The plugin's methods are async, so a bare
+   try/catch never saw a rejection — the real failures were invisible. */
+function msCall(method, arg){
+  if(!CAP_MS) return;
+  MS_DIAG.calls++;
+  try{
+    const p = CAP_MS[method](arg);
+    if(p && p.catch) p.catch(e=>msErr(method, e));
+  }catch(e){ msErr(method, e); }
+}
+function msErr(method, e){
+  const msg = method+': '+((e && (e.message||e.errorMessage)) || e);
+  MS_DIAG.errors.push(msg);
+  if(MS_DIAG.errors.length>6) MS_DIAG.errors.shift();
+  console.warn('[car media session]', msg);
+}
+/* Readable from chrome://inspect (webContentsDebuggingEnabled is on in the
+   Capacitor config), and from the ⚙ sheet via the "car bridge" line. */
+window.carDiag = ()=>JSON.parse(JSON.stringify(MS_DIAG));
 
 function msFavorite(){                      // wheel PREVIOUS — heart without leaving the song
   const t=S.current; if(!t){ return; }
@@ -1354,8 +1390,17 @@ const MS_ACTIONS = {
 function initMediaSession(){
   if(CAP_MS){
     Object.keys(MS_ACTIONS).forEach(a=>{
-      try{ CAP_MS.setActionHandler({action:a}, d=>{ try{ MS_ACTIONS[a](d); }catch(_){} }); }catch(_){}
+      // Two-arg call, so it can't go through msCall — same error funnel though.
+      MS_DIAG.calls++;
+      try{
+        const p = CAP_MS.setActionHandler({action:a}, d=>{ try{ MS_ACTIONS[a](d); }catch(e){ msErr('handler '+a, e); } });
+        if(p && p.catch) p.catch(e=>msErr('setActionHandler '+a, e));
+      }catch(e){ msErr('setActionHandler '+a, e); }
     });
+    // Claim the session up front instead of waiting for the first PLAYING event.
+    // Android hands the wheel's media buttons to a session that is already
+    // active; until Cassette has one, whichever app last had it keeps them.
+    msCall('setPlaybackState', {playbackState:'paused'});
     return;
   }
   if(!('mediaSession' in navigator)) return;
@@ -1366,7 +1411,7 @@ function initMediaSession(){
 /* play/pause state — drives the notification + the car's play button */
 function msPlaybackState(){
   const st = S.playing ? 'playing' : 'paused';
-  if(CAP_MS){ try{ CAP_MS.setPlaybackState({playbackState:st}); }catch(_){} return; }
+  if(CAP_MS){ msCall('setPlaybackState', {playbackState:st}); return; }
   try{ navigator.mediaSession.playbackState = st; }catch(_){}
 }
 /* scrub position — head units draw their own progress bar from this */
@@ -1374,7 +1419,7 @@ function msPositionState(cur,dur){
   if(!CAP_MS || !dur || !isFinite(dur)) return;
   if(S._msPosAt && Date.now()-S._msPosAt < 1000) return;
   S._msPosAt = Date.now();
-  try{ CAP_MS.setPositionState({duration:dur, position:Math.min(cur||0,dur), playbackRate:1}); }catch(_){}
+  msCall('setPositionState', {duration:dur, position:Math.min(cur||0,dur), playbackRate:1});
 }
 function updateMediaMeta(){
   if(!S.current) return;
@@ -1384,7 +1429,7 @@ function updateMediaMeta(){
   const artwork=[{src:art, sizes:'480x360', type:'image/jpeg'}];
   if(CAP_MS){
     /* artwork must always be present — the native side reads it unconditionally */
-    try{ CAP_MS.setMetadata({ title:S.current.title||'', artist:S.current.artist||'', album, artwork }); }catch(_){}
+    msCall('setMetadata', { title:S.current.title||'', artist:S.current.artist||'', album, artwork });
     msPlaybackState();
     return;
   }
@@ -2042,7 +2087,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 36 · 2026-07-27 · 📡 stations (more like this) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
+const BUILD='Cassette · build 37 · 2026-07-27 · 📡 stations (more like this) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
