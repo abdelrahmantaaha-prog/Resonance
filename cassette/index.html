@@ -196,6 +196,10 @@
   .stationbar .sb-t b{color:var(--amber);font-weight:500}
   .stationbar button{background:transparent;border:1px solid rgba(232,162,75,.4);color:var(--amber);border-radius:7px;padding:4px 10px;font-family:var(--mono);font-size:11px;flex:none;transition:.15s}
   .stationbar button:hover{background:rgba(232,162,75,.16)}
+  /* On a phone the label has ~155px next to a worded button, which eats the
+     seed name — the one thing the bar exists to show. Drop to a bare ✕ and
+     the label gets ~234px, enough for most "Title — Artist" pairs. */
+  @media(max-width:560px){.stationbar .sb-x{display:none}}
   .srow .sst{background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:7px;padding:5px 9px;font-size:13px;line-height:1;flex:none;transition:.15s}
   .srow .sst:hover{color:var(--amber);border-color:var(--amber)}
   .transport{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 2px}
@@ -265,7 +269,11 @@
   .tab.on{color:var(--amber);transform:translateY(-1px)}
   .tab .badge{position:absolute;top:6px;right:10px;min-width:16px;height:16px;border-radius:99px;background:var(--ember);color:#fff;font-size:9px;display:none;align-items:center;justify-content:center;padding:0 4px}
   .tab .badge.show{display:flex}
-  .tabpane{display:none}
+  /* min-width:0 is load-bearing: #stage is a grid, and a grid item defaults to
+     min-width:auto, so it refuses to shrink below its content's min-content
+     width. Any nowrap child (the station bar's label) would otherwise widen
+     this pane past the viewport instead of ellipsising. */
+  .tabpane{display:none;min-width:0}
   .tabpane.on{display:block;animation:fade .2s ease}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
   /* tabs behave as real tabs at every width: exactly one pane visible.
@@ -502,7 +510,7 @@
         </div>
         <div class="stationbar hidden" id="stationBar">
           <span class="sb-t" id="stationLabel"></span>
-          <button id="stationOff">✕ end station</button>
+          <button id="stationOff">✕<span class="sb-x"> end station</span></button>
         </div>
         <div class="np-head">
           <div class="np-t">
@@ -1034,7 +1042,9 @@ function stationTitle(){ return S.station ? (S.station.title+(S.station.artist?(
 function renderStation(){
   const bar=$('stationBar'); if(!bar) return;
   bar.classList.toggle('hidden', !S.station);
-  if(S.station) $('stationLabel').innerHTML='📡 Station · more like <b>'+escapeHtml(stationTitle())+'</b>';
+  // No "📡 Station ·" prefix — the eyebrow directly above already says it, and
+  // the repeat cost ~90px of the seed name on a phone.
+  if(S.station) $('stationLabel').innerHTML='more like <b>'+escapeHtml(stationTitle())+'</b>';
   const b=$('btnStation'); if(b){ b.classList.toggle('on', !!S.station); b.title = S.station ? 'Station running — press to rebuild it around this song' : 'Start a station from this song — fills the queue with more like this'; }
   const m=$('npMode'); if(m && S.current) m.textContent = S.station ? '📡 Station' : (S.mode==='hearts' ? '♥ Close to my heart' : '◈ Now playing');
 }
@@ -2032,7 +2042,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 35 · 2026-07-27 · 📡 stations (more like this) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
+const BUILD='Cassette · build 36 · 2026-07-27 · 📡 stations (more like this) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
