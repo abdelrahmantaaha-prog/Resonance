@@ -13,12 +13,21 @@ import androidx.core.content.ContextCompat;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 
+import com.rewind.cassette.media.MediaSessionPlugin;
+
 public class MainActivity extends BridgeActivity {
 
     private static final int REQ_NOTIFICATIONS = 1001;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // The media session plugin is vendored into this app rather than pulled
+        // from npm, so Capacitor cannot discover it from capacitor.plugins.json —
+        // it has to be registered by hand, and before super.onCreate() so the
+        // bridge sees it while it is wiring up. The JS side still reaches it as
+        // registerPlugin('MediaSession'); the @CapacitorPlugin name is unchanged.
+        registerPlugin(MediaSessionPlugin.class);
+
         super.onCreate(savedInstanceState);
 
         // Cassette drives the YouTube IFrame player from JavaScript. Android's

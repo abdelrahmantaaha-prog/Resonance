@@ -24,6 +24,38 @@
 
         </activity>
 
+        <!-- Tells Android Auto this is a media app. Without this meta-data the
+             head unit never enumerates the MediaBrowserService below, which is
+             why the car's media list came up empty and the steering wheel had
+             no session to route to. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
+        <!-- Vendored media session service, now a MediaBrowserServiceCompat.
+             MEDIA_BUTTON keeps the phone-side behaviour that already worked;
+             MediaBrowserService is what makes the car able to see it at all. -->
+        <service
+            android:name="com.rewind.cassette.media.MediaSessionService"
+            android:enabled="true"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name="androidx.media.session.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

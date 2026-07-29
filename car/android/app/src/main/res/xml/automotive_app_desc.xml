@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Declares Cassette to Android Auto as a media app. Referenced from the
+     com.google.android.gms.car.application meta-data in AndroidManifest.xml.
+     Android Auto reads this before it will enumerate the MediaBrowserService;
+     without it the app never appears in the car's media list. -->
+<automotiveApp>
+    <uses name="media" />
+</automotiveApp>

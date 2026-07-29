@@ -2,7 +2,7 @@
   "name": "cassette-car",
   "version": "1.0.0",
   "private": true,
-  "description": "Capacitor wrapper that runs the Cassette PWA as an Android app with real media-session controls (steering wheel / Bluetooth / Android Auto notification).",
+  "description": "Capacitor wrapper that runs the Cassette PWA as an Android app with real media-session controls (steering wheel / Bluetooth / Android Auto). The media session plugin is vendored into android/app/src/main/java/com/rewind/cassette/media so its service can extend MediaBrowserServiceCompat, which Android Auto requires.",
   "scripts": {
     "sync": "cap sync android",
     "apk:debug": "cap sync android && cd android && gradlew.bat assembleDebug",
@@ -10,8 +10,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^6.2.1",
-    "@capacitor/core": "^6.2.1",
-    "@jofr/capacitor-media-session": "^4.0.0"
+    "@capacitor/core": "^6.2.1"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.1"
