@@ -451,9 +451,10 @@
         </div>
         <div class="sheet-actions">
           <button class="btn" id="startBtn">Start listening</button>
-          <button class="btn ghost sm" id="importBtn">Import profile</button>
-          <button class="btn ghost sm" id="exportBtn2">Export / back up</button>
+          <button class="btn ghost sm" id="importBtn">Restore backup</button>
+          <button class="btn ghost sm" id="exportBtn2">Back up everything</button>
           <input type="file" id="importFile" accept="application/json">
+          <span class="hint" style="flex-basis:100%">Backup holds your taste <b>and</b> every API key in plain text — it restores a new device without retyping, so keep the file private.</span>
         </div>
         <div id="setupNote" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:10px"></div>
       </div>
@@ -678,11 +679,38 @@ function loadLocal(){
   normalizeProfile();
   return false;
 }
+/* Full backup: taste profile AND every key/setting, so restoring on a new
+   device is one file and no retyping. rewind_config is the store Cassette and
+   Reel share, so this necessarily carries Reel's TMDB/OMDb keys too — that is
+   the point of "everything", but it means one file unlocks both apps.
+
+   The keys are written in clear text, because an encrypted export needs a
+   passphrase that a lost phone cannot help you remember. Anyone holding this
+   file can spend your Gemini and YouTube quota, so it is named a backup rather
+   than a profile and says so on the first line. */
+const BACKUP_KIND = 'cassette-backup';
 function exportProfile(){
-  const blob = new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});
+  const cfg = loadRewindConfig();
+  const keyCount = (cfg.geminiKeys||[]).length + (cfg.ytKeys||[]).length
+                 + (cfg.lastfm?1:0) + (cfg.tmdb?1:0) + (cfg.omdb?1:0);
+  let settings = {};
+  try{ settings = { radio: JSON.parse(localStorage.getItem('cassette_radio')||'{}').on===true,
+                    bgPlay: localStorage.getItem('cassette_bg')!=='0' }; }catch(_){}
+  const payload = {
+    kind: BACKUP_KIND,
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    WARNING: 'Contains your API keys in plain text. Anyone with this file can use your Gemini/YouTube/Last.fm quota. Do not share it or sync it anywhere public.',
+    profile: S.profile,
+    config: cfg,
+    settings: settings
+  };
+  const blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='cassette-taste-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
-  toast('Profile exported');
+  a.download='cassette-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  toast('Backed up · <span class="k">'+keyCount+'</span> key(s) included — keep this file private');
+  const n=$('setupNote');
+  if(n) n.textContent='Backup saved with '+keyCount+' API key(s) in plain text. Treat it like a password.';
 }
 function parseKeys(str){ return (str||'').split(/[\n,]+/).map(s=>s.trim()).filter(Boolean); }
 /* ---- shared config: one key store both Cassette & Reel read (same origin) ---- */
@@ -1740,10 +1768,42 @@ function addAnchors(){
 $('importBtn').onclick=()=>$('importFile').click();
 $('importFile').onchange=e=>{
   const f=e.target.files[0]; if(!f) return; const r=new FileReader();
-  r.onload=()=>{ try{ const p=JSON.parse(r.result); Object.assign(S.profile,p); normalizeProfile();
+  r.onload=()=>{ try{
+    const raw = JSON.parse(r.result);
+    // Files exported before build 39 were the bare profile object, with the
+    // signal arrays at the top level. Those still have to restore, so sniff the
+    // envelope rather than assuming it.
+    const isBackup = raw && raw.kind===BACKUP_KIND;
+    const p = isBackup ? (raw.profile||{}) : raw;
+
+    Object.assign(S.profile,p); normalizeProfile();
     (S.profile.loved||[]).concat(S.profile.liked||[],S.profile.disliked||[],S.profile.banned||[]).forEach(t=>S.seenKeys.add(key(t)));
-    $('setupNote').textContent='Imported '+((p.loved||[]).length+(p.liked||[]).length+(p.disliked||[]).length)+' signals.'; toast('Profile imported'); renderModel();
-  }catch(err){ toast('Bad profile file'); } };
+
+    let keyNote='';
+    if(isBackup && raw.config){
+      // Merge rather than overwrite: a backup taken before you added a key
+      // should not wipe the key you have now.
+      const c = saveRewindConfig(raw.config);
+      loadKeys();                                   // repopulate the inputs
+      S.profile.seed = c.cassetteSeed || S.profile.seed || '';
+      const n=(c.geminiKeys||[]).length+(c.ytKeys||[]).length+(c.lastfm?1:0)+(c.tmdb?1:0)+(c.omdb?1:0);
+      keyNote=' · '+n+' key(s) restored';
+    }
+    if(isBackup && raw.settings){
+      try{
+        if(typeof raw.settings.radio==='boolean'){ S.radio=raw.settings.radio; radioSave(); }
+        if(typeof raw.settings.bgPlay==='boolean'){
+          S.bgPlay=raw.settings.bgPlay;
+          localStorage.setItem('cassette_bg', S.bgPlay?'1':'0');
+          const bc=$('bgChk'); if(bc) bc.checked=S.bgPlay;
+        }
+      }catch(_){}
+    }
+    saveLocal();
+    const sig=(S.profile.loved||[]).length+(S.profile.liked||[]).length+(S.profile.disliked||[]).length;
+    $('setupNote').textContent='Imported '+sig+' signals'+keyNote+'.';
+    toast(isBackup?'Backup restored':'Profile imported'); renderModel();
+  }catch(err){ toast('Bad backup file'); } };
   r.readAsText(f);
 };
 
@@ -2087,7 +2147,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 38 · 2026-07-27 · 📡 stations (more like this) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
+const BUILD='Cassette · build 39 · 2026-07-29 · 📡 stations · full backup (keys included) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
