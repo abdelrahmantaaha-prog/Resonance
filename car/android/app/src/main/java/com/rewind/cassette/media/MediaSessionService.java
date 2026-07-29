@@ -57,6 +57,7 @@ public class MediaSessionService extends MediaBrowserServiceCompat {
     private static final String TAG = "MediaSessionService";
 
     private MediaSessionCompat mediaSession;
+    private boolean sessionTokenSet = false;
     private PlaybackStateCompat.Builder playbackStateBuilder;
     private MediaMetadataCompat.Builder mediaMetadataBuilder;
     private NotificationManager notificationManager;
@@ -144,13 +145,26 @@ public class MediaSessionService extends MediaBrowserServiceCompat {
     public void connectAndInitialize(MediaSessionPlugin plugin, Intent intent) {
         this.plugin = plugin;
 
-        mediaSession = new MediaSessionCompat(this, "WebViewMediaSession");
+        // Reuse the session across reconnects. Building a second
+        // MediaSessionCompat would orphan the one Android Auto is already bound
+        // to, and its token could no longer be published (see below).
+        if (mediaSession == null) {
+            mediaSession = new MediaSessionCompat(this, "WebViewMediaSession");
+        }
         mediaSession.setCallback(new MediaSessionCallback(plugin));
         mediaSession.setActive(true);
         // Publishes the session to every MediaBrowser client. Android Auto reads
         // the token from here to bind its transport controls (and therefore the
         // steering wheel) to this session.
-        setSessionToken(mediaSession.getSessionToken());
+        //
+        // MediaBrowserServiceCompat.setSessionToken() throws IllegalStateException
+        // if it is ever called twice, and connectAndInitialize() runs on every
+        // onServiceConnected — which fires again whenever the plugin rebinds to a
+        // service that is still alive. That is a hard crash, so it is guarded.
+        if (!sessionTokenSet) {
+            setSessionToken(mediaSession.getSessionToken());
+            sessionTokenSet = true;
+        }
 
         playbackStateBuilder = new PlaybackStateCompat.Builder()
                 .setActions(PlaybackStateCompat.ACTION_PLAY)

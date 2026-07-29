@@ -1023,7 +1023,16 @@ function loadNext(){
   if(S.mode==='hearts'){ nextHeart(); return; }
   if(!S.queue.length){
     if(S.ytQuotaOut){ quotaStop(); return; }
-    setStatus('<b>Building more…</b>'); ensureQueue().then(()=>{ if(S.queue.length) loadNext(); else if(S.ytQuotaOut) quotaStop(); }); return;
+    // Without this guard each press on an empty queue starts its own
+    // ensureQueue(), and each of those recurses back into loadNext(). A held
+    // wheel button stacks concurrent Gemini builds until the app gives up.
+    if(S._refilling) return;
+    S._refilling=true;
+    setStatus('<b>Building more…</b>');
+    ensureQueue()
+      .then(()=>{ if(S.queue.length) loadNext(); else if(S.ytQuotaOut) quotaStop(); })
+      .finally(()=>{ S._refilling=false; });
+    return;
   }
   startTrack(S.queue.shift());
   ensureQueue();
@@ -1119,7 +1128,15 @@ function previousTrack(){
   if(!S.history.length){ ctrlSeek0(); return; }
   startTrack(S.history.pop(), false);
 }
-function neutralNext(){ if(S.radio){ toast('No skipping in radio 📻'); return; } S.mode==='hearts' ? nextHeart() : loadNext(); }
+function neutralNext(){
+  if(S.radio){ toast('No skipping in radio 📻'); return; }
+  // A steering-wheel NEXT repeats far faster than a track can load, and each
+  // track change costs a native artwork fetch. Coalesce the bursts.
+  const now=Date.now();
+  if(now-(S._lastNextAt||0) < 400) return;
+  S._lastNextAt=now;
+  S.mode==='hearts' ? nextHeart() : loadNext();
+}
 async function playSpecific(t){
   const c={...t, reason:'you chose this'};
   if(!(c.videoId && /^[\w-]{11}$/.test(c.videoId))){
@@ -2147,7 +2164,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 39 · 2026-07-29 · 📡 stations · full backup (keys included) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
+const BUILD='Cassette · build 40 · 2026-07-30 · 📡 stations · full backup (keys included) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();

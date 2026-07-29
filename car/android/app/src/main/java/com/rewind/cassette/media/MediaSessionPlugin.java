@@ -41,6 +41,8 @@ public class MediaSessionPlugin extends Plugin {
     private String artist = "";
     private String album = "";
     private Bitmap artwork = null;
+    private String lastArtworkUrl = null;
+    private static final int ARTWORK_TIMEOUT_MS = 5000;
     private String playbackState = "none";
     private double duration = 0.0;
     private double position = 0.0;
@@ -104,11 +106,35 @@ public class MediaSessionPlugin extends Plugin {
 
         final boolean httpUrl = url.startsWith("http");
         if (httpUrl) {
-            HttpURLConnection connection = (HttpURLConnection) (new URL(url)).openConnection();
-            connection.setDoInput(true);
-            connection.connect();
-            InputStream inputStream = connection.getInputStream();
-            return BitmapFactory.decodeStream(inputStream);
+            // Upstream opened a connection with no timeout, never closed the
+            // stream, never disconnected, and decoded at full size — once per
+            // track change. Holding NEXT walks the queue faster than the
+            // fetches retire, so sockets and bitmaps pile up until the process
+            // dies. Cassette changes tracks from a car button, so this path is
+            // hit far harder here than in the plugin's intended use.
+            HttpURLConnection connection = null;
+            InputStream inputStream = null;
+            try {
+                connection = (HttpURLConnection) (new URL(url)).openConnection();
+                connection.setDoInput(true);
+                connection.setConnectTimeout(ARTWORK_TIMEOUT_MS);
+                connection.setReadTimeout(ARTWORK_TIMEOUT_MS);
+                connection.connect();
+                inputStream = connection.getInputStream();
+
+                // A notification/head-unit thumbnail never needs more than this,
+                // and decoding hqdefault.jpg unbounded is ~700 KB a skip.
+                BitmapFactory.Options opts = new BitmapFactory.Options();
+                opts.inSampleSize = 2;
+                return BitmapFactory.decodeStream(inputStream, null, opts);
+            } finally {
+                if (inputStream != null) {
+                    try { inputStream.close(); } catch (IOException ignored) {}
+                }
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
         }
 
         int base64Index = url.indexOf(";base64,");
@@ -127,12 +153,30 @@ public class MediaSessionPlugin extends Plugin {
         artist = call.getString("artist", artist);
         album = call.getString("album", album);
 
+        // getArray returns null when the key is absent, and upstream called
+        // .toList() on it straight away — an NPE for any caller that omits
+        // artwork. Guarded so metadata still updates without it.
         final JSArray artworkArray = call.getArray("artwork");
-        final List<JSONObject> artworkList = artworkArray.toList();
-        for (JSONObject artwork : artworkList) {
-            String src = artwork.getString("src");
-            if (src != null) {
-                this.artwork = urlToBitmap(src);
+        if (artworkArray != null) {
+            final List<JSONObject> artworkList = artworkArray.toList();
+            for (JSONObject artwork : artworkList) {
+                String src = artwork.getString("src");
+                if (src == null) continue;
+                // Skipping through a station re-sends the same thumbnail URL
+                // constantly; refetching it each time is pure waste.
+                if (src.equals(lastArtworkUrl) && this.artwork != null) continue;
+                try {
+                    Bitmap loaded = urlToBitmap(src);
+                    if (loaded != null) {
+                        this.artwork = loaded;
+                        lastArtworkUrl = src;
+                    }
+                } catch (Exception e) {
+                    // A 404 (unresolved videoId) or a timeout must not take the
+                    // whole metadata update — and therefore the notification —
+                    // down with it. Title and artist still matter in the car.
+                    Log.w(TAG, "Artwork load failed for " + src + ": " + e);
+                }
             }
         }
 
