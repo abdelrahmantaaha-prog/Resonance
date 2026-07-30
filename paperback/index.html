@@ -279,6 +279,16 @@
   .rung .rt{font-weight:600;font-size:14px}
   .rung .ra{color:var(--muted);font-size:12px;margin-bottom:5px}
   .rung .rw{color:var(--muted);font-size:12.5px;font-style:italic;line-height:1.5}
+  .rung .rcv{flex:none;width:44px;height:66px;border-radius:3px;background:var(--panel-2) center/cover no-repeat;
+      border:1px solid rgba(120,92,56,.22);box-shadow:0 4px 10px rgba(70,52,30,.24), inset 2px 0 0 rgba(0,0,0,.12)}
+  .rung .rcv-none{background:repeating-linear-gradient(45deg,var(--panel-2),var(--panel-2) 5px,#EDE3CE 5px,#EDE3CE 10px)}
+  .rung .rarg{font-size:13px;line-height:1.5;margin:5px 0 4px}
+  .rung .rnote{font-size:11.5px;color:var(--muted);margin-top:5px;padding-left:9px;border-left:2px solid var(--line)}
+  .rung .rnote b{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .rung .rnote.sup{border-left-color:var(--rust)}
+  .rung .rflag{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--rust);
+      border:1px solid var(--rust);border-radius:5px;padding:1px 5px;margin-left:7px;vertical-align:middle;font-weight:400}
+  .planmeta{font-family:var(--mono);font-size:10.5px;color:var(--faint);padding:0 0 12px;line-height:1.5}
   .rung .racts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
   .rung .racts button{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:4px 9px;font-family:var(--mono);font-size:10.5px;transition:.15s}
   .rung .racts button:hover{border-color:var(--gold);color:var(--gold)}
@@ -351,7 +361,8 @@
     <button class="tab on" data-tab="shelf">📚 <span>Shelf</span></button>
     <button class="tab" data-tab="add">🔍 <span>Add</span></button>
     <button class="tab" data-tab="learn">🎓 <span>Learn</span></button>
-    <button class="tab" data-tab="surprise">✨ <span>Surprise me</span></button>
+    <button class="tab" data-tab="dna">⬡ <span>Taste</span></button>
+    <button class="tab" data-tab="surprise">✨ <span>Surprise</span></button>
   </nav>
 
   <div class="stage hidden" id="stage">
@@ -389,12 +400,17 @@
     </section>
 
     <!-- SHELF -->
-    <section class="tabpane on" id="tabShelf">
+    <!-- TASTE — was stacked above the shelf, which buried the books under an
+         analysis panel every time you opened the app. Its own page now. -->
+    <section class="tabpane" id="tabDNA">
       <div class="card">
         <div class="panel-h">⬡ Your mind, mapped <span class="n" id="mcount"></span></div>
         <div class="model" id="model"></div>
       </div>
-      <div class="card" style="margin-top:16px">
+    </section>
+
+    <section class="tabpane on" id="tabShelf">
+      <div class="card">
         <div class="panel-h">📚 Shelf <span class="n" id="shelfCount"></span></div>
         <div class="shelf-tools">
           <div class="fchips" id="fchips">
@@ -834,7 +850,7 @@ function renderShelf(){
   const actsFor=(r,ri)=>
     '<div class="bkacts" data-acts="'+ri+'">'+
       '<span class="bkt">'+esc(r.m.title)+'</span>'+
-      '<button class="btn sm" data-so="'+ri+'">▶ Open</button>'+
+      '<button class="btn sm" data-so="'+ri+'">Open</button>'+
       '<button class="btn ghost sm" data-nt="'+ri+'"'+(r.m.note?' style="color:var(--gold);border-color:var(--gold)"':'')+'>📝 Notes</button>'+
       '<select data-sm="'+ri+'" title="Move shelf"><option value="">⇄ move…</option><option value="reading">📖 reading</option><option value="watchlist">🔖 reading list</option><option value="loved">★ favourite</option><option value="liked">▲ liked</option><option value="disliked">▽ disliked</option><option value="banned">⦸ banned</option></select>'+
       '<button class="btn ghost sm" data-sx="'+ri+'">✕ Remove</button>'+
@@ -891,7 +907,7 @@ function renderModel(){
   const el=$('model');if(!el)return;
   try{renderModelInner();}catch(e){
     const all=[].concat(S.profile.loved||[],S.profile.liked||[],S.profile.disliked||[],S.profile.banned||[]);
-    el.innerHTML='<div class="mlist-hint">'+all.length+' books</div>'+all.slice(0,80).map((m,i)=>'<div class="mrow"><button class="mbtn" data-fp="'+i+'">▶</button><span class="txt">'+esc(m.title+(m.year?(' ('+m.year+')'):''))+'</span></div>').join('');
+    el.innerHTML='<div class="mlist-hint">'+all.length+' books</div>'+all.slice(0,80).map((m,i)=>'<div class="mrow"><button class="mbtn" data-fp="'+i+'" title="Open">📖</button><span class="txt">'+esc(m.title+(m.year?(' ('+m.year+')'):''))+'</span></div>').join('');
     el.querySelectorAll('[data-fp]').forEach(b=>b.onclick=()=>playSpecific(all[+b.dataset.fp]));
     try{$('mcount').textContent=all.length+' rated';}catch(_){}
   }
@@ -910,7 +926,7 @@ function renderModelInner(){
   parts.push(grp('#5C566B','banned topics — tap to unban', p.hatedGenres.length?p.hatedGenres.map(g=>'<span class="chip hate" data-bg="'+esc(g)+'" style="cursor:pointer">'+esc(g)+' ✕</span>').join(''):emptyChip('none yet')));
   const total=p.loved.length+p.liked.length+p.disliked.length+p.banned.length;
   el.innerHTML=parts.join('')+
-    '<button class="editbtn" id="editTgl">'+(S.editOpen?'▾ hide book list':'✎ edit / ▶ open my books ('+total+')')+'</button>'+
+    '<button class="editbtn" id="editTgl">'+(S.editOpen?'▾ hide book list':'✎ edit my books ('+total+')')+'</button>'+
     '<div id="mlistWrap" class="'+(S.editOpen?'':'hidden')+'"></div>'+
     '<div id="tsumBox" class="mlist-hint" style="text-align:left;display:'+(S.profile.tasteSummary?'block':'none')+'">'+esc(S.profile.tasteSummary||'')+'</div>'+
     '<div class="model-actions"><a id="tsum">🧠 what has it learned?</a><a id="exp">↓ export / back up</a><a id="rst">reset</a></div>';
@@ -931,8 +947,8 @@ function renderModelInner(){
 }
 function renderMList(){
   const wrap=$('mlistWrap');if(!wrap)return;
-  const sect=(b,label,ic)=>{const arr=S.profile[b];if(!arr.length)return '';let h='<div class="grp"><div class="h">'+label+'</div><div class="mlist">';arr.forEach((m,i)=>{h+='<div class="mrow"><button class="mbtn" data-play="'+b+':'+i+'">▶</button><span class="txt">'+ic+' '+esc(m.title+(m.year?(' ('+m.year+')'):''))+'</span><button class="mbtn" data-edit="'+b+':'+i+'">✎</button><button class="mbtn del" data-del="'+b+':'+i+'">✕</button></div>';});return h+'</div></div>';};
-  wrap.innerHTML='<div class="mlist-hint">▶ play · ✎ edit · ✕ remove</div>'+sect('watchlist','🔖 reading list — not yet read','🔖')+sect('loved','★ favorites','★')+sect('liked','liked','▲')+sect('disliked','not for me','▽')+sect('banned','⦸ never again','⦸');
+  const sect=(b,label,ic)=>{const arr=S.profile[b];if(!arr.length)return '';let h='<div class="grp"><div class="h">'+label+'</div><div class="mlist">';arr.forEach((m,i)=>{h+='<div class="mrow"><button class="mbtn" data-play="'+b+':'+i+'" title="Open">📖</button><span class="txt">'+ic+' '+esc(m.title+(m.year?(' ('+m.year+')'):''))+'</span><button class="mbtn" data-edit="'+b+':'+i+'">✎</button><button class="mbtn del" data-del="'+b+':'+i+'">✕</button></div>';});return h+'</div></div>';};
+  wrap.innerHTML='<div class="mlist-hint">📖 open · ✎ edit · ✕ remove</div>'+sect('watchlist','🔖 reading list — not yet read','🔖')+sect('loved','★ favorites','★')+sect('liked','liked','▲')+sect('disliked','not for me','▽')+sect('banned','⦸ never again','⦸');
   wrap.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.play.split(':');playSpecific(S.profile[k][+i]);});
   wrap.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.del.split(':');const m=S.profile[k][+i];S.seen.delete(mkey(m));S.profile[k].splice(+i,1);saveLocal();renderModel();toast('Removed');});
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const[k,i]=b.dataset.edit.split(':');editEntry(k,+i);});
@@ -995,9 +1011,28 @@ async function buildPlan(refineNote){
     '- Vary authors and schools of thought; include at least one book that challenges the others if the field is contested.',
     '- "stage" labels: foundation, bridge, core, specialized, frontier (use what fits the ladder).',
     '',
+    'CURRENCY — this matters as much as the ordering:',
+    '- A ladder of nothing but famous old books is a failure, even if every book is a classic.',
+    '  At least a third of the rungs must be from the last 15 years, and the final rung must',
+    '  reflect where the field actually stands now.',
+    '- Keep an older book only when it is genuinely unsuperseded. If a classic HAS been overtaken',
+    '  on the facts, either replace it or keep it and set "supersededBy" to the modern book that',
+    '  corrects it, so the reader knows what they are getting.',
+    '- Set "moves":"fast" or "slow" on the plan: fast for empirical fields where a 20-year-old book',
+    '  is stale (medicine, economics, ML, geopolitics), slow where age costs little (philosophy,',
+    '  literary criticism, ancient history). Weight recency accordingly.',
+    '- Where a translation or edition materially changes the experience, name it in "edition".',
+    '',
+    'SUBSTANCE — one line of praise per book is not useful:',
+    '- "argues" must state the book\'s actual claim or contribution, not that it is important.',
+    '- "skipIf" gives the reader an honest reason they could skip this rung.',
+    '- "pages" is the approximate page count as an integer, for planning time.',
+    '',
+    'Only include books you are confident exist. If unsure of a year, use "" rather than guessing.',
+    '',
     'Return ONLY a raw JSON object, no markdown:',
-    '{"title":"short name for this ladder","note":"2 sentences on the arc of this plan and what the reader will be able to do at the end",',
-    '"rungs":[{"title":"","author":"","year":"YYYY","stage":"","why":"1-2 sentences: what THIS rung gives you and why it comes here","difficulty":"1-5"}]}'
+    '{"title":"short name for this ladder","note":"2 sentences on the arc of this plan and what the reader will be able to do at the end","moves":"fast|slow",',
+    '"rungs":[{"title":"","author":"","year":"YYYY","stage":"","why":"1 sentence: why it comes HERE in the order","argues":"1-2 sentences: the actual argument or contribution","skipIf":"when this rung can be skipped, or \\"\\"","edition":"translation/edition worth seeking, or \\"\\"","supersededBy":"newer book that corrects this one, or \\"\\"","pages":0,"difficulty":"1-5"}]}'
   ].filter(Boolean).join('\n');
   try{
     const raw=await geminiText(prompt);
@@ -1010,29 +1045,82 @@ async function buildPlan(refineNote){
     curPlan=plan;
     S.profile.plans=(S.profile.plans||[]).filter(p=>p.id!==plan.id); S.profile.plans.push(plan);
     saveLocal(); renderPlan(); renderPlans();
-    $('planNote').textContent='';
+    $('planNote').textContent='Checking each book exists…';
+    await verifyRungs(plan);
+    saveLocal(); renderPlan();
+    const bad=(plan.rungs||[]).filter(r=>r.verified===false).length;
+    $('planNote').textContent = bad
+      ? bad+' rung'+(bad>1?'s':'')+' could not be found in Open Library — treat those as unconfirmed.'
+      : '';
   }catch(e){ $('planNote').textContent='Could not build the plan — check the Gemini key/quota, then retry.'; }
 }
 function planDone(p){ return (p.rungs||[]).filter(r=>r.done).length; }
+
+/* Gemini will occasionally invent a plausible title, and a reading plan whose
+   third rung does not exist is worse than useless. Every rung is checked against
+   Open Library — which the app already talks to — so the cover is real, the page
+   count is real where we have one, and anything that cannot be found says so
+   instead of quietly sending the reader after a book that was never written. */
+async function verifyRungs(plan){
+  await Promise.all((plan.rungs||[]).map(async r=>{
+    try{
+      const u='https://openlibrary.org/search.json?limit=1&fields=title,author_name,first_publish_year,cover_i,number_of_pages_median&q='
+        +encodeURIComponent(r.title+' '+(r.author||''));
+      const res=await fetch(u); if(!res.ok) return;
+      const hit=((await res.json()).docs||[])[0];
+      if(!hit){ r.verified=false; return; }
+      // Guard against Open Library returning a loosely-related book: require the
+      // titles to actually overlap before treating this as a confirmation.
+      const norm=t=>(t||'').toLowerCase().replace(/[^a-z0-9؀-ۿ]+/g,'');
+      const a=norm(hit.title), b=norm(r.title);
+      if(!a||!b||!(a.includes(b)||b.includes(a))){ r.verified=false; return; }
+      r.verified=true;
+      if(hit.cover_i) r.poster='https://covers.openlibrary.org/b/id/'+hit.cover_i+'-M.jpg';
+      if(!r.pages && hit.number_of_pages_median) r.pages=hit.number_of_pages_median;
+      if(!r.year && hit.first_publish_year) r.year=String(hit.first_publish_year);
+    }catch(_){ /* offline or blocked — leave unverified rather than claim either way */ }
+  }));
+}
+/* ~250 words a page, ~40 pages an hour of focused non-fiction reading. */
+function planHours(p){
+  const pg=(p.rungs||[]).reduce((n,r)=>n+(+r.pages||0),0);
+  return pg ? Math.round(pg/40) : 0;
+}
 function renderPlan(){
   const card=$('planCard'); if(!curPlan){ card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
   $('planTitle').textContent=curPlan.title||curPlan.topic;
-  $('planProg').textContent=planDone(curPlan)+'/'+curPlan.rungs.length+' done';
+  const hrs=planHours(curPlan);
+  $('planProg').textContent=planDone(curPlan)+'/'+curPlan.rungs.length+' done'+(hrs?(' · ~'+hrs+'h'):'');
   const body=$('planBody');
-  body.innerHTML=(curPlan.note?'<div class="mlist-hint" style="text-align:left;padding:6px 0 12px">'+esc(curPlan.note)+'</div>':'')+
+  const head=(curPlan.note?'<div class="mlist-hint" style="text-align:left;padding:6px 0 10px">'+esc(curPlan.note)+'</div>':'')
+    +(curPlan.moves?'<div class="planmeta">'+(curPlan.moves==='fast'
+        ? 'Fast-moving field — recency weighted heavily, older rungs kept only where unsuperseded.'
+        : 'Slow-moving field — age costs little here, so the ladder favours the best book over the newest.')+'</div>':'');
+  body.innerHTML=head+
     curPlan.rungs.map((r,i)=>{
       const onShelf=S.seen.has(mkey(r));
+      const cover=r.poster?'<span class="rcv" style="background-image:url(&quot;'+esc(r.poster)+'&quot;)"></span>'
+                          :'<span class="rcv rcv-none"></span>';
+      const bits=[r.stage||'', r.difficulty?('difficulty '+esc(r.difficulty)+'/5'):'', r.pages?(r.pages+'pp'):'']
+                  .filter(Boolean).map(esc).join(' · ');
       return '<div class="rung'+(r.done?' done':'')+'">'+
         '<div class="step" data-rd="'+i+'" title="Mark read">'+(r.done?'✓':(i+1))+'</div>'+
+        cover+
         '<div class="rb2">'+
-          '<div class="stage">'+esc(r.stage||'')+(r.difficulty?(' · difficulty '+esc(r.difficulty)+'/5'):'')+'</div>'+
-          '<div class="rt">'+esc(r.title)+'</div>'+
+          '<div class="stage">'+bits+'</div>'+
+          '<div class="rt">'+esc(r.title)+
+            (r.verified===false?'<span class="rflag" title="Not found in Open Library — may not exist">unverified</span>':'')+
+          '</div>'+
           '<div class="ra">'+esc((r.author||'')+(r.year?(' · '+r.year):''))+'</div>'+
+          (r.argues?'<div class="rarg">'+esc(r.argues)+'</div>':'')+
           '<div class="rw">'+esc(r.why||'')+'</div>'+
+          (r.edition?'<div class="rnote"><b>Edition</b> · '+esc(r.edition)+'</div>':'')+
+          (r.supersededBy?'<div class="rnote sup"><b>Partly superseded by</b> · '+esc(r.supersededBy)+'</div>':'')+
+          (r.skipIf?'<div class="rnote"><b>Skip if</b> · '+esc(r.skipIf)+'</div>':'')+
           '<div class="racts">'+
             '<button data-rr="'+i+'">🔖 '+(onShelf?'on shelf':'reading list')+'</button>'+
-            '<button data-ro="'+i+'">▶ open</button>'+
+            '<button data-ro="'+i+'">Open</button>'+
             '<button data-rx="'+i+'">↻ swap this rung</button>'+
           '</div>'+
         '</div></div>';
@@ -1046,11 +1134,16 @@ async function swapRung(i){
   const r=curPlan.rungs[i]; if(!r) return;
   $('planNote').textContent='Finding a replacement for rung '+(i+1)+'…';
   try{
-    const raw=await geminiText('Reading ladder on "'+curPlan.topic+'". Rung '+(i+1)+' is currently "'+r.title+'" by '+r.author+' (stage: '+r.stage+'). The reader wants a DIFFERENT book for this exact rung — same role, same difficulty level, same position in the ladder, but a different book and preferably a different author. Other rungs: '+curPlan.rungs.filter((_,j)=>j!==i).map(x=>x.title).join('; ')+'. Return ONLY raw JSON: {"title":"","author":"","year":"YYYY","stage":"'+r.stage+'","why":"1-2 sentences","difficulty":"'+(r.difficulty||3)+'"}');
+    const raw=await geminiText('Reading ladder on "'+curPlan.topic+'". Rung '+(i+1)+' is currently "'+r.title+'" by '+r.author+' (stage: '+r.stage+'). The reader wants a DIFFERENT book for this exact rung — same role, same difficulty level, same position in the ladder, but a different book and preferably a different author. Other rungs: '+curPlan.rungs.filter((_,j)=>j!==i).map(x=>x.title).join('; ')+'. Prefer a more current book if one does the same job as well. Only a book you are confident exists. Return ONLY raw JSON: {"title":"","author":"","year":"YYYY","stage":"'+r.stage+'","why":"1 sentence: why it sits here","argues":"1-2 sentences: its actual argument","skipIf":"","edition":"","supersededBy":"","pages":0,"difficulty":"'+(r.difficulty||3)+'"}');
     const t=raw.replace(/```json/gi,'').replace(/```/g,'');
     const nr=JSON.parse(t.slice(t.indexOf('{'),t.lastIndexOf('}')+1));
     curPlan.rungs[i]=Object.assign({done:false},nr);
-    saveLocal(); renderPlan(); $('planNote').textContent='';
+    saveLocal(); renderPlan();
+    $('planNote').textContent='Checking it exists…';
+    await verifyRungs({rungs:[curPlan.rungs[i]]});     // same guard as a fresh plan
+    saveLocal(); renderPlan();
+    $('planNote').textContent = curPlan.rungs[i].verified===false
+      ? 'That replacement could not be found in Open Library — swap again if you want a confirmed book.' : '';
   }catch(e){ $('planNote').textContent='Swap failed — check quota.'; }
 }
 function renderPlans(){
@@ -1062,13 +1155,13 @@ function renderPlans(){
     const idx=plans.length-1-i;
     return '<div class="brow"><span class="noimg">🎓</span><div class="bi"><div class="bt">'+esc(p.title||p.topic)+'</div>'+
       '<div class="ba">'+planDone(p)+'/'+(p.rungs||[]).length+' read · '+esc(p.topic)+'</div></div>'+
-      '<button class="mbtn" data-po="'+idx+'" title="Open">▶</button>'+
+      '<button class="mbtn" data-po="'+idx+'" title="Open">📖</button>'+
       '<button class="mbtn del" data-px="'+idx+'" title="Delete">✕</button></div>';
   }).join('');
   $('plansList').querySelectorAll('[data-po]').forEach(b=>b.onclick=()=>{ curPlan=S.profile.plans[+b.dataset.po]; renderPlan(); $('planCard').scrollIntoView({behavior:'smooth',block:'start'}); });
   $('plansList').querySelectorAll('[data-px]').forEach(b=>b.onclick=()=>{ const p=S.profile.plans[+b.dataset.px]; if(curPlan&&curPlan.id===p.id){curPlan=null;renderPlan();} S.profile.plans.splice(+b.dataset.px,1); saveLocal(); renderPlans(); toast('Plan deleted'); });
 }
-function showTab(name){S.tab=name;const pane={surprise:'tabNow',shelf:'tabShelf',add:'tabAdd',learn:'tabLearn'}[name]||'tabShelf';document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='shelf'){renderModel();renderShelf();}if(name==='learn'){renderPlan();renderPlans();}if(name==='surprise'&&!S.current&&S.started){kickSurprise();}moveTabInd();}
+function showTab(name){S.tab=name;const pane={surprise:'tabNow',shelf:'tabShelf',add:'tabAdd',learn:'tabLearn',dna:'tabDNA'}[name]||'tabShelf';document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.id===pane));if(name==='shelf'){renderShelf();}if(name==='dna'){renderModel();}if(name==='learn'){renderPlan();renderPlans();}if(name==='surprise'&&!S.current&&S.started){kickSurprise();}moveTabInd();}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function openSettings(){$('setupTitle').textContent=S.started?'Settings':'Setup';$('startBtn').textContent=S.started?'Save & close':'Start';$('settingsOverlay').classList.remove('hidden');}
 function closeSettings(){$('settingsOverlay').classList.add('hidden');}
