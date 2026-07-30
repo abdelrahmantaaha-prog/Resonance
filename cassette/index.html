@@ -200,32 +200,56 @@
      seed name — the one thing the bar exists to show. Drop to a bare ✕ and
      the label gets ~234px, enough for most "Title — Artist" pairs. */
   @media(max-width:560px){.stationbar .sb-x{display:none}}
-  /* ⭑ artists — grid of favourites, then one artist's discography */
-  .agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:9px}
-  .acard{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:12px 11px;cursor:pointer;transition:.15s;min-width:0;text-align:left}
-  .acard:hover{border-color:var(--amber);background:rgba(232,162,75,.07)}
-  .acard .an{font-size:13.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
-  .acard .am{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:5px;display:block}
-  .acard .pin{color:var(--amber)}
-  .adet-h{display:flex;align-items:center;gap:10px;margin-bottom:12px;min-width:0}
-  .adet-n{font-size:17px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
-  .adet-acts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-  .asec{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--faint);margin:16px 2px 8px}
-  .alb{border:1px solid var(--line);border-radius:10px;margin-bottom:7px;overflow:hidden}
-  .alb-h{display:flex;align-items:center;gap:10px;padding:10px 11px;cursor:pointer;transition:.15s;min-width:0}
+  /* ⭑ artists — cover-led grid, then one artist's discography */
+  .agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:11px}
+  .acard{display:block;position:relative;border:0;padding:0;background:none;cursor:pointer;min-width:0;width:100%;text-align:left;border-radius:12px;overflow:hidden;transition:transform .18s cubic-bezier(.3,1.4,.4,1)}
+  .acard:hover{transform:translateY(-3px)}
+  /* display:block matters — these are spans inside a button, and an inline box
+     ignores width and aspect-ratio, which collapses every tile to nothing. */
+  .acard .aimg{display:block;position:relative;width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:var(--panel-2) center/cover no-repeat;border:1px solid var(--line)}
+  .acard:hover .aimg{border-color:var(--amber)}
+  /* initial shows through until (or unless) a cover loads */
+  .acard .aini{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--faint);font-family:var(--mono)}
+  .acard .ashade{position:absolute;inset:0;background:linear-gradient(to top,rgba(8,7,10,.92) 0%,rgba(8,7,10,.45) 38%,rgba(8,7,10,0) 70%)}
+  .acard .an{position:absolute;left:9px;right:9px;bottom:20px;font-size:12.5px;color:#fff;line-height:1.25;
+             display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 6px rgba(0,0,0,.9)}
+  .acard .am{position:absolute;left:9px;right:9px;bottom:7px;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .acard .pin{position:absolute;top:7px;right:8px;font-size:12px;color:var(--amber);text-shadow:0 1px 5px rgba(0,0,0,.9)}
+
+  /* hero header */
+  .ahero{position:relative;margin:-20px -20px 16px;padding:18px 20px 16px;overflow:hidden;border-radius:var(--r) var(--r) 0 0}
+  .ahero-bg{position:absolute;inset:0;background:var(--panel-2) center/cover no-repeat;filter:blur(26px) saturate(1.5);transform:scale(1.25);opacity:.5}
+  .ahero-v{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(18,17,20,.55),var(--panel) 92%)}
+  .ahero-in{position:relative;display:flex;gap:14px;align-items:flex-end;min-width:0}
+  .ahero-img{width:88px;height:88px;flex:none;border-radius:12px;background:var(--panel-2) center/cover no-repeat;border:1px solid var(--line);box-shadow:0 10px 26px rgba(0,0,0,.55);
+             display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--faint);font-family:var(--mono)}
+  .ahero-t{flex:1;min-width:0}
+  .adet-n{font-size:21px;color:var(--ink);line-height:1.2;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .adet-sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:5px}
+  .adet-acts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  .asec{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--faint);margin:18px 2px 9px}
+
+  .alb{border:1px solid var(--line);border-radius:11px;margin-bottom:8px;overflow:hidden;transition:.15s}
+  .alb.open{border-color:rgba(232,162,75,.4)}
+  .alb-h{display:flex;align-items:center;gap:11px;padding:9px 11px 9px 9px;cursor:pointer;transition:.15s;min-width:0}
   .alb-h:hover{background:var(--panel-2)}
-  .alb-h .at{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
-  .alb-h .ay{font-family:var(--mono);font-size:10px;color:var(--faint);flex:none}
+  .alb-h .acv{width:44px;height:44px;flex:none;border-radius:7px;background:var(--panel-2) center/cover no-repeat;border:1px solid var(--line);
+              display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--faint)}
+  /* block, not inline — otherwise the title and the track count share a line */
+  .alb-h .atw{display:block;flex:1;min-width:0}
+  .alb-h .at{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+  .alb-h .ay{display:block;font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:3px}
   .alb-h .ac{font-family:var(--mono);font-size:13px;color:var(--faint);flex:none;transition:transform .18s}
   .alb.open .ac{transform:rotate(90deg)}
-  .alb-b{display:none;border-top:1px solid var(--line);padding:5px}
+  .alb-b{display:none;border-top:1px solid var(--line);padding:5px;background:rgba(0,0,0,.16)}
   .alb.open .alb-b{display:block}
-  .trow{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:8px;cursor:pointer;transition:.15s;min-width:0}
+  .trow{display:flex;align-items:center;gap:9px;padding:8px;border-radius:8px;cursor:pointer;transition:.15s;min-width:0}
   .trow:hover{background:var(--panel-2)}
   .trow .tn{font-family:var(--mono);font-size:10px;color:var(--faint);flex:none;width:18px}
   .trow .tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
   .trow .tst{background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:7px;padding:4px 8px;font-size:12px;line-height:1;flex:none}
   .trow .tst:hover{color:var(--amber);border-color:var(--amber)}
+  .trow .tcv{width:34px;height:34px;flex:none;border-radius:6px;background:var(--panel-2) center/cover no-repeat;border:1px solid var(--line)}
   .srow .sst{background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:7px;padding:5px 9px;font-size:13px;line-height:1;flex:none;transition:.15s}
   .srow .sst:hover{color:var(--amber);border-color:var(--amber)}
   .transport{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 2px}
@@ -603,11 +627,19 @@
 
       <!-- view 2: one artist's discography -->
       <div class="card hidden" id="artDetail">
-        <div class="adet-h">
-          <button class="btn ghost sm" id="artBack">← artists</button>
-          <span class="adet-n" id="artName"></span>
+        <div class="ahero">
+          <div class="ahero-bg" id="artHeroBg"></div>
+          <div class="ahero-v"></div>
+          <div class="ahero-in">
+            <div class="ahero-img" id="artHeroImg"></div>
+            <div class="ahero-t">
+              <div class="adet-n" id="artName"></div>
+              <div class="adet-sub" id="artSub"></div>
+            </div>
+          </div>
         </div>
         <div class="adet-acts">
+          <button class="btn ghost sm" id="artBack">←</button>
           <button class="btn sm" id="artPlayAll">▶ Play this artist</button>
           <button class="btn ghost sm" id="artPin"></button>
         </div>
@@ -1228,7 +1260,63 @@ async function playSpecific(t){
    1200 units to show a list you might not play. Resolution happens on
    tap, through the same resolveTrack() the queue uses.
 ============================================================ */
-const ART = { cache:{}, current:null, view:'grid' };
+const ART = { cache:{}, art:{}, artP:{}, current:null, view:'grid' };
+
+/* ---- artwork ----------------------------------------------------------
+   Last.fm stopped serving real artist images years ago — artist.getInfo
+   hands back the same grey star for everyone — and Deezer's API sends no
+   CORS headers, so the browser cannot read it. iTunes Search does allow
+   cross-origin reads, needs no key, and has no quota, so it is the one
+   source this app can actually use.
+
+   One search returns up to 25 of an artist's releases WITH cover art, so a
+   single call yields both the artist tile and every album cover; matching
+   is by normalised title rather than another request per album. Thumbnails
+   come back as 100x100 and the URL carries the size, so ask for bigger. */
+function artNorm(s){
+  return (s||'').toLowerCase()
+    .replace(/\(.*?\)|\[.*?\]/g,'')                     // (Deluxe), [Remastered]
+    .replace(/\b(deluxe|remaster(ed)?|edition|version|expanded|mix|master)\b/g,'')
+    .replace(/[^a-z0-9؀-ۿ]+/g,'')             // keep Arabic
+    .trim();
+}
+function artSize(url, px){ return url ? url.replace(/\/\d+x\d+bb\./, '/'+px+'x'+px+'bb.') : ''; }
+
+/* Cache the PROMISE, not the box. The grid prefetches every tile, so by the
+   time you open an artist a request is usually already in flight — handing a
+   second caller the still-empty box made it conclude there was no artwork and
+   give up permanently. Sharing the promise means everyone waits for the one
+   request and all of them see the filled result. ART.art keeps the resolved
+   boxes so albumArtFor() can stay synchronous during render. */
+function fetchArtistArt(name){
+  if(ART.artP[name]) return ART.artP[name];
+  ART.artP[name]=(async()=>{
+    const box={ artist:'', albums:{} };
+    try{
+      const u='https://itunes.apple.com/search?media=music&entity=album&limit=25&term='+encodeURIComponent(name);
+      const r=await fetch(u);
+      if(r.ok){
+        const d=await r.json();
+        (d.results||[]).forEach(x=>{
+          if(!x.artworkUrl100) return;
+          if(!box.artist) box.artist=x.artworkUrl100;   // first hit doubles as the artist tile
+          if(x.collectionName) box.albums[artNorm(x.collectionName)]=x.artworkUrl100;
+        });
+      }
+    }catch(_){}
+    ART.art[name]=box;
+    return box;
+  })();
+  return ART.artP[name];
+}
+function albumArtFor(name, albumTitle){
+  const box=ART.art[name]; if(!box) return '';
+  const k=artNorm(albumTitle);
+  if(box.albums[k]) return box.albums[k];
+  // loose match — "Mezzanine" against "Mezzanine (Deluxe)" and the reverse
+  const hit=Object.keys(box.albums).find(x=>x && k && (x.indexOf(k)===0 || k.indexOf(x)===0));
+  return hit ? box.albums[hit] : '';
+}
 
 function artistCounts(){                 // artists your ♥ and 👍 already imply
   const c={};
@@ -1343,10 +1431,29 @@ function renderArtists(){
   }
   g.innerHTML=list.map((a,i)=>
     '<button class="acard" data-ai="'+i+'">'+
-      '<span class="an">'+(a.pinned?'<span class="pin">⭑ </span>':'')+escapeHtml(a.name)+'</span>'+
-      '<span class="am">'+(a.score?(a.score+' pts from your taste'):'pinned')+'</span>'+
+      '<span class="aimg" data-aimg="'+i+'">'+
+        '<span class="aini">'+escapeHtml((a.name||'?').trim().charAt(0).toUpperCase())+'</span>'+
+        '<span class="ashade"></span>'+
+        (a.pinned?'<span class="pin">⭑</span>':'')+
+        '<span class="an">'+escapeHtml(a.name)+'</span>'+
+        '<span class="am">'+(a.score?(a.score+' pts'):'pinned')+'</span>'+
+      '</span>'+
     '</button>').join('');
   g.querySelectorAll('[data-ai]').forEach(b=>b.onclick=()=>openArtist(list[+b.dataset.ai].name));
+
+  // Covers arrive after paint, so the grid is usable immediately and each tile
+  // fills in as its lookup lands. The initial stays put if nothing is found.
+  list.forEach(async (a,i)=>{
+    const box=await fetchArtistArt(a.name);
+    if(ART.view!=='grid') return;
+    const el=g.querySelector('[data-aimg="'+i+'"]');
+    if(el && box.artist){
+      const url=artSize(box.artist,300);
+      const pre=new Image();
+      pre.onload=()=>{ el.style.backgroundImage='url("'+url+'")'; const ini=el.querySelector('.aini'); if(ini) ini.style.display='none'; };
+      pre.src=url;
+    }
+  });
 }
 
 function showArtistView(v){
@@ -1359,8 +1466,27 @@ async function openArtist(name){
   ART.current=name;
   showTab('artists'); showArtistView('detail');
   $('artName').textContent=name;
+  $('artSub').textContent='loading…';
   $('artPin').textContent=isPinned(name)?'⭑ pinned':'☆ pin artist';
+  // reset the hero so the previous artist's image never lingers behind this one
+  $('artHeroImg').style.backgroundImage=''; $('artHeroBg').style.backgroundImage='';
+  $('artHeroImg').textContent=(name||'?').trim().charAt(0).toUpperCase();
   $('artBody').innerHTML='<div class="mlist-hint">Loading '+escapeHtml(name)+'…</div>';
+
+  fetchArtistArt(name).then(box=>{
+    if(ART.current!==name || !box.artist) return;
+    const url=artSize(box.artist,400);
+    const pre=new Image();
+    pre.onload=()=>{
+      if(ART.current!==name) return;
+      $('artHeroImg').style.backgroundImage='url("'+url+'")';
+      $('artHeroImg').textContent='';
+      $('artHeroBg').style.backgroundImage='url("'+url+'")';
+      renderArtistDetail(name);        // repaint so album covers pick up the same batch
+    };
+    pre.src=url;
+  });
+
   const d=await fetchArtistData(name);
   if(ART.current!==name) return;                 // user moved on while loading
   renderArtistDetail(name, d);
@@ -1374,26 +1500,36 @@ function renderArtistDetail(name, d){
   if(d.error){ el.innerHTML='<div class="mlist-hint">'+escapeHtml(d.error)+'</div>'; return; }
 
   let h='';
+  const heroArt=(ART.art[name]&&ART.art[name].artist)?artSize(ART.art[name].artist,200):'';
+  $('artSub').textContent=[d.albums.length?d.albums.length+' albums':'', d.top.length?d.top.length+' top songs':'']
+    .filter(Boolean).join(' · ') || 'no releases found';
+
   if(d.top.length){
     h+='<div class="asec">TOP SONGS</div>';
     h+=d.top.map((t,i)=>
       '<div class="trow" data-tp="'+i+'">'+
         '<span class="tn">'+(i+1)+'</span>'+
+        (heroArt?'<span class="tcv" style="background-image:url(&quot;'+heroArt+'&quot;)"></span>':'')+
         '<span class="tt">'+escapeHtml(t.title)+'</span>'+
         '<button class="tst" data-tst="'+i+'" title="Start a station from this song">📡</button>'+
       '</div>').join('');
   }
   if(d.albums.length){
     h+='<div class="asec">ALBUMS</div>';
-    h+=d.albums.map((a,i)=>
-      '<div class="alb" data-alb="'+i+'">'+
+    h+=d.albums.map((a,i)=>{
+      const cv=albumArtFor(name, a.title);
+      return '<div class="alb" data-alb="'+i+'">'+
         '<div class="alb-h" data-albh="'+i+'">'+
+          '<span class="acv"'+(cv?' style="background-image:url(&quot;'+artSize(cv,200)+'&quot;)"':'')+'>'+(cv?'':'♪')+'</span>'+
+          '<span class="atw">'+
+            '<span class="at">'+escapeHtml(a.title)+'</span>'+
+            '<span class="ay">'+(a.tracks?a.tracks.length+' tracks':'tap to load')+'</span>'+
+          '</span>'+
           '<span class="ac">▸</span>'+
-          '<span class="at">'+escapeHtml(a.title)+'</span>'+
-          '<span class="ay">'+(a.tracks?a.tracks.length+' tracks':'')+'</span>'+
         '</div>'+
         '<div class="alb-b" id="albb'+i+'"></div>'+
-      '</div>').join('');
+      '</div>';
+    }).join('');
   }
   if(!h) h='<div class="mlist-hint">Nothing found for this artist.</div>';
   else h+='<div class="mlist-hint" style="margin-top:14px">via '+escapeHtml(d.source||'—')+
@@ -2499,7 +2635,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 41 · 2026-07-30 · 📡 stations · ⭑ artists · full backup (keys included) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
+const BUILD='Cassette · build 42 · 2026-07-30 · 📡 stations · ⭑ artists · full backup (keys included) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
