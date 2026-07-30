@@ -200,6 +200,32 @@
      seed name — the one thing the bar exists to show. Drop to a bare ✕ and
      the label gets ~234px, enough for most "Title — Artist" pairs. */
   @media(max-width:560px){.stationbar .sb-x{display:none}}
+  /* ⭑ artists — grid of favourites, then one artist's discography */
+  .agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:9px}
+  .acard{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:12px 11px;cursor:pointer;transition:.15s;min-width:0;text-align:left}
+  .acard:hover{border-color:var(--amber);background:rgba(232,162,75,.07)}
+  .acard .an{font-size:13.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+  .acard .am{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:5px;display:block}
+  .acard .pin{color:var(--amber)}
+  .adet-h{display:flex;align-items:center;gap:10px;margin-bottom:12px;min-width:0}
+  .adet-n{font-size:17px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+  .adet-acts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .asec{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--faint);margin:16px 2px 8px}
+  .alb{border:1px solid var(--line);border-radius:10px;margin-bottom:7px;overflow:hidden}
+  .alb-h{display:flex;align-items:center;gap:10px;padding:10px 11px;cursor:pointer;transition:.15s;min-width:0}
+  .alb-h:hover{background:var(--panel-2)}
+  .alb-h .at{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+  .alb-h .ay{font-family:var(--mono);font-size:10px;color:var(--faint);flex:none}
+  .alb-h .ac{font-family:var(--mono);font-size:13px;color:var(--faint);flex:none;transition:transform .18s}
+  .alb.open .ac{transform:rotate(90deg)}
+  .alb-b{display:none;border-top:1px solid var(--line);padding:5px}
+  .alb.open .alb-b{display:block}
+  .trow{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:8px;cursor:pointer;transition:.15s;min-width:0}
+  .trow:hover{background:var(--panel-2)}
+  .trow .tn{font-family:var(--mono);font-size:10px;color:var(--faint);flex:none;width:18px}
+  .trow .tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+  .trow .tst{background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:7px;padding:4px 8px;font-size:12px;line-height:1;flex:none}
+  .trow .tst:hover{color:var(--amber);border-color:var(--amber)}
   .srow .sst{background:transparent;border:1px solid var(--line);color:var(--faint);border-radius:7px;padding:5px 9px;font-size:13px;line-height:1;flex:none;transition:.15s}
   .srow .sst:hover{color:var(--amber);border-color:var(--amber)}
   .transport{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 2px}
@@ -466,6 +492,7 @@
     <button class="tab on" data-tab="now">▶ <span>Now</span><i class="badge hidden" id="tabBadge" style="display:none"></i></button>
     <button class="tab" id="tabExplore">🎲 <span>Explore</span></button>
     <button class="tab" id="tabSearch">🔍 <span>Search</span></button>
+    <button class="tab" data-tab="artists">⭑ <span>Artists</span></button>
     <button class="tab" id="tabPip">🪟 <span>PiP</span></button>
     <button class="tab" data-tab="dna">⬡ <span>Sound DNA</span></button>
   </nav>
@@ -559,6 +586,35 @@
       </div>
     </section>
 
+    <!-- TAB: ARTISTS — favourites grid, and a per-artist discography -->
+    <section class="tabpane" id="tabArtists">
+      <!-- view 1: the grid of favourite artists -->
+      <div class="card" id="artGrid">
+        <div class="panel-h">⭑ Artists <span class="n" id="artCount"></span></div>
+        <div class="arow" style="display:flex;gap:8px;margin-bottom:12px">
+          <input id="artSearchIn" type="text" placeholder="add an artist — e.g. Fairuz · Massive Attack"
+                 style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:11px 12px;font-family:var(--mono);font-size:13px;outline:none">
+          <button class="btn sm" id="artSearchGo">Find</button>
+        </div>
+        <div id="artSearchRes"></div>
+        <div class="agrid" id="artistGrid"></div>
+        <div class="mlist-hint" style="margin-top:12px">Pinned artists sit alongside the ones your ♥ favourites already imply. Tap any artist for their albums and songs.</div>
+      </div>
+
+      <!-- view 2: one artist's discography -->
+      <div class="card hidden" id="artDetail">
+        <div class="adet-h">
+          <button class="btn ghost sm" id="artBack">← artists</button>
+          <span class="adet-n" id="artName"></span>
+        </div>
+        <div class="adet-acts">
+          <button class="btn sm" id="artPlayAll">▶ Play this artist</button>
+          <button class="btn ghost sm" id="artPin"></button>
+        </div>
+        <div id="artBody"></div>
+      </div>
+    </section>
+
     <!-- TAB: SOUND DNA -->
     <section class="tabpane" id="tabDNA">
       <div class="card">
@@ -634,7 +690,8 @@
 ============================================================ */
 const S = {
   model:'gemini-3.5-flash',
-  profile: { loved:[], liked:[], disliked:[], banned:[], hatedGenres:[], genreScore:{}, artistScore:{}, seed:'' },
+  profile: { loved:[], liked:[], disliked:[], banned:[], hatedGenres:[], genreScore:{}, artistScore:{}, artists:[], seed:'' },
+  artistLane: null,         // ⭑ {name, pool[]} — one artist's catalogue as the queue source
   seenKeys: new Set(),      // "artist|title" to avoid repeats
   seenIds: new Set(),       // youtube ids used
   candidates: [],           // Gemini suggestions not yet resolved
@@ -659,7 +716,7 @@ function saveLocal(){
    which would otherwise crash renderModel and blank out Sound DNA */
 function normalizeProfile(){
   const p=S.profile;
-  ['loved','liked','disliked','banned','hatedGenres'].forEach(k=>{ if(!Array.isArray(p[k])) p[k]=[]; });
+  ['loved','liked','disliked','banned','hatedGenres','artists'].forEach(k=>{ if(!Array.isArray(p[k])) p[k]=[]; });
   ['genreScore','artistScore'].forEach(k=>{ if(!p[k] || typeof p[k]!=='object') p[k]={}; });
   if(typeof p.seed!=='string') p.seed='';
   // rebuild scores from buckets if they're empty but we have songs (e.g. after import)
@@ -935,6 +992,17 @@ function quotaStop(){
 ============================================================ */
 async function refillCandidates(){
   if(S.candidates.length>=3 || S.thinking) return;
+  // ⭑ artist lane: the pool is one discography, so it feeds candidates
+  // directly and never calls Gemini. When it runs dry the lane ends and
+  // normal recommendation resumes rather than stopping playback.
+  if(S.artistLane){
+    if(S.artistLane.pool.length){
+      S.candidates.push(...S.artistLane.pool.splice(0,6).map(t=>({...t, reason:'from '+S.artistLane.name})));
+      return;
+    }
+    toast('That is everything I could find by '+escapeHtml(S.artistLane.name));
+    stopArtistLane();
+  }
   if(S.geminiQuotaOut && !quotaRecovered()) return;
   S.thinking=true; renderQueue();
   try{ const got=await askGemini(6); S.candidates.push(...got); }
@@ -1090,6 +1158,7 @@ async function startStation(t, playSeed){
   if(!t || !t.title){ toast('Nothing to build a station from'); return; }
 
   S.station = { title:t.title, artist:t.artist||'', genre:t.genre||'' };
+  stopArtistLane();                                // station and artist lane are rival queue sources
   if(S.mode==='hearts'){ S.mode='discover'; S.heartQueue=[]; updateModePill(); }   // a station is its own lane
   if(S.exploreMode){ S.exploreMode=false; }        // "more like this" is the opposite of exploring
   S.candidates=[]; S.queue=[];                     // the old queue was built for a different taste
@@ -1147,6 +1216,255 @@ async function playSpecific(t){
   }
   showTab('now'); startTrack(c);
 }
+/* ============================================================
+   ⭑ ARTISTS — favourites grid, then one artist's discography.
+
+   Two sources, matching the rest of the app: Last.fm when a key is
+   present (real album/track data), Gemini otherwise (always available,
+   since a Gemini key is required to run at all).
+
+   Nothing here resolves YouTube ids up front. A YouTube search costs
+   100 quota units, so resolving a 12-track album on open would spend
+   1200 units to show a list you might not play. Resolution happens on
+   tap, through the same resolveTrack() the queue uses.
+============================================================ */
+const ART = { cache:{}, current:null, view:'grid' };
+
+function artistCounts(){                 // artists your ♥ and 👍 already imply
+  const c={};
+  (S.profile.loved||[]).forEach(t=>{ if(t.artist) c[t.artist]=(c[t.artist]||0)+3; });
+  (S.profile.liked||[]).forEach(t=>{ if(t.artist) c[t.artist]=(c[t.artist]||0)+1; });
+  return c;
+}
+function artistList(){
+  const c=artistCounts(), pinned=S.profile.artists||[];
+  const names=[...new Set(pinned.concat(Object.keys(c)))];
+  return names.map(n=>({name:n, score:c[n]||0, pinned:pinned.includes(n)}))
+              .sort((a,b)=> (b.pinned-a.pinned) || (b.score-a.score) || a.name.localeCompare(b.name));
+}
+function isPinned(n){ return (S.profile.artists||[]).includes(n); }
+function togglePin(n){
+  if(!Array.isArray(S.profile.artists)) S.profile.artists=[];
+  const i=S.profile.artists.indexOf(n);
+  if(i>=0){ S.profile.artists.splice(i,1); toast('Unpinned <span class="k">'+escapeHtml(n)+'</span>'); }
+  else { S.profile.artists.push(n); toast('Pinned <span class="k">'+escapeHtml(n)+'</span>'); }
+  saveLocal(); renderArtists(); if(ART.current===n) renderArtistDetail(n);
+}
+
+async function lastfmJSON(params){
+  if(!S.lastfm) return null;
+  try{
+    const u='https://ws.audioscrobbler.com/2.0/?format=json&autocorrect=1&api_key='
+      +encodeURIComponent(S.lastfm)+'&'+params;
+    const r=await fetch(u); if(!r.ok) return null;
+    return await r.json();
+  }catch(_){ return null; }
+}
+
+/* Album tracklists come from album.getInfo, one call per album, so they are
+   fetched lazily when an album is expanded rather than all at once. */
+async function fetchArtistData(name){
+  if(ART.cache[name]) return ART.cache[name];
+  let data={ name, albums:[], top:[], source:'' };
+
+  const [albRes, topRes] = await Promise.all([
+    lastfmJSON('method=artist.gettopalbums&limit=14&artist='+encodeURIComponent(name)),
+    lastfmJSON('method=artist.gettoptracks&limit=20&artist='+encodeURIComponent(name))
+  ]);
+  const albums=(albRes&&albRes.topalbums&&albRes.topalbums.album)||[];
+  const tops=(topRes&&topRes.toptracks&&topRes.toptracks.track)||[];
+  if(albums.length||tops.length){
+    data.albums=albums.filter(a=>a.name && !/^\(null\)$/i.test(a.name))
+                      .map(a=>({title:a.name, tracks:null}));
+    data.top=tops.map(t=>({title:t.name, artist:name}));
+    data.source='last.fm';
+  }
+
+  if(!data.albums.length && !data.top.length){
+    // Gemini fallback — everyone has this key, and it covers artists Last.fm
+    // is thin on (a lot of Arabic catalogue, in practice).
+    try{
+      const txt=await geminiRaw(
+        'List the best-known studio albums and songs by the musical artist "'+name+'".\n'+
+        'Reply with STRICT JSON only, no prose:\n'+
+        '{"albums":[{"title":"Album name","tracks":["Song 1","Song 2"]}],"top":["Best known song 1","Best known song 2"]}\n'+
+        'Up to 8 albums with up to 12 real track titles each, and up to 15 top songs. '+
+        'Use the titles as commonly written. If unsure of an album\'s tracklist, give an empty tracks array rather than inventing titles.');
+      const j=JSON.parse(txt);
+      data.albums=(j.albums||[]).filter(a=>a&&a.title).map(a=>({
+        title:a.title,
+        tracks:Array.isArray(a.tracks)&&a.tracks.length
+          ? a.tracks.filter(Boolean).map(t=>({title:t, artist:name})) : null
+      }));
+      data.top=(j.top||[]).filter(Boolean).map(t=>({title:t, artist:name}));
+      data.source='gemini';
+    }catch(e){ data.error='Could not load this artist — check Gemini key/quota.'; }
+  }
+  ART.cache[name]=data;
+  return data;
+}
+
+async function fetchAlbumTracks(artist, album){
+  const d=await lastfmJSON('method=album.getinfo&artist='+encodeURIComponent(artist)+'&album='+encodeURIComponent(album));
+  const raw=(d&&d.album&&d.album.tracks&&d.album.tracks.track);
+  const arr=Array.isArray(raw)?raw:(raw?[raw]:[]);
+  if(arr.length) return arr.map(t=>({title:t.name, artist}));
+  try{
+    const txt=await geminiRaw('List the track titles on the album "'+album+'" by "'+artist+'", in order.\n'+
+      'STRICT JSON only: {"tracks":["Title 1","Title 2"]}. If you do not know the album, reply {"tracks":[]}.');
+    return (JSON.parse(txt).tracks||[]).filter(Boolean).map(t=>({title:t, artist}));
+  }catch(_){ return []; }
+}
+
+/* ---- the artist lane: like a station, but the pool is one discography ---- */
+function startArtistLane(name, tracks){
+  if(!tracks || !tracks.length){ toast('No songs found for this artist yet'); return; }
+  S.artistLane={ name, pool:shuffleArr(tracks.slice()) };
+  S.station=null; renderStation();
+  if(S.mode==='hearts'){ S.mode='discover'; S.heartQueue=[]; updateModePill(); }
+  S.candidates=[]; S.queue=[];
+  const first=S.artistLane.pool.shift();
+  toast('⭑ Playing <span class="k">'+escapeHtml(name)+'</span>');
+  setStatus('<b>⭑ '+escapeHtml(name)+'</b> · playing their catalogue');
+  showTab('now');
+  playSpecific(first);
+  ensureQueue();
+}
+function stopArtistLane(){ S.artistLane=null; }
+
+/* ---------- artist rendering ---------- */
+function renderArtists(){
+  const g=$('artistGrid'); if(!g) return;
+  const list=artistList();
+  $('artCount').textContent = list.length ? list.length+' artists' : '';
+  if(!list.length){
+    g.innerHTML='<div class="mlist-hint">No artists yet — heart a few songs, or search above to pin one.</div>';
+    return;
+  }
+  g.innerHTML=list.map((a,i)=>
+    '<button class="acard" data-ai="'+i+'">'+
+      '<span class="an">'+(a.pinned?'<span class="pin">⭑ </span>':'')+escapeHtml(a.name)+'</span>'+
+      '<span class="am">'+(a.score?(a.score+' pts from your taste'):'pinned')+'</span>'+
+    '</button>').join('');
+  g.querySelectorAll('[data-ai]').forEach(b=>b.onclick=()=>openArtist(list[+b.dataset.ai].name));
+}
+
+function showArtistView(v){
+  ART.view=v;
+  $('artGrid').classList.toggle('hidden', v!=='grid');
+  $('artDetail').classList.toggle('hidden', v!=='detail');
+}
+
+async function openArtist(name){
+  ART.current=name;
+  showTab('artists'); showArtistView('detail');
+  $('artName').textContent=name;
+  $('artPin').textContent=isPinned(name)?'⭑ pinned':'☆ pin artist';
+  $('artBody').innerHTML='<div class="mlist-hint">Loading '+escapeHtml(name)+'…</div>';
+  const d=await fetchArtistData(name);
+  if(ART.current!==name) return;                 // user moved on while loading
+  renderArtistDetail(name, d);
+}
+
+function renderArtistDetail(name, d){
+  d = d || ART.cache[name];
+  const el=$('artBody'); if(!el) return;
+  $('artPin').textContent=isPinned(name)?'⭑ pinned':'☆ pin artist';
+  if(!d){ el.innerHTML='<div class="mlist-hint">Loading…</div>'; return; }
+  if(d.error){ el.innerHTML='<div class="mlist-hint">'+escapeHtml(d.error)+'</div>'; return; }
+
+  let h='';
+  if(d.top.length){
+    h+='<div class="asec">TOP SONGS</div>';
+    h+=d.top.map((t,i)=>
+      '<div class="trow" data-tp="'+i+'">'+
+        '<span class="tn">'+(i+1)+'</span>'+
+        '<span class="tt">'+escapeHtml(t.title)+'</span>'+
+        '<button class="tst" data-tst="'+i+'" title="Start a station from this song">📡</button>'+
+      '</div>').join('');
+  }
+  if(d.albums.length){
+    h+='<div class="asec">ALBUMS</div>';
+    h+=d.albums.map((a,i)=>
+      '<div class="alb" data-alb="'+i+'">'+
+        '<div class="alb-h" data-albh="'+i+'">'+
+          '<span class="ac">▸</span>'+
+          '<span class="at">'+escapeHtml(a.title)+'</span>'+
+          '<span class="ay">'+(a.tracks?a.tracks.length+' tracks':'')+'</span>'+
+        '</div>'+
+        '<div class="alb-b" id="albb'+i+'"></div>'+
+      '</div>').join('');
+  }
+  if(!h) h='<div class="mlist-hint">Nothing found for this artist.</div>';
+  else h+='<div class="mlist-hint" style="margin-top:14px">via '+escapeHtml(d.source||'—')+
+          ' · songs resolve on YouTube when you tap them, to spare your quota.</div>';
+  el.innerHTML=h;
+
+  el.querySelectorAll('[data-tp]').forEach(r=>r.onclick=e=>{
+    if(e.target.closest('[data-tst]')) return;
+    playSpecific(d.top[+r.dataset.tp]);
+  });
+  el.querySelectorAll('[data-tst]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); startStation(d.top[+b.dataset.tst], true);
+  });
+  el.querySelectorAll('[data-albh]').forEach(hd=>hd.onclick=()=>toggleAlbum(name, +hd.dataset.albh));
+}
+
+async function toggleAlbum(name, idx){
+  const d=ART.cache[name]; if(!d) return;
+  const wrap=$('artBody').querySelector('[data-alb="'+idx+'"]');
+  const body=$('albb'+idx); if(!wrap||!body) return;
+  const opening=!wrap.classList.contains('open');
+  wrap.classList.toggle('open', opening);
+  if(!opening) return;
+
+  const alb=d.albums[idx];
+  if(!alb.tracks){
+    body.innerHTML='<div class="mlist-hint" style="padding:8px">Loading tracks…</div>';
+    alb.tracks=await fetchAlbumTracks(name, alb.title);
+  }
+  if(!alb.tracks.length){ body.innerHTML='<div class="mlist-hint" style="padding:8px">No tracklist found.</div>'; return; }
+  body.innerHTML=alb.tracks.map((t,i)=>
+    '<div class="trow" data-at="'+i+'">'+
+      '<span class="tn">'+(i+1)+'</span>'+
+      '<span class="tt">'+escapeHtml(t.title)+'</span>'+
+    '</div>').join('');
+  body.querySelectorAll('[data-at]').forEach(r=>r.onclick=()=>playSpecific(alb.tracks[+r.dataset.at]));
+  const cnt=wrap.querySelector('.ay'); if(cnt) cnt.textContent=alb.tracks.length+' tracks';
+}
+
+/* ---- search for a new artist ---- */
+async function artistSearch(){
+  const q=$('artSearchIn').value.trim(); if(!q) return;
+  const res=$('artSearchRes');
+  res.innerHTML='<div class="mlist-hint">Searching…</div>';
+  let names=[];
+  const d=await lastfmJSON('method=artist.search&limit=8&artist='+encodeURIComponent(q));
+  const m=(d&&d.results&&d.results.artistmatches&&d.results.artistmatches.artist)||[];
+  names=m.map(a=>a.name).filter(Boolean);
+  if(!names.length){
+    try{
+      const txt=await geminiRaw('The user is searching for a musical artist named "'+q+'".\n'+
+        'Reply STRICT JSON only: {"artists":["Exact Artist Name","Another"]} — up to 6 real artists, best match first.');
+      names=(JSON.parse(txt).artists||[]).filter(Boolean);
+    }catch(_){}
+  }
+  if(!names.length){ res.innerHTML='<div class="mlist-hint">No artist found for “'+escapeHtml(q)+'”.</div>'; return; }
+  res.innerHTML='<div class="asec">RESULTS</div>'+names.map((n,i)=>
+    '<div class="trow" data-as="'+i+'">'+
+      '<span class="tt">'+escapeHtml(n)+'</span>'+
+      '<button class="tst" data-ap="'+i+'">'+(isPinned(n)?'⭑':'☆ pin')+'</button>'+
+    '</div>').join('');
+  res.querySelectorAll('[data-as]').forEach(r=>r.onclick=e=>{
+    if(e.target.closest('[data-ap]')) return;
+    openArtist(names[+r.dataset.as]);
+  });
+  res.querySelectorAll('[data-ap]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); togglePin(names[+b.dataset.ap]);
+    b.textContent=isPinned(names[+b.dataset.ap])?'⭑':'☆ pin';
+  });
+}
+
 /* ---------- 🔍 direct song search — plays exactly what you name ---------- */
 function deent(s){ const t=document.createElement('textarea'); t.innerHTML=s||''; return t.value; }
 function openSearch(){
@@ -1191,6 +1509,22 @@ async function runSearch(){
 $('searchPill').onclick=openSearch;
 $('closeSearch').onclick=closeSearchOv;
 $('searchGo').onclick=runSearch;
+/* ⭑ artists */
+$('artBack').onclick=()=>{ ART.current=null; showArtistView('grid'); renderArtists(); };
+$('artPin').onclick=()=>{ if(ART.current) togglePin(ART.current); };
+$('artSearchGo').onclick=artistSearch;
+$('artSearchIn').addEventListener('keydown',e=>{ if(e.key==='Enter') artistSearch(); });
+$('artPlayAll').onclick=()=>{
+  const n=ART.current; if(!n) return;
+  const d=ART.cache[n]; if(!d){ toast('Still loading…'); return; }
+  // Everything known about them: top songs plus every tracklist already expanded.
+  const seen=new Set(), all=[];
+  d.top.concat(...d.albums.map(a=>a.tracks||[])).forEach(t=>{
+    const k=(t.artist+'|'+t.title).toLowerCase();
+    if(!seen.has(k)){ seen.add(k); all.push(t); }
+  });
+  startArtistLane(n, all);
+};
 $('searchIn').addEventListener('keydown',e=>{ if(e.key==='Enter') runSearch(); });
 $('searchOverlay').addEventListener('click',e=>{ if(e.target.id==='searchOverlay') closeSearchOv(); });
 
@@ -1738,11 +2072,12 @@ $('anchorAdd').onclick=addAnchors;
 /* ---- tabs ---- */
 function showTab(name){
   S.tab=name;
-  const paneId = {now:'tabNow', queue:'tabQueue', dna:'tabDNA'}[name];
+  const paneId = {now:'tabNow', queue:'tabQueue', dna:'tabDNA', artists:'tabArtists'}[name];
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
   document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on', p.id===paneId));
   if(name==='queue'){ const b=$('tabBadge'); if(b)b.classList.remove('show'); }
   if(name==='dna'){ renderModel(); }
+  if(name==='artists'){ if(ART.view!=='detail') showArtistView('grid'); renderArtists(); }
   moveTabInd();
 }
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
@@ -2164,7 +2499,7 @@ function renderUpNextMini(){
 }
 const _renderQueue=renderQueue; renderQueue=function(){ _renderQueue(); renderUpNextMini(); };
 
-const BUILD='Cassette · build 40 · 2026-07-30 · 📡 stations · full backup (keys included) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
+const BUILD='Cassette · build 41 · 2026-07-30 · 📡 stations · ⭑ artists · full backup (keys included) · car APK media session — wheel ⏮ = ♥ favorite, ⏭ = neutral skip';
 try{ $('buildStamp').textContent=BUILD; }catch(_){}
 loadKeys();
 loadLocal();
