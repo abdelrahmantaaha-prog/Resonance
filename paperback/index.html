@@ -13,12 +13,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0C0B10; --panel:#151319; --panel-2:#1C1922; --line:#282430;
-    --ink:#ECE7DE; --muted:#8A8397; --faint:#5C566B;
-    --gold:#E7B44C;    /* love / masterpiece */
-    --teal:#9B8FD4;    /* like */
-    --rust:#C8583F;    /* dislike / never */
-    --violet:#8A7BD8;  /* accent */
+    /* Reading Room. Paperback used to run Cassette's palette — a violet-black
+       ground under amber — which is player language: right for an app you use
+       with the lights down, wrong for the one activity here done in daylight.
+       It also fought the covers, which are designed to sit on white paper and
+       read as stickers on black. Parchment and ink instead. */
+    --bg:#F7F2E8; --panel:#FFFDF8; --panel-2:#F2EAD9; --line:#E4D8C0;
+    /* --faint carries author lines and hints at 9.5–11px. The obvious parchment
+       value (#9C8C74) measured 3.22:1 on this ground — fine on the old dark
+       theme, under the 4.5:1 floor here. Darkened until it passes. */
+    --ink:#2C2620; --muted:#6E6050; --faint:#7A6952;
+    --gold:#8B5E34;    /* love / masterpiece — leather, not amber */
+    --teal:#4F7266;    /* like */
+    --rust:#B0432B;    /* dislike / never */
+    --violet:#6E5A94;  /* accent */
+    --shelf:#C9A87C;   /* the rail the covers stand on */
     --r:14px;
     --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
     --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,sans-serif;
@@ -26,7 +35,7 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;overflow-x:hidden;max-width:100vw}
-  body{background:radial-gradient(1100px 650px at 80% -10%, #1a1526 0%, var(--bg) 55%) fixed, var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+  body{background:radial-gradient(1200px 700px at 78% -12%, #FDF8EC 0%, var(--bg) 58%) fixed, var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
   a{color:var(--gold)}
   button{font-family:inherit;cursor:pointer}
   /* The 118px here was meant to clear the fixed tab bar, but .wrap holds only
@@ -48,7 +57,7 @@
   .appswitch .seg{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:99px;font-family:var(--mono);font-size:12px;color:var(--muted);text-decoration:none;transition:.2s;position:relative;z-index:2}
   .appswitch .seg .ic{font-size:13px;filter:grayscale(.5);transition:.2s}
   .appswitch .seg:hover{color:var(--ink)}
-  .appswitch .seg.on{color:#221a0a;font-weight:600;background:linear-gradient(135deg,var(--gold),#d89b3a);box-shadow:0 2px 10px rgba(231,180,76,.35)}
+  .appswitch .seg.on{color:#FFF8EA;font-weight:600;background:linear-gradient(135deg,var(--gold),#A0703F);box-shadow:0 2px 10px rgba(139,94,52,.28)}
   .appswitch .seg.on .ic{filter:none}
   .appswitch .seg:not(.on):hover .ic{filter:none}
   .pill{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:8px 14px;font-family:var(--mono);font-size:11.5px;transition:.15s}
@@ -56,7 +65,7 @@
   .status{width:100%;font-family:var(--mono);font-size:12px;color:var(--muted)}
   .status b{color:var(--gold);font-weight:500}
 
-  .overlay{position:fixed;inset:0;background:rgba(6,5,10,.74);backdrop-filter:blur(4px);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:26px 16px;overflow-y:auto}
+  .overlay{position:fixed;inset:0;background:rgba(58,46,32,.42);backdrop-filter:blur(4px);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:26px 16px;overflow-y:auto}
   .sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:100%;max-width:520px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
   .sheet-h{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase}
   .xbtn{background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer}
@@ -67,7 +76,7 @@
   .field input,.field select,.field textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:11px 12px;font-family:var(--mono);font-size:13px;outline:none}
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--gold)}
   .keybox{min-height:52px;resize:vertical;line-height:1.5}
-  .btn{background:var(--gold);color:#221a0a;border:none;border-radius:10px;padding:12px 20px;font-weight:600;font-size:14px;transition:.15s}
+  .btn{background:var(--gold);color:#FFF8EA;border:none;border-radius:10px;padding:12px 20px;font-weight:600;font-size:14px;transition:.15s}
   .btn:hover{filter:brightness(1.08)}
   .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
   .btn.sm{padding:8px 13px;font-size:12px}
@@ -76,12 +85,12 @@
 
   .tabbar{position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
     width:min(calc(100% - 20px),640px);z-index:50;display:flex;gap:4px;padding:6px;margin:0;
-    background:rgba(8,7,12,.66);backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);
-    border:1px solid rgba(255,255,255,.09);border-radius:18px;box-shadow:0 12px 34px rgba(0,0,0,.5);
+    background:rgba(255,253,248,.86);backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);
+    border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(96,72,40,.16);
     overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .tabbar::-webkit-scrollbar{display:none}
   .tabbar.hidden{display:none}
-  .tind{position:absolute;top:6px;bottom:6px;left:0;width:0;border-radius:13px;background:rgba(231,180,76,.14);border:1px solid rgba(231,180,76,.42);
+  .tind{position:absolute;top:6px;bottom:6px;left:0;width:0;border-radius:13px;background:rgba(139,94,52,.12);border:1px solid rgba(139,94,52,.45);
     transition:transform .38s cubic-bezier(.3,1.35,.35,1),width .38s cubic-bezier(.3,1.35,.35,1),opacity .2s;opacity:0;pointer-events:none}
   /* min-width:0 lets a tab shrink below its label; without it the four labels
      needed 403px inside a 353px bar and "Surprise me" was cut off the right
@@ -103,10 +112,10 @@
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
 
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-  .poster-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:240px;background:#000}
+  .poster-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:0;background:transparent}
   .poster-wrap img{display:block;width:auto;max-width:100%;max-height:56vh}
   .poster-wrap .ph{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--faint);font-family:var(--mono);font-size:12px}
-  .rank{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.7);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-family:var(--mono);font-size:12px}
+  .rank{position:absolute;top:12px;left:12px;background:rgba(255,253,248,.92);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-family:var(--mono);font-size:12px}
   .rank b{color:var(--gold)}
   .mv-body{padding:18px 20px 20px}
   .mv-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
@@ -114,7 +123,7 @@
   .mv-meta{color:var(--muted);font-size:13px;margin-bottom:10px}
   .mv-meta .tmdb{color:var(--teal)}
   .mv-meta .imdb{color:#E7B44C;font-weight:600}
-  .mv-meta .rt{color:#E0524B}
+  .mv-meta .rt{color:#B0432B}
   .mv-reason{font-size:13.5px;color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:11px;margin:10px 0 14px}
   .mv-reason b{color:var(--gold);font-style:normal;font-family:var(--mono);font-size:11px}
   .mv-overview{white-space:pre-line;font-size:13.5px;color:var(--muted);margin-bottom:14px;max-height:120px;overflow-y:auto}
@@ -166,7 +175,7 @@
   .grp .h .sw{width:8px;height:8px;border-radius:2px}
   .chips{display:flex;flex-wrap:wrap;gap:6px}
   .chip{font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
-  .chip.love{border-color:rgba(231,180,76,.4);color:var(--gold)}
+  .chip.love{border-color:rgba(139,94,52,.4);color:var(--gold)}
   .chip.hate{border-color:var(--line);color:var(--faint);text-decoration:line-through}
   .empty-model{color:var(--faint);font-family:var(--mono);font-size:11.5px;font-style:italic}
   .editbtn{display:block;width:100%;margin-top:14px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px;font-family:var(--mono);font-size:12px;transition:.15s}
@@ -190,10 +199,10 @@
 
   .stage{max-width:760px;margin:0 auto}
 
-  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(30px);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 18px;font-family:var(--mono);font-size:12.5px;opacity:0;transition:.3s;pointer-events:none;z-index:70;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(30px);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 18px;font-family:var(--mono);font-size:12.5px;opacity:0;transition:.3s;pointer-events:none;z-index:70;box-shadow:0 8px 26px rgba(96,72,40,.22)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .toast .k{color:var(--gold)}
-  .quotaWall{background:rgba(231,180,76,.08);border:1px solid rgba(231,180,76,.3);border-radius:12px;padding:18px;text-align:center;margin:8px 0 14px}
+  .quotaWall{background:rgba(139,94,52,.07);border:1px solid rgba(139,94,52,.3);border-radius:12px;padding:18px;text-align:center;margin:8px 0 14px}
   .quotaWall .qw-t{font-weight:600;font-size:15px;margin-bottom:6px}
   .quotaWall .qw-s{color:var(--muted);font-size:12.5px;margin-bottom:12px}
   .shelf-tools{padding:12px 14px 4px}
@@ -205,20 +214,34 @@
   .shelfList{padding:10px 14px 16px;max-height:60vh;overflow-y:auto}
   /* A shelf should look like a shelf. Covers lead; the row controls that used
      to crowd every line now live behind a tap on the cover. */
+  /* Sections scroll sideways like real shelves, each standing on a rail. A grid
+     of every book at once reads as a database; a shelf per section reads as a
+     shelf, and keeps "reading" and "want to read" visible without scrolling. */
+  .bsect{margin-bottom:6px}
+  .bsect-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:14px 2px 9px}
+  .bsect-h b{font-family:var(--disp);font-size:15.5px;font-weight:600;letter-spacing:-.01em}
+  .bsect-h span{font-size:11px;color:var(--faint)}
+  .bshelfrow{display:flex;gap:14px;overflow-x:auto;padding:2px 2px 14px;scrollbar-width:none}
+  .bshelfrow::-webkit-scrollbar{display:none}
+  .brail{height:9px;border-radius:2px;margin:0 0 4px;
+      background:linear-gradient(var(--shelf),#A8865A);box-shadow:0 3px 8px rgba(120,88,48,.28)}
   .bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:14px 12px}
   .bk{position:relative;display:block;border:0;padding:0;background:none;text-align:left;cursor:pointer;min-width:0;
       transition:transform .18s cubic-bezier(.3,1.4,.4,1)}
+  .bshelfrow .bk{width:96px;flex:none}
   .bk:hover{transform:translateY(-3px)}
-  .bk .bcv{position:relative;display:block;width:100%;aspect-ratio:2/3;border-radius:8px;overflow:hidden;
-      background:var(--panel-2) center/cover no-repeat;border:1px solid var(--line);
-      box-shadow:0 8px 20px rgba(0,0,0,.45), inset 3px 0 0 rgba(0,0,0,.28);}
+  /* Covers are drawn for white paper, so on parchment they need a real drop
+     shadow and a spine edge to sit on the shelf instead of floating. */
+  .bk .bcv{position:relative;display:block;width:100%;aspect-ratio:2/3;border-radius:3px;overflow:hidden;
+      background:var(--panel-2) center/cover no-repeat;border:1px solid rgba(120,92,56,.22);
+      box-shadow:0 6px 14px rgba(70,52,30,.28), inset 3px 0 0 rgba(0,0,0,.13);}
   .bk:hover .bcv{border-color:var(--gold)}
   .bk .bnoimg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;
       padding:10px;color:var(--faint);font-family:var(--disp);font-size:12px;text-align:center;line-height:1.25}
   .bk .bshelf{position:absolute;top:5px;left:5px;font-size:11px;line-height:1;padding:3px 5px;border-radius:6px;
-      background:rgba(8,7,12,.78);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12)}
+      background:rgba(255,253,248,.92);backdrop-filter:blur(6px);border:1px solid var(--line)}
   .bk .bnote{position:absolute;top:5px;right:5px;font-size:10px;line-height:1;padding:3px 5px;border-radius:6px;
-      background:rgba(8,7,12,.78);border:1px solid rgba(231,180,76,.5);color:var(--gold)}
+      background:rgba(255,253,248,.94);border:1px solid rgba(139,94,52,.5);color:var(--gold)}
   .bk .bt{display:block;font-family:var(--disp);font-size:12.5px;line-height:1.3;margin-top:7px;color:var(--ink);
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .bk .ba{display:block;font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:3px;
@@ -250,7 +273,7 @@
   .rung.done{opacity:.5}
   .rung .step{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--muted);cursor:pointer;transition:.15s;background:var(--panel-2)}
   .rung .step:hover{border-color:var(--gold);color:var(--gold)}
-  .rung.done .step{background:var(--gold);color:#221a0a;border-color:var(--gold)}
+  .rung.done .step{background:var(--gold);color:#FFF8EA;border-color:var(--gold)}
   .rung .rb2{flex:1;min-width:0}
   .rung .stage{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--violet);margin-bottom:3px}
   .rung .rt{font-weight:600;font-size:14px}
@@ -818,7 +841,29 @@ function renderShelf(){
     '</div>';
 
   const open = (typeof shelfOpen==='number' && shelfOpen>=0 && shelfOpen<rows.length) ? shelfOpen : -1;
-  list.innerHTML=rows.map((r,ri)=> cell(r,ri) + (ri===open ? actsFor(r,ri) : '')).join('');
+
+  // Filtering or searching is a lookup, so show one flat grid. Browsing the
+  // whole shelf is browsing, so break it into named shelves you scroll along.
+  if(shelfFilter!=='all' || q){
+    list.className='bgrid';
+    list.innerHTML=rows.map((r,ri)=> cell(r,ri) + (ri===open ? actsFor(r,ri) : '')).join('');
+  } else {
+    list.className='';
+    const SECT=[['reading','Currently reading'],['watchlist','Want to read'],
+                ['loved','Favourites'],['liked','Liked'],
+                ['disliked','Not for me'],['banned','Banned']];
+    list.innerHTML=SECT.map(([b,label])=>{
+      const mine=rows.map((r,ri)=>({r,ri})).filter(x=>x.r.b===b);
+      if(!mine.length) return '';
+      const openHere=mine.some(x=>x.ri===open);
+      return '<div class="bsect">'+
+          '<div class="bsect-h"><b>'+label+'</b><span>'+mine.length+'</span></div>'+
+          '<div class="bshelfrow">'+mine.map(x=>cell(x.r,x.ri)).join('')+'</div>'+
+          '<div class="brail"></div>'+
+          (openHere?actsFor(rows[open],open):'')+
+        '</div>';
+    }).join('');
+  }
 
   list.querySelectorAll('[data-bk]').forEach(b=>b.onclick=()=>{
     const i=+b.dataset.bk; shelfOpen = (shelfOpen===i ? -1 : i); renderShelf();
