@@ -328,6 +328,24 @@
   .tab{position:relative}
   .tab .badge{position:absolute;top:7px;right:9px;width:8px;height:8px;border-radius:99px;background:var(--gold);box-shadow:0 0 8px var(--gold);display:none}
   .tab .badge.show{display:block}
+  /* 🧲 torrent sources */
+  .tstats{margin-top:8px;font:500 12px/1.4 'IBM Plex Mono',monospace;color:#e6b14a;letter-spacing:.02em}
+  .srcModal{position:fixed;inset:0;z-index:120;background:rgba(8,8,12,.86);display:flex;align-items:center;justify-content:center;padding:24px}
+  .srcBox{width:min(820px,96vw);max-height:88vh;overflow:auto;background:#14141a;border:1px solid #2a2a34;border-radius:16px;padding:20px 22px}
+  .srcHead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+  .srcEpPick{display:flex;gap:8px;margin-bottom:12px}
+  .srcEpPick select{flex:1}
+  .srcList{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+  .srow{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:12px 14px;border:1px solid #26262f;border-radius:10px;background:#191921;cursor:pointer;outline:none}
+  .srow:hover,.srow:focus{background:#e6b14a;border-color:#e6b14a}
+  .srow:hover *,.srow:focus *{color:#0b0b0f !important}
+  .srow.heavy{opacity:.72}
+  .srow-a{min-width:0;flex:1}
+  .srow-a b{display:block;font-size:14px;color:#f2f2f5}
+  .srow-a span{display:block;font-size:12px;color:#a3a3b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .srow-b{text-align:right;white-space:nowrap}
+  .srow-b b{display:block;font-size:13px;color:#e6b14a}
+  .srow-b span{display:block;font-size:12px;color:#a3a3b0}
 </style>
 </head>
 <body>
@@ -379,6 +397,29 @@
             <option value="imdb">IMDb id (tt…)</option>
             <option value="tmdb">TMDB id</option>
           </select>
+        </div>
+        <div class="field">
+          <label>Streaming server <span class="hint">— Stremio's server on this machine · required for 🧲 torrent sources</span></label>
+          <input id="streamSrv" type="text" placeholder="http://127.0.0.1:11470" autocomplete="off" spellcheck="false">
+          <div><button class="btn ghost sm" id="srvCheck" type="button">Test connection</button></div>
+          <div class="hint" id="srvStatus">Not checked yet.</div>
+        </div>
+        <div class="field">
+          <label>Torrentio options <span class="hint">— optional · the config segment from a configured Torrentio URL, e.g. sort=qualitysize|qualityfilter=480p</span></label>
+          <input id="torrentioOpts" type="text" placeholder="blank = Torrentio defaults" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <label>OpenSubtitles API key <span class="hint">— optional · opensubtitles.com → Consumers · adds subtitles to torrent playback</span></label>
+          <input id="osKey" type="password" placeholder="OpenSubtitles API key" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>OpenSubtitles account <span class="hint">— optional · username (not email) + password raises the daily download quota from 5 to 20</span></label>
+          <input id="osUser" type="text" placeholder="username" autocomplete="off" spellcheck="false">
+          <input id="osPass" type="password" placeholder="password" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Subtitle languages <span class="hint">— best first, comma separated</span></label>
+          <input id="subLangs" type="text" placeholder="ar,en" autocomplete="off" spellcheck="false">
         </div>
         <div class="field">
           <label>Region <span class="hint">— for "where to watch"</span></label>
@@ -461,8 +502,10 @@
             <div class="wlrow">
               <input id="srcIn" type="text" placeholder="▶ paste a watch link — YouTube, Vimeo, archive.org, .mp4/.m3u8, or any embed URL">
               <button class="btn sm" id="srcGo">Play</button>
+              <button class="btn sm ghost" id="srcTorrent" title="Find torrent sources via Torrentio">🧲 Sources</button>
             </div>
             <div class="wlnote" id="srcNote">Plays whatever you point it at — use sources you have the right to watch (your own files, archive.org, official embeds).</div>
+            <div class="tstats hidden" id="tstats"></div>
           </div>
           <div class="epbrowse hidden" id="epBrowse">
             <div class="ephead">episodes <select id="seasonSel"></select><span id="epCount"></span></div>
@@ -573,10 +616,28 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- 🧲 torrent source picker -->
+<div class="srcModal hidden" id="srcModal">
+  <div class="srcBox">
+    <div class="srcHead">
+      <div><b>🧲 Torrent sources</b><div class="hint" id="srcTitle"></div></div>
+      <div>
+        <button class="btn ghost sm" id="srcRefresh" type="button">↻ Refresh</button>
+        <button class="btn ghost sm" id="srcModalClose" type="button">✕ Close</button>
+      </div>
+    </div>
+    <div class="srcEpPick hidden" id="srcEpPick">
+      <select id="srcSeason"></select><select id="srcEp"></select>
+    </div>
+    <div class="srcList" id="srcList"></div>
+    <div class="hint">H.264 sorted first — HEVC and 10-bit need a decoder your machine may not have. More seeders start faster. Streams are served by your local Stremio server, not by this page.</div>
+  </div>
+</div>
 <script>
 const $=id=>document.getElementById(id);
 const S={
   geminiKeys:[],gi:0,tmdb:'',omdb:'',region:'EG',model:'gemini-3.5-flash',media:'movie',embedTplMovie:'',embedTplTv:'',embedIdType:'imdb',
+  streamSrv:'http://127.0.0.1:11470',torrentioOpts:'',osKey:'',osUser:'',osPass:'',subLangs:'en',osToken:'',osTokenAt:0,
   profile:{loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:''},
   seen:new Set(), seenT:new Set(), candidates:[], queue:[], current:null, history:[],
   started:false,resolving:false,thinking:false,mode:'discover',favQueue:[],
@@ -725,7 +786,8 @@ function loadRewindConfig(){
 }
 function saveRewindConfig(patch){ const c=Object.assign(loadRewindConfig(), patch||{}); try{ localStorage.setItem('rewind_config', JSON.stringify(c)); }catch(_){} return c; }
 
-function saveKeys(){ saveRewindConfig({geminiKeys:S.geminiKeys, tmdb:S.tmdb, omdb:S.omdb, region:S.region, model:S.model, reelSeed:S.profile.seed, embedTplMovie:S.embedTplMovie, embedTplTv:S.embedTplTv, embedIdType:S.embedIdType}); }
+function saveKeys(){ saveRewindConfig({geminiKeys:S.geminiKeys, tmdb:S.tmdb, omdb:S.omdb, region:S.region, model:S.model, reelSeed:S.profile.seed, embedTplMovie:S.embedTplMovie, embedTplTv:S.embedTplTv, embedIdType:S.embedIdType,
+  streamSrv:S.streamSrv, torrentioOpts:S.torrentioOpts, opensubtitles:S.osKey, osUser:S.osUser, osPass:S.osPass, subLangs:S.subLangs}); }
 function loadKeys(){try{
   const c=loadRewindConfig();
   S.geminiKeys=c.geminiKeys||[];
@@ -738,6 +800,14 @@ function loadKeys(){try{
   S.embedTplTv=(c.embedTplTv!=null?String(c.embedTplTv):legacy).trim();
   S.embedIdType=(c.embedIdType==='tmdb')?'tmdb':'imdb';
   $('embedTplMovie').value=S.embedTplMovie; $('embedTplTv').value=S.embedTplTv; $('embedIdType').value=S.embedIdType;
+  // torrent sources — the streaming server and the subtitle addon
+  S.streamSrv=(c.streamSrv!=null?String(c.streamSrv):'http://127.0.0.1:11470').trim()||'http://127.0.0.1:11470';
+  S.torrentioOpts=String(c.torrentioOpts||'').trim();
+  S.osKey=String(c.opensubtitles||c.osKey||'').trim();
+  S.osUser=String(c.osUser||'').trim(); S.osPass=String(c.osPass||'');
+  S.subLangs=String(c.subLangs||'en').trim()||'en';
+  $('streamSrv').value=S.streamSrv; $('torrentioOpts').value=S.torrentioOpts;
+  $('osKey').value=S.osKey; $('osUser').value=S.osUser; $('osPass').value=S.osPass; $('subLangs').value=S.subLangs;
   if(S.geminiKeys.length)$('setupNote').textContent=S.geminiKeys.length+' Gemini key(s) — shared with Cassette. Hit Start.';
 }catch(_){}}
 function exportProfile(){const b=new Blob([JSON.stringify(S.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='reel-taste-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Exported');}
@@ -1573,6 +1643,8 @@ $('startBtn').onclick=async()=>{
   S.geminiKeys=parseKeys($('geminiKey').value);S.gi=0;S.geminiQuotaOut=false;
   S.tmdb=$('tmdbKey').value.trim();S.omdb=$('omdbKey').value.trim();S.region=$('region').value;S.model=$('modelSel').value;
   S.embedTplMovie=$('embedTplMovie').value.trim();S.embedTplTv=$('embedTplTv').value.trim();S.embedIdType=$('embedIdType').value;
+  S.streamSrv=$('streamSrv').value.trim()||'http://127.0.0.1:11470';S.torrentioOpts=$('torrentioOpts').value.trim();
+  S.osKey=$('osKey').value.trim();S.osUser=$('osUser').value.trim();S.osPass=$('osPass').value;S.subLangs=$('subLangs').value.trim()||'en';
   $('regionLbl').textContent='· '+S.region;
   const seed=$('seed').value.trim();if(seed)S.profile.seed=seed;
   if(!S.geminiKeys.length){toast('Gemini key required');return;}
@@ -1596,6 +1668,337 @@ $('startBtn').onclick=async()=>{
 try{$('buildStamp').textContent=BUILD;}catch(_){}
 loadKeys();loadLocal();openSettings();
 if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('sw.js').then(r=>{try{r.update();}catch(_){}}).catch(()=>{});}
+
+/* ---------- 🧲 Torrent sources — Torrentio + a local Stremio streaming server ----------
+
+   A browser cannot join a BitTorrent swarm. There are no raw TCP/uTP sockets in a page, and
+   WebTorrent only reaches peers that speak WebRTC — which the torrents Torrentio indexes do
+   not. So the torrent engine stays out of process: Stremio's streaming server runs on this
+   machine and holds the swarm, and this app only ever speaks HTTP to it. That is the same
+   split Stremio Web uses, and it works from an https page because browsers treat
+   http://127.0.0.1 as a trustworthy origin and exempt it from mixed-content blocking.
+
+   Flow: TMDB id → IMDb id → Torrentio stream list → POST /{infoHash}/create (hands the
+   tracker list over so the server finds peers immediately instead of waiting on the DHT) →
+   play GET /{infoHash}/{fileIdx} in a plain <video>, which gets seeking and the app's own
+   resume-position handling for free.                                                      */
+
+const TORRENTIO = 'https://torrentio.strem.fun';
+const DEFAULT_TRACKERS = [
+  'udp://tracker.opentrackr.org:1337/announce',
+  'udp://open.demonii.com:1337/announce',
+  'udp://tracker.openbittorrent.com:80/announce',
+  'udp://exodus.desync.com:6969/announce',
+  'udp://open.stealth.si:80/announce',
+  'udp://tracker.torrent.eu.org:451/announce'
+];
+
+function srvBase(){ return String(S.streamSrv||'http://127.0.0.1:11470').trim().replace(/\/+$/,''); }
+
+/* fetch with a real timeout — a missing streaming server otherwise hangs the UI until the
+   browser's own (very long) network timeout fires. */
+async function jfetch(url, opts, ms){
+  const c = new AbortController();
+  const t = setTimeout(()=>c.abort(), ms||15000);
+  try{ return await fetch(url, Object.assign({signal:c.signal}, opts||{})); }
+  finally{ clearTimeout(t); }
+}
+async function jget(url, opts, ms){
+  const r = await jfetch(url, opts, ms);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+async function srvProbe(){
+  try{ await jget(srvBase()+'/settings', {}, 4000); return true; }catch(_){ return false; }
+}
+
+async function checkServer(){
+  const el=$('srvStatus'); if(!el) return;
+  el.textContent='Checking '+srvBase()+' …';
+  const ok=await srvProbe();
+  el.innerHTML = ok
+    ? '<span style="color:#7bd88f">✓ reachable</span> — torrent sources are ready.'
+    : '<span style="color:#e6b14a">not reachable</span> — install Stremio and leave it running, or start its server separately. Safari blocks localhost from https pages; use Chrome, Edge or Firefox.';
+}
+
+/* ---- Torrentio ---- */
+
+/* Everything Torrentio knows about a release is packed into its name/title strings, so the
+   useful bits have to be parsed back out. Same rules as the Android app. */
+function stMeta(s){
+  const blob = (s.name||'')+'\n'+(s.title||'');
+  const seed = (blob.match(/👤\s*(\d+)/) || blob.match(/seeders?[:\s]+(\d+)/i) || [])[1];
+  const size = (blob.match(/💾\s*([\d.]+\s*[KMGT]i?B)/i) || blob.match(/\b(\d+(?:\.\d+)?\s*[KMGT]i?B)\b/i) || [])[1];
+  const quality = /2160|\b4k\b/i.test(blob) ? '4K'
+                : /1080/.test(blob) ? '1080p'
+                : /720/.test(blob)  ? '720p'
+                : /480/.test(blob)  ? '480p' : '';
+  const codec = /hevc|x265|h\.?265/i.test(blob) ? 'HEVC'
+              : /\bav1\b/i.test(blob)           ? 'AV1'
+              : /x264|h\.?264|avc/i.test(blob)  ? 'H.264' : '';
+  // Codecs a modest machine may have no hardware path for. Still offered, just sorted last.
+  const heavy = codec==='HEVC' || codec==='AV1' || /10.?bit|hdr|dolby ?vision|dovi/i.test(blob);
+  return {
+    seeders:+seed||0,
+    size:(size||'').trim(),
+    quality, codec, heavy,
+    provider:String(s.name||'Torrentio').split('\n')[0].trim(),
+    label:String(s.title||'').split('\n')[0].trim()
+  };
+}
+
+async function ensureImdb(m){
+  if(m && m.imdbId) return m.imdbId;
+  if(!m || !m.id || !S.tmdb) return '';
+  try{
+    const t = (m.type==='tv') ? 'tv' : 'movie';
+    const r = await jget('https://api.themoviedb.org/3/'+t+'/'+m.id+'/external_ids?api_key='+encodeURIComponent(S.tmdb), {}, 12000);
+    if(r && r.imdb_id){ m.imdbId=r.imdb_id; return r.imdb_id; }
+  }catch(_){}
+  return '';
+}
+
+async function torrentioStreams(m, sn, en){
+  const imdb = await ensureImdb(m);
+  if(!imdb) throw new Error('No IMDb id for this title — Torrentio is indexed by IMDb id.');
+  const kind = (m.type==='tv') ? 'series' : 'movie';
+  const id = (kind==='series') ? imdb+':'+(sn||1)+':'+(en||1) : imdb;
+  const opts = String(S.torrentioOpts||'').trim().replace(/^\/+|\/+$/g,'');
+  const url = TORRENTIO + (opts?'/'+opts:'') + '/stream/'+kind+'/'+id+'.json';
+  const d = await jget(url, {}, 25000);
+  return (d.streams||[])
+    .filter(s=>s && s.infoHash)
+    .map(s=>Object.assign({}, s, {_m:stMeta(s)}))
+    .filter(s=>s._m.quality!=='4K')            // 4K is a lot of swarm for a browser <video>
+    .sort((a,b)=> (a._m.heavy - b._m.heavy) || (b._m.seeders - a._m.seeders));
+}
+
+/* ---- playback ---- */
+
+function fmtRate(bps){
+  if(!bps || bps<=0) return '—';
+  if(bps < 1024) return Math.round(bps)+' B/s';
+  if(bps < 1048576) return Math.round(bps/1024)+' KB/s';
+  return (bps/1048576).toFixed(1)+' MB/s';
+}
+
+async function playTorrent(s, m, sn, en){
+  const base = srvBase();
+  const hash = String(s.infoHash).toLowerCase();
+
+  if(!(await srvProbe())){
+    toast('Streaming server not reachable at '+base);
+    $('srcNote').innerHTML='Start Stremio (or its streaming server) on this machine, then try again. Checked <code>'+esc(base)+'</code>.';
+    return;
+  }
+
+  // Hand Torrentio's tracker list to the server. Without it the server falls back to the DHT
+  // alone, which can take a minute or more to find the first peer.
+  const sources=[];
+  (s.sources||[]).forEach(x=>{
+    const v=String(x);
+    const norm = /^(dht|tracker):/.test(v) ? v : 'tracker:'+v;
+    if(sources.indexOf(norm)<0) sources.push(norm);
+  });
+  DEFAULT_TRACKERS.forEach(t=>{ const v='tracker:'+t; if(sources.indexOf(v)<0) sources.push(v); });
+  if(sources.indexOf('dht:'+hash)<0) sources.push('dht:'+hash);
+
+  try{
+    await jfetch(base+'/'+hash+'/create', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({peerSearch:{min:40, max:200, sources}})
+    }, 15000);
+  }catch(_){ /* already known to the server, or it declined the hint — the stream URL still works */ }
+
+  // fileIdx is which file inside a season pack Torrentio meant. Omitted, the server picks the
+  // largest file, which for a single-file torrent is the right answer anyway.
+  const idx = (typeof s.fileIdx === 'number') ? s.fileIdx : null;
+  const url = base+'/'+hash+(idx===null ? '' : '/'+idx);
+
+  closeSources();
+  const label = [s._m.quality, s._m.codec, s._m.size].filter(Boolean).join(' · ');
+  // Straight to mountEmbed: toEmbed() would not recognise an extensionless URL as video, and
+  // this way the app's existing resume-position and continue-watching handling still applies.
+  mountEmbed({type:'video', src:url}, 'Torrent · '+s._m.provider+(label?' · '+label:'')+' — served by your streaming server.');
+  persistCurrent({src:url});
+  markContinue();
+  startTorrentStats(hash, idx===null?0:idx);
+  loadTorrentSubs(m, sn, en);
+}
+
+function stopTorrentStats(){
+  if(S._tstat){ clearInterval(S._tstat); S._tstat=null; }
+  const el=$('tstats'); if(el) el.classList.add('hidden');
+}
+
+/* Live swarm readout over the video. It matters here in a way it does not for a normal file:
+   a stalled torrent and a slow network look identical otherwise. */
+function startTorrentStats(hash, idx){
+  stopTorrentStats();
+  const el=$('tstats'); if(!el) return;
+  el.classList.remove('hidden');
+  el.textContent='connecting to peers…';
+  let misses=0;
+  S._tstat=setInterval(async()=>{
+    try{
+      const d=await jget(srvBase()+'/'+hash+'/'+idx+'/stats.json', {}, 6000);
+      const st=(d && d.streamProgress!=null) ? d : (d && d.stats) || d || {};
+      const pct=Math.round((Number(st.streamProgress)||0)*100);
+      const peers=(st.peers!=null?st.peers:(st.numPeers!=null?st.numPeers:'—'));
+      el.textContent='● '+peers+' peers · '+fmtRate(Number(st.downloadSpeed)||0)+' · buffered '+pct+'%';
+      misses=0;
+    }catch(_){
+      if(++misses>4){ el.textContent='swarm stats unavailable'; }
+    }
+  }, 1500);
+  // Once frames are actually flowing the numbers stop being the story.
+  const v=$('pframe').querySelector('video');
+  if(v) v.addEventListener('playing', ()=>{ setTimeout(stopTorrentStats, 4000); }, {once:true});
+}
+
+/* ---- subtitles (OpenSubtitles) ---- */
+
+async function osToken(){
+  if(S.osToken && (Date.now()-S.osTokenAt) < 20*3600*1000) return S.osToken;
+  if(!S.osUser || !S.osPass) return '';
+  try{
+    const r=await jget('https://api.opensubtitles.com/api/v1/login', {
+      method:'POST',
+      headers:{'Api-Key':S.osKey,'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({username:S.osUser, password:S.osPass})
+    }, 15000);
+    if(r && r.token){ S.osToken=r.token; S.osTokenAt=Date.now(); return r.token; }
+  }catch(_){ /* a 400 here almost always means the account email was used instead of the username */ }
+  return '';
+}
+
+/* Browsers only understand WebVTT, and subtitle uploads are overwhelmingly SRT. */
+function srtToVtt(srt){
+  const body=String(srt).replace(/\r\n|\r/g,'\n').trim().split(/\n{2,}/).map(block=>{
+    const lines=block.split('\n');
+    // drop the cue number, but only when the line after it really is a timing line
+    if(/^\d+$/.test((lines[0]||'').trim()) && /-->/.test(lines[1]||'')) lines.shift();
+    return lines.join('\n').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+  }).join('\n\n');
+  return 'WEBVTT\n\n'+body;
+}
+
+/* Subtitles are routinely uploaded in a legacy single-byte encoding. Decoded as UTF-8 they
+   come out as mojibake — badly enough that Arabic is unreadable. */
+function decodeSub(buf, lang){
+  let bytes=new Uint8Array(buf);
+  if(bytes.length>=3 && bytes[0]===0xEF && bytes[1]===0xBB && bytes[2]===0xBF) bytes=bytes.subarray(3);
+  try{ return new TextDecoder('utf-8',{fatal:true}).decode(bytes); }catch(_){}
+  const legacy={ar:'windows-1256',fa:'windows-1256',ur:'windows-1256',he:'windows-1255',
+                ru:'windows-1251',bg:'windows-1251',sr:'windows-1251',uk:'windows-1251',
+                el:'windows-1253',tr:'windows-1254',th:'windows-874',
+                pl:'windows-1250',cs:'windows-1250',hu:'windows-1250',ro:'windows-1250'
+               }[String(lang||'').slice(0,2).toLowerCase()] || 'windows-1252';
+  try{ return new TextDecoder(legacy).decode(bytes); }
+  catch(_){ return new TextDecoder('iso-8859-1').decode(bytes); }
+}
+
+async function loadTorrentSubs(m, sn, en){
+  const v=$('pframe').querySelector('video');
+  if(!v || !S.osKey) return;
+  try{
+    const langs=String(S.subLangs||'en').split(/[,\n]+/).map(x=>x.trim()).filter(Boolean);
+    const imdb=(await ensureImdb(m)||'').replace(/^tt/,'').replace(/^0+/,'');
+    let q='https://api.opensubtitles.com/api/v1/subtitles?languages='+encodeURIComponent(langs.join(','))
+         +'&order_by=download_count&order_direction=desc';
+    if(m.type==='tv' && sn && en){
+      q+='&type=episode&season_number='+sn+'&episode_number='+en;
+      q+= imdb ? '&parent_imdb_id='+imdb : '&parent_tmdb_id='+m.id;
+    }else{
+      q+='&type=movie';
+      q+= imdb ? '&imdb_id='+imdb : '&tmdb_id='+m.id;
+    }
+    const heads={'Api-Key':S.osKey,'Accept':'application/json'};
+    const found=await jget(q, {headers:heads}, 20000);
+    const first=(found.data||[])[0];
+    const fileId=first && first.attributes && (first.attributes.files||[])[0] && first.attributes.files[0].file_id;
+    if(!fileId) return;
+    const lang=(first.attributes.language||langs[0]||'en');
+
+    const tk=await osToken();
+    const dlHeads=Object.assign({'Content-Type':'application/json'}, heads);
+    if(tk) dlHeads['Authorization']='Bearer '+tk;
+    const dl=await jget('https://api.opensubtitles.com/api/v1/download', {
+      method:'POST', headers:dlHeads, body:JSON.stringify({file_id:fileId, sub_format:'srt'})
+    }, 20000);
+    if(!dl || !dl.link) return;
+
+    const raw=await (await jfetch(dl.link, {}, 25000)).arrayBuffer();
+    const vtt=srtToVtt(decodeSub(raw, lang));
+    const tr=document.createElement('track');
+    tr.kind='subtitles'; tr.label=lang.toUpperCase()+' · OpenSubtitles'; tr.srclang=lang;
+    tr.src=URL.createObjectURL(new Blob([vtt], {type:'text/vtt'}));
+    tr.default=true;
+    v.appendChild(tr);
+    try{ v.textTracks[v.textTracks.length-1].mode='showing'; }catch(_){}
+    toast('Subtitles · '+lang.toUpperCase());
+  }catch(err){
+    // Never fatal: no subtitles is a worse film, not a broken one.
+    console.warn('subtitles', err);
+  }
+}
+
+/* ---- source picker ---- */
+
+function closeSources(){ $('srcModal').classList.add('hidden'); }
+
+async function openSources(){
+  const m=S.current;
+  if(!m){ toast('Pick a title first'); return; }
+  const modal=$('srcModal'), list=$('srcList'), pick=$('srcEpPick');
+  modal.classList.remove('hidden');
+  $('srcTitle').textContent=m.title+(m.year?' ('+m.year+')':'');
+
+  const isTv=(m.type==='tv');
+  pick.classList.toggle('hidden', !isTv);
+  if(isTv && !pick.dataset.built){
+    const seasons=Math.max(1, Number(m.seasons)||Number((m.seasonList||[]).length)||1);
+    let so=''; for(let i=1;i<=seasons;i++) so+='<option value="'+i+'">Season '+i+'</option>';
+    let eo=''; for(let i=1;i<=40;i++) eo+='<option value="'+i+'">Episode '+i+'</option>';
+    $('srcSeason').innerHTML=so; $('srcEp').innerHTML=eo;
+    const cur=$('seasonSel'); if(cur && cur.value) $('srcSeason').value=cur.value;
+    pick.dataset.built='1';
+  }
+
+  list.innerHTML='<div class="hint">Asking Torrentio…</div>';
+  const sn=isTv?Number($('srcSeason').value||1):null;
+  const en=isTv?Number($('srcEp').value||1):null;
+  try{
+    const streams=await torrentioStreams(m, sn, en);
+    if(!streams.length){ list.innerHTML='<div class="hint">No sources found for this title.</div>'; return; }
+    list.innerHTML=streams.slice(0,40).map((s,i)=>{
+      const x=s._m;
+      const meta=[x.quality,x.codec,x.size].filter(Boolean).join(' · ');
+      return '<div class="srow'+(x.heavy?' heavy':'')+'" tabindex="0" data-i="'+i+'">'
+        +'<div class="srow-a"><b>'+esc(x.provider)+'</b><span>'+esc(x.label)+'</span></div>'
+        +'<div class="srow-b"><b>'+(x.seeders?x.seeders+' seeders':'seeders ?')+'</b><span>'+esc(meta)+'</span></div>'
+        +'</div>';
+    }).join('');
+    list.querySelectorAll('.srow').forEach(el=>{
+      const go=()=>playTorrent(streams[+el.dataset.i], m, sn, en);
+      el.onclick=go;
+      el.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } };
+    });
+    const f=list.querySelector('.srow'); if(f) f.focus();
+  }catch(err){
+    list.innerHTML='<div class="hint">Torrentio failed: '+esc(err.message||String(err))+'</div>';
+  }
+}
+
+$('srcTorrent').onclick=openSources;
+$('srcModalClose').onclick=closeSources;
+$('srcRefresh').onclick=openSources;
+$('srvCheck').onclick=()=>{ S.streamSrv=$('streamSrv').value.trim()||'http://127.0.0.1:11470'; checkServer(); };
+$('srcSeason').onchange=openSources;
+$('srcEp').onchange=openSources;
+
 </script>
 </body>
 </html>
