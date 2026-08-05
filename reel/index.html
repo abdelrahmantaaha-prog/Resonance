@@ -417,8 +417,8 @@
           <input id="debridKey" type="password" placeholder="API key / token" autocomplete="off">
         </div>
         <div class="field">
-          <label>Streaming server <span class="hint">— optional fallback if you have no debrid provider · Stremio's server on this machine</span></label>
-          <input id="streamSrv" type="text" placeholder="http://127.0.0.1:11470" autocomplete="off" spellcheck="false">
+          <label>Streaming server <span class="hint">— Stremio Service · use its <b>https</b> stremio.rocks address, not 127.0.0.1, or this https page cannot reach it. Get it from <code>http://127.0.0.1:11470/get-https?ipAddress=YOUR-LAN-IP</code></span></label>
+          <input id="streamSrv" type="text" placeholder="https://192-168-1-20.abcdef123456.stremio.rocks:12470" autocomplete="off" spellcheck="false">
           <div><button class="btn ghost sm" id="srvCheck" type="button">Test connection</button></div>
           <div class="hint" id="srvStatus">Not checked yet.</div>
         </div>
@@ -1731,8 +1731,15 @@ async function jget(url, opts, ms){
   return r.json();
 }
 
+/* Stremio Service sends CORS headers only to Stremio's own domains (web.stremio.com,
+   app.strem.io) — that is precisely why Torrentio "works on Stremio Web" and would not work
+   here. So this page can never *read* a response from it.
+
+   It does not need to. A no-cors probe still reports whether the connection succeeded, a
+   no-cors POST still reaches /create, and <video> loads cross-origin media without CORS at
+   all. Only the JSON bodies are off limits, and none of them are load-bearing. */
 async function srvProbe(){
-  try{ await jget(srvBase()+'/settings', {}, 4000); return true; }catch(_){ return false; }
+  try{ await jfetch(srvBase()+'/settings', {mode:'no-cors'}, 5000); return true; }catch(_){ return false; }
 }
 
 /* "Not reachable" covers four completely different faults with different fixes, and a bare
@@ -1743,9 +1750,9 @@ async function srvProbe(){
 async function diagnoseServer(){
   const base=srvBase();
   const out={base, mixed:(location.protocol==='https:' && /^http:\/\//i.test(base))};
-  try{ await jget(base+'/settings', {}, 5000); out.state='ok'; return out; }
-  catch(e){ out.corsErr=String(e.name||e); }
-  try{ await jfetch(base+'/settings', {mode:'no-cors'}, 5000); out.state='cors'; }
+  // no-cors first: it is the only probe that can succeed from this origin, because the
+  // service withholds CORS headers from everyone but Stremio.
+  try{ await jfetch(base+'/settings', {mode:'no-cors'}, 5000); out.state='ok'; }
   catch(e){ out.state='down'; out.netErr=String(e.name||e); }
   return out;
 }
@@ -1755,24 +1762,19 @@ async function checkServer(){
   el.textContent='Checking '+srvBase()+' …';
   const d=await diagnoseServer();
   if(d.state==='ok'){
-    el.innerHTML='<span style="color:#7bd88f">✓ reachable</span> — torrent sources are ready.';
+    el.innerHTML='<span style="color:#7bd88f">✓ reachable</span> — torrent sources are ready.'
+      + (d.mixed ? '<br><span style="color:#e6b14a">…but this is an http address on an https page.</span> It may work now and stop when the browser tightens up. Prefer the https stremio.rocks address below.' : '');
     return;
   }
-  if(d.state==='cors'){
-    el.innerHTML='<span style="color:#e6b14a">reached it, but the browser refused the response</span> — '
-      +'something is listening on '+esc(d.base)+', so the service is running. It is not returning '
-      +'CORS headers this page is allowed to use. Check the port is the streaming server\'s and not another app\'s.';
-    return;
-  }
-  // Nothing answered. If this page is https and the server is http, the browser is by far the
-  // likeliest culprit — it blocks or gates requests from a public https site to a local address.
   el.innerHTML='<span style="color:#e6b14a">no answer from '+esc(d.base)+'</span><br>'
-    +'Open <a href="'+esc(d.base)+'/settings" target="_blank" rel="noopener"><code>'+esc(d.base)+'/settings</code></a> in a new tab. '
-    +'<b>If it shows JSON</b>, the service is fine and this page is being blocked from reaching it'
-    + (d.mixed ? ' — which is what happens when an https page calls a local http address. Open Reel over http from this machine instead, or allow local network access when the browser asks.' : '.')
-    +' <b>If it does not</b>, the service is not listening there — check it is running and on the right port.<br>'
-    +'Note the firewall is not involved for 127.0.0.1: loopback never leaves the machine. If your browser is on a '
-    +'<i>different</i> device from the service, 127.0.0.1 points at that device itself and can never work — use the machine\'s LAN address.';
+    +'<b>Get the right address:</b> with the service running, open '
+    +'<a href="http://127.0.0.1:11470/get-https?ipAddress=YOUR-LAN-IP" target="_blank" rel="noopener"><code>http://127.0.0.1:11470/get-https?ipAddress=YOUR-LAN-IP</code></a> '
+    +'on the machine running it. It returns a domain and port — paste <code>https://DOMAIN:PORT</code> above. '
+    +'That address carries a real certificate and resolves to the same machine, so an https page can use it and '
+    +'so can your phone or TV on the same network.<br>'
+    + (d.mixed ? '<b>Why the plain http address fails:</b> this page is https, and browsers block or gate calls from an https page to a local http address.<br>' : '')
+    +'The firewall is not involved for 127.0.0.1 — loopback never leaves the machine. And if your browser is on a '
+    +'<i>different</i> device from the service, 127.0.0.1 points at that device itself and can never work.';
 }
 
 /* ---- Torrentio ---- */
@@ -1887,10 +1889,13 @@ async function playTorrent(s, m, sn, en){
   try{
     await jfetch(base+'/'+hash+'/create', {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      mode:'no-cors',
+      // no-cors permits only simple Content-Types, so application/json is out. The service
+      // parses the body regardless, and this is the one way to get the hint through at all.
+      headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({peerSearch:{min:40, max:200, sources}})
     }, 15000);
-  }catch(_){ /* already known to the server, or it declined the hint — the stream URL still works */ }
+  }catch(_){ /* the stream URL starts the torrent on its own; this only speeds up peer discovery */ }
 
   // fileIdx is which file inside a season pack Torrentio meant. Omitted, the server picks the
   // largest file, which for a single-file torrent is the right answer anyway.
@@ -1920,7 +1925,6 @@ function startTorrentStats(hash, idx){
   const el=$('tstats'); if(!el) return;
   el.classList.remove('hidden');
   el.textContent='connecting to peers…';
-  let misses=0;
   S._tstat=setInterval(async()=>{
     try{
       const d=await jget(srvBase()+'/'+hash+'/'+idx+'/stats.json', {}, 6000);
@@ -1928,9 +1932,11 @@ function startTorrentStats(hash, idx){
       const pct=Math.round((Number(st.streamProgress)||0)*100);
       const peers=(st.peers!=null?st.peers:(st.numPeers!=null?st.numPeers:'—'));
       el.textContent='● '+peers+' peers · '+fmtRate(Number(st.downloadSpeed)||0)+' · buffered '+pct+'%';
-      misses=0;
     }catch(_){
-      if(++misses>4){ el.textContent='swarm stats unavailable'; }
+      // Stats need to be *read*, so the CORS allowlist blocks them for good on a non-Stremio
+      // origin. Stop asking rather than blinking an error at the user forever — playback
+      // itself is unaffected, since <video> needs no CORS.
+      stopTorrentStats();
     }
   }, 1500);
   // Once frames are actually flowing the numbers stop being the story.
