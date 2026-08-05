@@ -399,7 +399,25 @@
           </select>
         </div>
         <div class="field">
-          <label>Streaming server <span class="hint">— Stremio's server on this machine · required for 🧲 torrent sources</span></label>
+          <label>Debrid provider <span class="hint">— resolves torrents server-side and returns a plain https link · no install, and it works on phones and TVs too</span></label>
+          <select id="debridProv">
+            <option value="">None — use a local streaming server instead</option>
+            <option value="torbox">TorBox</option>
+            <option value="realdebrid">Real-Debrid</option>
+            <option value="alldebrid">AllDebrid</option>
+            <option value="premiumize">Premiumize</option>
+            <option value="debridlink">Debrid-Link</option>
+            <option value="offcloud">Offcloud</option>
+            <option value="easydebrid">EasyDebrid</option>
+            <option value="putio">put.io</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Debrid API key <span class="hint">— from your provider's account page</span></label>
+          <input id="debridKey" type="password" placeholder="API key / token" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Streaming server <span class="hint">— optional fallback if you have no debrid provider · Stremio's server on this machine</span></label>
           <input id="streamSrv" type="text" placeholder="http://127.0.0.1:11470" autocomplete="off" spellcheck="false">
           <div><button class="btn ghost sm" id="srvCheck" type="button">Test connection</button></div>
           <div class="hint" id="srvStatus">Not checked yet.</div>
@@ -637,7 +655,7 @@
 const $=id=>document.getElementById(id);
 const S={
   geminiKeys:[],gi:0,tmdb:'',omdb:'',region:'EG',model:'gemini-3.5-flash',media:'movie',embedTplMovie:'',embedTplTv:'',embedIdType:'imdb',
-  streamSrv:'http://127.0.0.1:11470',torrentioOpts:'',osKey:'',osUser:'',osPass:'',subLangs:'en',osToken:'',osTokenAt:0,
+  streamSrv:'http://127.0.0.1:11470',torrentioOpts:'',debridProv:'',debridKey:'',osKey:'',osUser:'',osPass:'',subLangs:'en',osToken:'',osTokenAt:0,
   profile:{loved:[],liked:[],disliked:[],banned:[],hatedGenres:[],watchlist:[],genreScore:{},dirScore:{},seed:''},
   seen:new Set(), seenT:new Set(), candidates:[], queue:[], current:null, history:[],
   started:false,resolving:false,thinking:false,mode:'discover',favQueue:[],
@@ -787,7 +805,8 @@ function loadRewindConfig(){
 function saveRewindConfig(patch){ const c=Object.assign(loadRewindConfig(), patch||{}); try{ localStorage.setItem('rewind_config', JSON.stringify(c)); }catch(_){} return c; }
 
 function saveKeys(){ saveRewindConfig({geminiKeys:S.geminiKeys, tmdb:S.tmdb, omdb:S.omdb, region:S.region, model:S.model, reelSeed:S.profile.seed, embedTplMovie:S.embedTplMovie, embedTplTv:S.embedTplTv, embedIdType:S.embedIdType,
-  streamSrv:S.streamSrv, torrentioOpts:S.torrentioOpts, opensubtitles:S.osKey, osUser:S.osUser, osPass:S.osPass, subLangs:S.subLangs}); }
+  streamSrv:S.streamSrv, torrentioOpts:S.torrentioOpts, debridProv:S.debridProv, debridKey:S.debridKey,
+  opensubtitles:S.osKey, osUser:S.osUser, osPass:S.osPass, subLangs:S.subLangs}); }
 function loadKeys(){try{
   const c=loadRewindConfig();
   S.geminiKeys=c.geminiKeys||[];
@@ -803,6 +822,8 @@ function loadKeys(){try{
   // torrent sources — the streaming server and the subtitle addon
   S.streamSrv=(c.streamSrv!=null?String(c.streamSrv):'http://127.0.0.1:11470').trim()||'http://127.0.0.1:11470';
   S.torrentioOpts=String(c.torrentioOpts||'').trim();
+  S.debridProv=String(c.debridProv||'').trim(); S.debridKey=String(c.debridKey||'').trim();
+  $('debridProv').value=S.debridProv; $('debridKey').value=S.debridKey;
   S.osKey=String(c.opensubtitles||c.osKey||'').trim();
   S.osUser=String(c.osUser||'').trim(); S.osPass=String(c.osPass||'');
   S.subLangs=String(c.subLangs||'en').trim()||'en';
@@ -1644,6 +1665,7 @@ $('startBtn').onclick=async()=>{
   S.tmdb=$('tmdbKey').value.trim();S.omdb=$('omdbKey').value.trim();S.region=$('region').value;S.model=$('modelSel').value;
   S.embedTplMovie=$('embedTplMovie').value.trim();S.embedTplTv=$('embedTplTv').value.trim();S.embedIdType=$('embedIdType').value;
   S.streamSrv=$('streamSrv').value.trim()||'http://127.0.0.1:11470';S.torrentioOpts=$('torrentioOpts').value.trim();
+  S.debridProv=$('debridProv').value;S.debridKey=$('debridKey').value.trim();
   S.osKey=$('osKey').value.trim();S.osUser=$('osUser').value.trim();S.osPass=$('osPass').value;S.subLangs=$('subLangs').value.trim()||'en';
   $('regionLbl').textContent='· '+S.region;
   const seed=$('seed').value.trim();if(seed)S.profile.seed=seed;
@@ -1713,13 +1735,44 @@ async function srvProbe(){
   try{ await jget(srvBase()+'/settings', {}, 4000); return true; }catch(_){ return false; }
 }
 
+/* "Not reachable" covers four completely different faults with different fixes, and a bare
+   fetch failure cannot tell them apart — the browser deliberately reports a blocked request
+   and a refused connection identically. A second probe in no-cors mode splits them: an opaque
+   response still means the TCP connection succeeded, so something *is* listening and the
+   problem is CORS or the browser's local-network gate rather than a missing server. */
+async function diagnoseServer(){
+  const base=srvBase();
+  const out={base, mixed:(location.protocol==='https:' && /^http:\/\//i.test(base))};
+  try{ await jget(base+'/settings', {}, 5000); out.state='ok'; return out; }
+  catch(e){ out.corsErr=String(e.name||e); }
+  try{ await jfetch(base+'/settings', {mode:'no-cors'}, 5000); out.state='cors'; }
+  catch(e){ out.state='down'; out.netErr=String(e.name||e); }
+  return out;
+}
+
 async function checkServer(){
   const el=$('srvStatus'); if(!el) return;
   el.textContent='Checking '+srvBase()+' …';
-  const ok=await srvProbe();
-  el.innerHTML = ok
-    ? '<span style="color:#7bd88f">✓ reachable</span> — torrent sources are ready.'
-    : '<span style="color:#e6b14a">not reachable</span> — install Stremio and leave it running, or start its server separately. Safari blocks localhost from https pages; use Chrome, Edge or Firefox.';
+  const d=await diagnoseServer();
+  if(d.state==='ok'){
+    el.innerHTML='<span style="color:#7bd88f">✓ reachable</span> — torrent sources are ready.';
+    return;
+  }
+  if(d.state==='cors'){
+    el.innerHTML='<span style="color:#e6b14a">reached it, but the browser refused the response</span> — '
+      +'something is listening on '+esc(d.base)+', so the service is running. It is not returning '
+      +'CORS headers this page is allowed to use. Check the port is the streaming server\'s and not another app\'s.';
+    return;
+  }
+  // Nothing answered. If this page is https and the server is http, the browser is by far the
+  // likeliest culprit — it blocks or gates requests from a public https site to a local address.
+  el.innerHTML='<span style="color:#e6b14a">no answer from '+esc(d.base)+'</span><br>'
+    +'Open <a href="'+esc(d.base)+'/settings" target="_blank" rel="noopener"><code>'+esc(d.base)+'/settings</code></a> in a new tab. '
+    +'<b>If it shows JSON</b>, the service is fine and this page is being blocked from reaching it'
+    + (d.mixed ? ' — which is what happens when an https page calls a local http address. Open Reel over http from this machine instead, or allow local network access when the browser asks.' : '.')
+    +' <b>If it does not</b>, the service is not listening there — check it is running and on the right port.<br>'
+    +'Note the firewall is not involved for 127.0.0.1: loopback never leaves the machine. If your browser is on a '
+    +'<i>different</i> device from the service, 127.0.0.1 points at that device itself and can never work — use the machine\'s LAN address.';
 }
 
 /* ---- Torrentio ---- */
@@ -1730,6 +1783,10 @@ function stMeta(s){
   const blob = (s.name||'')+'\n'+(s.title||'');
   const seed = (blob.match(/👤\s*(\d+)/) || blob.match(/seeders?[:\s]+(\d+)/i) || [])[1];
   const size = (blob.match(/💾\s*([\d.]+\s*[KMGT]i?B)/i) || blob.match(/\b(\d+(?:\.\d+)?\s*[KMGT]i?B)\b/i) || [])[1];
+  // With a debrid provider Torrentio tags cached releases "[RD+]" / "[TB+]" and uncached ones
+  // "download". Cached is the whole point: it plays instantly instead of queueing a fetch.
+  const cached = /\[[A-Za-z]{2,3}\+\]/.test(blob);
+  const queued = /\bdownload\b/i.test(String(s.name||''));
   const quality = /2160|\b4k\b/i.test(blob) ? '4K'
                 : /1080/.test(blob) ? '1080p'
                 : /720/.test(blob)  ? '720p'
@@ -1742,7 +1799,7 @@ function stMeta(s){
   return {
     seeders:+seed||0,
     size:(size||'').trim(),
-    quality, codec, heavy,
+    quality, codec, heavy, cached, queued,
     provider:String(s.name||'Torrentio').split('\n')[0].trim(),
     label:String(s.title||'').split('\n')[0].trim()
   };
@@ -1764,14 +1821,25 @@ async function torrentioStreams(m, sn, en){
   if(!imdb) throw new Error('No IMDb id for this title — Torrentio is indexed by IMDb id.');
   const kind = (m.type==='tv') ? 'series' : 'movie';
   const id = (kind==='series') ? imdb+':'+(sn||1)+':'+(en||1) : imdb;
+  // Torrentio takes its configuration as a pipe-joined path segment, e.g.
+  // /sort=qualitysize|realdebrid=KEY/stream/movie/tt1375666.json
+  const parts=[];
   const opts = String(S.torrentioOpts||'').trim().replace(/^\/+|\/+$/g,'');
-  const url = TORRENTIO + (opts?'/'+opts:'') + '/stream/'+kind+'/'+id+'.json';
+  if(opts) parts.push(opts);
+  if(S.debridProv && S.debridKey) parts.push(S.debridProv+'='+S.debridKey);
+  const url = TORRENTIO + (parts.length?'/'+parts.join('|'):'') + '/stream/'+kind+'/'+id+'.json';
   const d = await jget(url, {}, 25000);
+  // A stream is usable if it carries either a direct url (an addon resolved it server-side)
+  // or an infoHash we can hand to a local streaming server. Filtering on infoHash alone would
+  // silently drop every already-resolved stream.
   return (d.streams||[])
-    .filter(s=>s && s.infoHash)
+    .filter(s=>s && (s.url || s.infoHash))
     .map(s=>Object.assign({}, s, {_m:stMeta(s)}))
     .filter(s=>s._m.quality!=='4K')            // 4K is a lot of swarm for a browser <video>
-    .sort((a,b)=> (a._m.heavy - b._m.heavy) || (b._m.seeders - a._m.seeders));
+    .sort((a,b)=> (!!b.url - !!a.url)          // already playable first
+               || (b._m.cached - a._m.cached)
+               || (a._m.heavy - b._m.heavy)    // then hardware-friendly codecs
+               || (b._m.seeders - a._m.seeders));
 }
 
 /* ---- playback ---- */
@@ -1784,6 +1852,18 @@ function fmtRate(bps){
 }
 
 async function playTorrent(s, m, sn, en){
+  // Already resolved by the addon (a debrid provider, or any addon that returns direct links).
+  // This is the only shape that needs nothing running on this machine, so it is tried first.
+  if(s.url){
+    closeSources();
+    const lbl=[s._m.quality, s._m.codec, s._m.size].filter(Boolean).join(' · ');
+    mountEmbed({type:'video', src:s.url}, 'Direct link · '+s._m.provider+(lbl?' · '+lbl:''));
+    persistCurrent({src:s.url});
+    markContinue();
+    loadTorrentSubs(m, sn, en);
+    return;
+  }
+
   const base = srvBase();
   const hash = String(s.infoHash).toLowerCase();
 
@@ -1976,9 +2056,11 @@ async function openSources(){
     list.innerHTML=streams.slice(0,40).map((s,i)=>{
       const x=s._m;
       const meta=[x.quality,x.codec,x.size].filter(Boolean).join(' · ');
+      const right = s.url ? (x.cached?'⚡ instant':'direct link')
+                          : (x.seeders?x.seeders+' seeders':'seeders ?');
       return '<div class="srow'+(x.heavy?' heavy':'')+'" tabindex="0" data-i="'+i+'">'
         +'<div class="srow-a"><b>'+esc(x.provider)+'</b><span>'+esc(x.label)+'</span></div>'
-        +'<div class="srow-b"><b>'+(x.seeders?x.seeders+' seeders':'seeders ?')+'</b><span>'+esc(meta)+'</span></div>'
+        +'<div class="srow-b"><b>'+esc(right)+'</b><span>'+esc(meta)+'</span></div>'
         +'</div>';
     }).join('');
     list.querySelectorAll('.srow').forEach(el=>{
