@@ -1766,15 +1766,19 @@ async function checkServer(){
       + (d.mixed ? '<br><span style="color:#e6b14a">…but this is an http address on an https page.</span> It may work now and stop when the browser tightens up. Prefer the https stremio.rocks address below.' : '');
     return;
   }
-  el.innerHTML='<span style="color:#e6b14a">no answer from '+esc(d.base)+'</span><br>'
-    +'<b>Get the right address:</b> with the service running, open '
+  el.innerHTML='<span style="color:#e6b14a">no answer from '+esc(d.base)+'</span>'
+    +' <span style="opacity:.6">('+esc(d.netErr||'no response')+')</span><br>'
+    +'<b>1 · Is Stremio Service actually running?</b> This is the usual answer. It is a separate '
+    +'background app from Stremio itself, it does not survive a reboot unless you set it to, and '
+    +'quitting it stops every stream. Look for it in the system tray, or launch '
+    +'<code>stremio-service.exe</code> again, then re-test.<br>'
+    +'<b>2 · If it is running, confirm the address.</b> Open '
     +'<a href="http://127.0.0.1:11470/get-https?ipAddress=YOUR-LAN-IP" target="_blank" rel="noopener"><code>http://127.0.0.1:11470/get-https?ipAddress=YOUR-LAN-IP</code></a> '
-    +'on the machine running it. It returns a domain and port — paste <code>https://DOMAIN:PORT</code> above. '
-    +'That address carries a real certificate and resolves to the same machine, so an https page can use it and '
-    +'so can your phone or TV on the same network.<br>'
-    + (d.mixed ? '<b>Why the plain http address fails:</b> this page is https, and browsers block or gate calls from an https page to a local http address.<br>' : '')
-    +'The firewall is not involved for 127.0.0.1 — loopback never leaves the machine. And if your browser is on a '
-    +'<i>different</i> device from the service, 127.0.0.1 points at that device itself and can never work.';
+    +'on that machine; it returns a domain and port to paste above as <code>https://DOMAIN:PORT</code>. '
+    +'The address changes if the machine\'s LAN IP changes, so a new router lease can break it.<br>'
+    + (d.mixed ? '<b>3 · This is an http address on an https page</b>, which browsers block outright. Use the https stremio.rocks address.<br>' : '')
+    +'<span style="opacity:.7">Not the firewall: loopback never leaves the machine. And a browser on a '
+    +'different device from the service cannot use 127.0.0.1 — that points at the browser\'s own device.</span>';
 }
 
 /* ---- Torrentio ---- */
