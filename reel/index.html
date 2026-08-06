@@ -1747,11 +1747,32 @@ async function srvProbe(){
    and a refused connection identically. A second probe in no-cors mode splits them: an opaque
    response still means the TCP connection succeeded, so something *is* listening and the
    problem is CORS or the browser's local-network gate rather than a missing server. */
+/* Is this address on the local network? A stremio.rocks host is by construction — the whole
+   point of that domain is that it resolves to a machine on your LAN. */
+function isLocalTarget(base){
+  let h; try{ h=new URL(base).hostname; }catch(_){ return false; }
+  return /(^|\.)stremio\.rocks$/i.test(h)
+      || /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1)/i.test(h);
+}
+
 async function diagnoseServer(){
   const base=srvBase();
-  const out={base, mixed:(location.protocol==='https:' && /^http:\/\//i.test(base))};
-  // no-cors first: it is the only probe that can succeed from this origin, because the
-  // service withholds CORS headers from everyone but Stremio.
+  const out={
+    base,
+    mixed:(location.protocol==='https:' && /^http:\/\//i.test(base)),
+    local:isLocalTarget(base),
+    // The gate only applies public -> local. Served from localhost ourselves, we are already
+    // inside the local address space and nothing is gated, so the permission is irrelevant
+    // however it reads — and blaming it would mask a genuinely dead server.
+    pagePublic:!isLocalTarget(location.origin)
+  };
+  // Chrome and Edge 138+ gate requests from a *public* origin to a local-network address behind
+  // a permission, https or not. A page on github.io hitting your LAN is exactly that, and the
+  // failure is indistinguishable from a dead server unless we ask the permission directly.
+  try{ out.lna=(await navigator.permissions.query({name:'local-network-access'})).state; }
+  catch(_){ out.lna=null; }
+  // no-cors: the only probe that can succeed here, since the service withholds CORS headers
+  // from every origin but Stremio's own.
   try{ await jfetch(base+'/settings', {mode:'no-cors'}, 5000); out.state='ok'; }
   catch(e){ out.state='down'; out.netErr=String(e.name||e); }
   return out;
@@ -1766,8 +1787,21 @@ async function checkServer(){
       + (d.mixed ? '<br><span style="color:#e6b14a">…but this is an http address on an https page.</span> It may work now and stop when the browser tightens up. Prefer the https stremio.rocks address below.' : '');
     return;
   }
+  // The browser blocking the request outright looks identical to a dead server, so name it
+  // first when the permission says that is what happened.
+  if(d.state==='down' && d.local && d.pagePublic && d.lna==='denied'){
+    el.innerHTML='<span style="color:#e6b14a">your browser blocked this page from reaching your local network</span><br>'
+      +'Chrome and Edge 138+ require permission for a public site to contact a local-network address, '
+      +'and this origin (<code>'+esc(location.origin)+'</code>) is currently <b>denied</b>. The request never left the browser, '
+      +'so the server being up makes no difference.<br>'
+      +'<b>Either</b> allow it: click the icon left of the address bar → <i>Permissions for this site</i> → '
+      +'<i>Local network access</i> → Allow, then re-test.<br>'
+      +'<b>Or</b> open Reel from this machine over <code>http://localhost:…</code> instead — a local page reaching '
+      +'a local address is not gated at all, and needs no permission.';
+    return;
+  }
   el.innerHTML='<span style="color:#e6b14a">no answer from '+esc(d.base)+'</span>'
-    +' <span style="opacity:.6">('+esc(d.netErr||'no response')+')</span><br>'
+    +' <span style="opacity:.6">('+esc(d.netErr||'no response')+(d.lna?', local-network-access: '+esc(d.lna):'')+')</span><br>'
     +'<b>1 · Is Stremio Service actually running?</b> This is the usual answer. It is a separate '
     +'background app from Stremio itself, it does not survive a reboot unless you set it to, and '
     +'quitting it stops every stream. Look for it in the system tray, or launch '
