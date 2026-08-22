@@ -1,0 +1,1118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Inside Resonance</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A chapter-by-chapter tour of the Resonance / Cassette codebase, built from its real source.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* ---------- tokens: light is the base, both dark states redefine only these ---------- */
+:root {
+  --ground: hsl(32 18% 97%);
+  --surface: #FFFFFF;
+  --surface-2: hsl(28 17% 95%);
+  --ink: hsl(38 47% 11%);
+  --ink-soft: hsl(34 20% 32%);
+  --ink-faint: hsl(36 11% 47%);
+  --line: hsl(30 17% 88%);
+  --line-soft: hsl(26 18% 93%);
+  --teal: hsl(38 80% 27%);
+  --teal-deep: hsl(38 80% 20%);
+  --teal-wash: hsl(32 25% 92%);
+  --ochre: hsl(14 82% 31%);
+  --ochre-wash: hsl(18 72% 92%);
+  --danger: hsl(4 53% 43%);
+  --ok: hsl(150 60% 30%);
+  --shadow: 0 1px 2px hsl(38 47% 11% / .05), 0 8px 24px -12px hsl(38 47% 11% / .18);
+  --radius: 10px;
+  /* the code panel is an editor window: dark in both themes, on purpose */
+  --code-bg: hsl(38 44% 8%);
+  --code-ink: hsl(34 23% 87%);
+  --code-dim: hsl(38 16% 41%);
+  --code-line: hsl(36 38% 14%);
+  --c-key: hsl(34 46% 66%);
+  --c-str: hsl(17 68% 63%);
+  --c-com: hsl(34 15% 42%);
+  --c-num: hsl(168 70% 80%);
+  --c-fn: hsl(22 48% 86%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  --ground: hsl(41 37% 6%);
+  --surface: hsl(38 38% 9%);
+  --surface-2: hsl(38 37% 12%);
+  --ink: hsl(34 29% 93%);
+  --ink-soft: hsl(35 17% 75%);
+  --ink-faint: hsl(39 13% 58%);
+  --line: hsl(36 26% 16%);
+  --line-soft: hsl(36 31% 13%);
+  --teal: hsl(38 47% 51%);
+  --teal-deep: hsl(38 54% 63%);
+  --teal-wash: hsl(41 51% 13%);
+  --ochre: hsl(18 74% 59%);
+  --ochre-wash: hsl(16 39% 12%);
+  --danger: hsl(5 65% 68%);
+  --ok: hsl(146 47% 62%);
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"] {
+  --ground: hsl(41 37% 6%);
+  --surface: hsl(38 38% 9%);
+  --surface-2: hsl(38 37% 12%);
+  --ink: hsl(34 29% 93%);
+  --ink-soft: hsl(35 17% 75%);
+  --ink-faint: hsl(39 13% 58%);
+  --line: hsl(36 26% 16%);
+  --line-soft: hsl(36 31% 13%);
+  --teal: hsl(38 47% 51%);
+  --teal-deep: hsl(38 54% 63%);
+  --teal-wash: hsl(41 51% 13%);
+  --ochre: hsl(18 74% 59%);
+  --ochre-wash: hsl(16 39% 12%);
+  --danger: hsl(5 65% 68%);
+  --ok: hsl(146 47% 62%);
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16.5px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { font-family: Newsreader, Georgia, "Times New Roman", serif; font-weight: 600; text-wrap: balance; line-height: 1.18; margin: 0; }
+p { margin: 0; }
+a { color: var(--teal); text-underline-offset: 3px; }
+code, kbd { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; }
+
+/* ---------- shell ---------- */
+.shell { display: grid; grid-template-columns: 264px minmax(0, 1fr); gap: 0; min-height: 100vh; }
+.rail {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  border-inline-end: 1px solid var(--line); background: var(--surface);
+  padding: 22px 18px 32px; display: flex; flex-direction: column; gap: 18px;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.mark {
+  width: 34px; height: 34px; border-radius: 9px; background: var(--teal); color: #fff;
+  display: grid; place-items: center; font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 15px;
+}
+.brand b { font-family: Newsreader, serif; font-size: 20px; font-weight: 600; letter-spacing: .01em; }
+.brand span { display: block; font-size: 11.5px; color: var(--ink-faint); font-family: "IBM Plex Mono", monospace; letter-spacing: .04em; }
+nav.toc { display: flex; flex-direction: column; gap: 1px; }
+nav.toc a {
+  display: grid; grid-template-columns: 26px 1fr; align-items: baseline; gap: 6px;
+  padding: 7px 9px; border-radius: 8px; text-decoration: none; color: var(--ink-soft);
+  font-size: 14px; line-height: 1.3;
+}
+nav.toc a .num { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--ink-faint); }
+nav.toc a:hover { background: var(--surface-2); color: var(--ink); }
+nav.toc a.active { background: var(--teal-wash); color: var(--teal-deep); font-weight: 600; }
+nav.toc a.active .num { color: var(--teal); }
+.rail-foot { margin-top: auto; font-size: 12px; color: var(--ink-faint); border-top: 1px solid var(--line-soft); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.theme-btn {
+  font: inherit; font-size: 12px; color: var(--ink-soft); background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; cursor: pointer; width: fit-content;
+}
+.theme-btn:hover { color: var(--ink); }
+
+main { padding: 0 0 120px; min-width: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 40px; }
+section { padding: 54px 0 10px; scroll-margin-top: 12px; }
+.prose { max-width: 68ch; display: flex; flex-direction: column; gap: 18px; }
+.eyebrow {
+  font-family: "IBM Plex Mono", monospace; font-size: 11.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--teal); font-weight: 600;
+}
+h2 { font-size: clamp(26px, 3.4vw, 36px); margin-top: 6px; }
+h3 { font-size: 20px; margin-top: 8px; }
+.lede { font-size: 18.5px; color: var(--ink-soft); }
+.prose ul, .prose ol { margin: 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 8px; }
+.prose li::marker { color: var(--teal); }
+strong { font-weight: 600; }
+
+/* ---------- hero ---------- */
+.hero { padding: 68px 0 26px; }
+.hero h1 { font-size: clamp(38px, 6vw, 66px); letter-spacing: -.015em; }
+.hero .sub { max-width: 60ch; font-size: 19px; color: var(--ink-soft); margin-top: 18px; }
+.facts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+.fact {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
+  padding: 7px 14px; font-size: 13px; color: var(--ink-soft); font-family: "IBM Plex Mono", monospace;
+}
+.fact b { color: var(--ink); font-weight: 600; }
+
+/* ---------- cards ---------- */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 8px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
+.card h4 { font-size: 17px; margin-bottom: 6px; }
+.card p { font-size: 14.5px; color: var(--ink-soft); }
+.card .tagline { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--teal); letter-spacing: .04em; margin-bottom: 8px; }
+
+.note-box {
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+  padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start;
+}
+.note-box.warn { background: var(--ochre-wash); border-color: color-mix(in srgb, var(--ochre) 35%, transparent); }
+.note-box .badge {
+  flex: none; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ochre); border: 1px solid color-mix(in srgb, var(--ochre) 45%, transparent);
+  border-radius: 999px; padding: 3px 9px; margin-top: 2px;
+}
+.note-box p { font-size: 15px; color: var(--ink-soft); }
+
+/* ---------- glossary term ---------- */
+button.term {
+  font: inherit; color: var(--ink); background: none; border: 0; padding: 0; cursor: help;
+  border-bottom: 1.5px dotted var(--teal);
+}
+button.term:hover, button.term:focus-visible { color: var(--teal-deep); }
+#pop {
+  position: absolute; z-index: 60; max-width: 300px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow);
+  padding: 10px 12px; font-size: 14px; line-height: 1.5; display: none;
+}
+#pop b { color: var(--teal); }
+
+/* ---------- code specimen ---------- */
+.specimen { margin: 26px 0 8px; }
+.spec-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  border: 1px solid var(--line); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--surface); padding: 10px 14px;
+}
+.spec-path { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--ink); font-weight: 500; }
+.spec-what { font-size: 13px; color: var(--ink-faint); }
+.spec-steps { margin-inline-start: auto; display: flex; align-items: center; gap: 6px; }
+.step-btn {
+  font: inherit; font-family: "IBM Plex Mono", monospace; font-size: 12px; cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-soft);
+  border-radius: 7px; padding: 4px 10px;
+}
+.step-btn:hover:not(:disabled) { color: var(--ink); border-color: var(--teal); }
+.step-btn:disabled { opacity: .4; cursor: default; }
+.step-count { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-faint); }
+
+.spec-body { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(230px, .8fr); gap: 0; border: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; }
+.code-pane { background: var(--code-bg); overflow-x: auto; padding: 12px 0; }
+pre.code { margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 13px; line-height: 1.62; color: var(--code-ink); min-width: max-content; }
+.cl { display: grid; grid-template-columns: 46px 14px 1fr; align-items: baseline; }
+.cl .n { color: var(--code-dim); text-align: right; padding-inline-end: 10px; font-size: 11.5px; user-select: none; }
+.cl .dot { color: transparent; font-size: 11px; }
+.cl.has-note { cursor: pointer; }
+.cl.has-note .dot { color: var(--ochre); }
+.cl.has-note:hover { background: rgba(255,255,255,.045); }
+.cl.on { background: color-mix(in srgb, var(--ochre) 22%, transparent); }
+.cl.on .n { color: var(--ochre); }
+.cl .t { white-space: pre; padding-inline-end: 18px; }
+.cl:focus-visible { outline: 2px solid var(--ochre); outline-offset: -2px; }
+.tok-k { color: var(--c-key); }
+.tok-s { color: var(--c-str); }
+.tok-c { color: var(--c-com); font-style: italic; }
+.tok-n { color: var(--c-num); }
+.tok-f { color: var(--c-fn); }
+
+.note-pane { background: var(--surface); border-inline-start: 1px solid var(--line); padding: 16px 16px 18px; }
+.note-pane .nl { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ochre); }
+.note-pane .nt { margin-top: 8px; font-size: 14.5px; color: var(--ink-soft); line-height: 1.6; }
+.note-pane .nt code { font-size: 13px; background: var(--surface-2); border-radius: 4px; padding: 1px 4px; color: var(--ink); }
+.note-pane .hint { font-size: 13px; color: var(--ink-faint); }
+
+/* ---------- trace diagram ---------- */
+.trace { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 18px; margin: 24px 0 8px; }
+.trace-top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 14px; }
+.trace-top h4 { font-size: 17px; }
+.play {
+  font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; margin-inline-start: auto;
+  background: var(--teal); color: #fff; border: 0; border-radius: 8px; padding: 8px 16px;
+}
+.play:hover { background: var(--teal-deep); }
+.hops { display: flex; flex-direction: column; gap: 8px; }
+.hop {
+  display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start;
+  border: 1px solid var(--line-soft); background: var(--surface-2); border-radius: 9px; padding: 11px 13px;
+  opacity: .45; transition: opacity .25s ease, border-color .25s ease, background .25s ease;
+}
+.hop .k { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-faint); }
+.hop b { font-size: 14.5px; display: block; }
+.hop span { font-size: 13.5px; color: var(--ink-soft); }
+.hop code { font-size: 12.5px; color: var(--teal-deep); }
+.hop.lit { opacity: 1; border-color: var(--teal); background: var(--teal-wash); }
+.hop.lit .k { color: var(--teal); }
+@media (prefers-reduced-motion: reduce) { .hop { transition: none; } }
+
+/* ---------- check yourself ---------- */
+.check { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 16px 18px; margin-top: 20px; }
+.check .q { font-weight: 600; font-size: 15.5px; }
+.check .reveal { font: inherit; font-size: 13px; margin-top: 10px; cursor: pointer; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-soft); border-radius: 7px; padding: 5px 12px; }
+.check .reveal:hover { color: var(--ink); }
+.check .a { display: none; margin-top: 10px; font-size: 15px; color: var(--ink-soft); border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.check.open .a { display: block; }
+.check.open .reveal { display: none; }
+
+/* ---------- commands ---------- */
+.cmd { display: flex; align-items: center; gap: 10px; background: var(--code-bg); border-radius: 8px; padding: 9px 12px; margin-top: 8px; }
+.cmd code { color: var(--code-ink); font-size: 13px; flex: 1; overflow-x: auto; white-space: pre; }
+.copy { font: inherit; font-family: "IBM Plex Mono", monospace; font-size: 11px; cursor: pointer; background: #1B3B34; color: #9FD7C9; border: 1px solid #24504733; border-radius: 6px; padding: 4px 9px; }
+.copy:hover { background: #24504A; }
+
+/* ---------- tables ---------- */
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 520px; }
+th, td { text-align: start; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+th { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td code { font-size: 13px; color: var(--teal-deep); }
+
+hr.rule { border: 0; border-top: 1px solid var(--line); margin: 44px 0 0; }
+
+@media (max-width: 1080px) {
+  .spec-body { grid-template-columns: 1fr; }
+  .note-pane { border-inline-start: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail { position: static; height: auto; border-inline-end: 0; border-bottom: 1px solid var(--line); }
+  nav.toc { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
+  nav.toc a { flex: none; grid-template-columns: 1fr; }
+  nav.toc a .num { display: none; }
+  .rail-foot { display: none; }
+  .wrap { padding: 0 20px; }
+  body { font-size: 16px; }
+}
+
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <div class="mark">🎧</div>
+      <div>
+        <b>Inside Resonance</b>
+        <span>Cassette · 2,653 lines, one file</span>
+      </div>
+    </div>
+    <nav class="toc" id="toc"></nav>
+    <div class="rail-foot">
+      <button class="theme-btn" id="themeBtn" type="button">Switch theme</button>
+      <div>Click any line with a <span style="color:var(--ochre)">&bull;</span> to read what it does.</div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="wrap">
+
+      <header class="hero">
+        <div class="eyebrow">A tour of your own codebase</div>
+        <h1>Inside Resonance</h1>
+        <p class="sub">Every line of code on this page is real code from the <code>Resonance</code> repo — not simplified examples. We start from “how does a taste profile become a prompt” and end at “I understand why PREVIOUS on the steering wheel means favourite.”</p>
+        <div class="facts">
+          <div class="fact"><b>2653</b> lines, one file</div>
+          <div class="fact"><b>4</b> learning signals</div>
+          <div class="fact"><b>3</b> APIs</div>
+          <div class="fact"><b>6</b> songs per batch</div>
+          <div class="fact"><b>2</b> songs lookahead</div>
+          <div class="fact"><b>0</b> servers</div>
+        </div>
+      </header>
+
+      <hr class="rule">
+
+      <section id="ch0" data-title="Start here">
+
+        <div class="prose">
+          <div class="eyebrow">Chapter 0</div>
+          <h2>Start here</h2>
+          <p class="lede">Read this page in order, at a screen, with the repo open beside it. It is built to be used, not skimmed.</p>
+          <p>Three things worth knowing before we begin.</p>
+          <p><strong>This one lives on GitHub, not in your <code>Downloads/Claude</code> folder.</strong> Clone it to follow along:</p>
+          <div class="cmd"><code>gh repo clone Resonance</code><button class="copy" type="button" data-copy="gh repo clone Resonance">copy</button></div>
+          <p>The Vercel deployment serves <code>cassette/index.html</code> — 2,653 lines of HTML, CSS and JavaScript in one file, with no build step and no dependencies.</p>
+          <p><strong>It is the most prompt-heavy project you own.</strong> The product is not the player; the product is a prompt that turns four numbers and some song titles into a queue that feels like it knows you. Chapter 3 is that prompt, read as engineering rather than as text.</p>
+          <p><strong>The dotted lines are the lesson.</strong> In every code panel, lines with an ochre dot in the gutter carry a note. Click one, or use the Prev / Next buttons and the arrow keys, and the note appears beside the code.</p>
+        </div>
+      </section>
+
+      <hr class="rule">
+
+      <section id="ch1" data-title="What this thing is">
+
+        <div class="prose">
+          <div class="eyebrow">Chapter 1</div>
+          <h2>What this thing actually is</h2>
+          <p class="lede">A music player with no music, no server and no account — assembled out of three other people's APIs.</p>
+          <p>Resonance owns nothing. It does not host audio, does not have a catalogue, and does not know what a song sounds like. What it owns is a <em>taste profile</em> and the judgement about what to play next — and everything else is borrowed.</p>
+        </div>
+
+        <div class="cards">
+          <div class="card" style="border-color: var(--teal);">
+            <div class="tagline">the only thing that is yours</div>
+            <h4>The taste profile</h4>
+            <p>Loved, liked, disliked, banned, genre scores, artist scores — in <code>localStorage</code>. Exportable and importable. Lose it and the app is a stranger again.</p>
+          </div>
+          <div class="card">
+            <div class="tagline">the brain</div>
+            <h4>Gemini</h4>
+            <p>Given the profile as a prompt, it returns six songs as JSON. It is the recommendation engine, and the prompt is the entire algorithm.</p>
+          </div>
+          <div class="card">
+            <div class="tagline">the catalogue</div>
+            <h4>YouTube</h4>
+            <p>Turns “Title — Artist” into a playable video id, and the IFrame player actually plays it. The only viable free, embeddable, in-browser audio source.</p>
+          </div>
+          <div class="card">
+            <div class="tagline">the ground truth</div>
+            <h4>Last.fm</h4>
+            <p>Optional. Supplies a candidate pool of what real listeners actually play alongside a track — so Gemini curates rather than recalls.</p>
+          </div>
+        </div>
+
+        <div class="prose" style="margin-top: 22px;">
+          <h3>The sentence that explains the whole design</h3>
+          <p>Resonance <strong>keeps the taste and rents everything else</strong>. That is why there is no backend, no account, no catalogue licence and no hosting cost — and it is also why the app is fragile in a very specific way: three separate quotas can run out, and Chapter 5 is entirely about surviving that.</p>
+        </div>
+
+        <div class="check" data-answer="Everything that makes it yours. There is no server copy — the profile is in localStorage. That is precisely why export/import exists and why the README mentions it in the first paragraph. A recommendation engine with no memory is just shuffle.">
+          <div class="q">Check yourself: a user clears their browser data. What have they lost?</div>
+          <button class="reveal" type="button">Show answer</button>
+          <div class="a"></div>
+        </div>
+      </section>
+
+      <hr class="rule">
+
+      <section id="ch2" data-title="Four signals">
+
+        <div class="prose">
+          <div class="eyebrow">Chapter 2</div>
+          <h2>Four signals, and the cases where they must not fire</h2>
+          <p class="lede">The learning model is thirty lines. Most of them are exceptions, and the exceptions are the design.</p>
+        </div>
+
+        <div class="tablewrap" style="margin-top: 8px;">
+          <table>
+            <thead><tr><th>Signal</th><th>Meaning</th><th>Weight</th></tr></thead>
+            <tbody>
+              <tr><td>Finish a song</td><td>You like it</td><td>+1 genre, +1 artist</td></tr>
+              <tr><td>Skip</td><td>Not your type</td><td>−1 genre, −1 artist</td></tr>
+              <tr><td>♥ Heart</td><td>All-time favourite; keeps playing</td><td><strong>+3</strong> genre, +3 artist</td></tr>
+              <tr><td>⦸ Never again</td><td>This exact song, banned</td><td>−2 genre — a nudge, not a ban</td></tr>
+              <tr><td><em>next — teaches nothing</em></td><td>A deliberate no-signal escape</td><td>nothing</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="prose" style="margin-top: 22px;">
+          <p>That last row matters more than it looks. Without a neutral skip, every “I am not in the mood for this right now” is recorded as “I dislike this”, and the profile slowly learns a version of you that only exists on bad days. Giving the user a way to say <em>nothing</em> is what keeps the signal clean.</p>
+        </div>
+        <div class="specimen" data-spec="feedback"></div>
+
+        <div class="note-box">
+          <span class="badge">Read the guards</span>
+          <p>Three of these functions begin by refusing to learn. Finishing a hearted song does not demote it to merely “liked”. Skipping a favourite is “still a favourite, just moving on”. And nothing at all is learned in favourites mode, because in that mode the user is not making a judgement — they already made it.</p>
+          <p style="margin-top:10px">A feedback system that records every interaction as a preference will corrupt itself. Knowing which interactions are <em>not</em> preferences is the whole skill.</p>
+        </div>
+
+        <div class="check" data-answer="It bans that exact song and nudges the genre down by 2 — but does not ban the genre. The comment on line 1990 says why: 'strong rejection of THIS SONG only — the genre survives'. Banning a whole genre because one song in it was unbearable is how a recommender quietly deletes half your taste.">
+          <div class="q">Check yourself: a user hits ⦸ on a song. What happens to that song's genre?</div>
+          <button class="reveal" type="button">Show answer</button>
+          <div class="a"></div>
+        </div>
+      </section>
+
+      <hr class="rule">
+
+      <section id="ch3" data-title="The prompt">
+
+        <div class="prose">
+          <div class="eyebrow">Chapter 3</div>
+          <h2>The prompt is the algorithm</h2>
+          <p class="lede">Eighty lines that assemble a request. This is where the product actually lives.</p>
+          <p>In most apps the prompt is a string with a few variables in it. Here it is a <em>composed document</em> — built from an array of conditional lines, filtered and joined — where each line is a rule that applies only in certain modes, and the modes have a defined precedence.</p>
+        </div>
+        <div class="specimen" data-spec="prompt"></div>
+
+        <div class="note-box warn">
+          <span class="badge">Precedence, made explicit</span>
+          <p>Look at the comments on lines 893 and 899. <em>“similarity pool contradicts exploration”</em> — in exploration mode the Last.fm pool is skipped entirely, because a pool of similar tracks is the opposite of what exploration means. And <em>“a station outranks the radio lane”</em> — two mutually exclusive ways of choosing the next song, with the tie broken in one place.</p>
+          <p style="margin-top:10px">Modes that quietly combine produce incoherent output and are almost impossible to debug, because there is no error — just recommendations that feel wrong. Declaring precedence in code, with the reason in a comment, is how you stop that.</p>
+        </div>
+
+        <div class="prose">
+          <h3>Five techniques worth naming</h3>
+          <ul>
+            <li><strong>Sampling, not truncating.</strong> Line 913 uses <code>sampleDiverse</code> across the <em>full</em> history rather than the last twenty. Taking the most recent twenty would make the profile amnesiac about everything you liked last month.</li>
+            <li><strong>An explicit avoid-list.</strong> Line 919 sends the last 45 keys played or queued. Cheaper and more reliable than hoping the model does not repeat itself.</li>
+            <li><strong>Grounding beats recall.</strong> With a Last.fm key, the candidate pool comes from what real people actually play alongside the seed, and Gemini only curates it. The model is much better at judging a list than at remembering one.</li>
+            <li><strong>Constraints as counts.</strong> “Never more than 2 songs of the same genre in one batch”, “at most one exploration pick”. Numbers are followed; adjectives are interpreted.</li>
+            <li><strong>The output shape is dictated.</strong> Line 933 gives the exact JSON, field by field, including <code>"youtubeId": "11-char id if you are confident, else empty string"</code> — which invites the model to volunteer a shortcut without punishing it for not knowing.</li>
+          </ul>
+        </div>
+
+        <div class="check" data-answer="'reason: max 12 words'. Free text from a model expands to fill any space you give it — and this string is rendered in the UI next to the song. A word cap is a layout constraint expressed in the place that actually controls it.">
+          <div class="q">Check yourself: which part of the requested JSON shape is a UI constraint rather than a data one?</div>
+          <button class="reveal" type="button">Show answer</button>
+          <div class="a"></div>
+        </div>
+      </section>
+
+      <hr class="rule">
+
+      <section id="ch4" data-title="Two songs ahead">
+
+        <div class="prose">
+          <div class="eyebrow">Chapter 4</div>
+          <h2>Always two songs ahead</h2>
+          <p class="lede">The pipeline that makes an AI player feel instant, when every step of it is slow.</p>
+          <p>Asking Gemini for a song takes seconds. Resolving it to a YouTube id takes another request. If either happened when the current song ended, every track would be followed by a silence — which is the death of a music player.</p>
+          <p>So there are two buffers, filled at different rates.</p>
+        </div>
+        <div class="specimen" data-spec="queue"></div>
+
+        <div class="note-box">
+          <span class="badge">The two-stage buffer</span>
+          <p><strong>Candidates</strong> are Gemini's suggestions — title, artist, genre, reason. Cheap to hold, not yet playable. Refilled six at a time whenever fewer than three remain.</p>
+          <p style="margin-top:10px"><strong>Queue</strong> is resolved, playable tracks with a video id. Kept at two, because two is enough to cover the gap between songs and small enough that a change of taste is not stuck behind a long queue.</p>
+          <p style="margin-top:10px">One expensive call produces six cheap items; each cheap item costs one smaller call to become playable. Batching the expensive step and streaming the cheap one is the general shape of every responsive AI feature.</p>
+        </div>
+
+        <div class="prose">
+          <p>Two details worth pulling out. <code>guard++ &lt; 14</code> on line 1051 bounds the loop — every candidate can legitimately be rejected (banned genre, already seen, unresolvable), and without a bound an unlucky batch spins forever. And line 1030's artist lane bypasses Gemini entirely: when the pool is one discography there is nothing to recommend, so the batch is free.</p>
+        </div>
+
+        <div class="check" data-answer="The loop tries at most 14 times, then gives up and leaves the queue short — and refillCandidates is called again at the end to ask for a fresh batch. Without the guard, a batch where every song is banned or unresolvable would loop forever, hanging the tab with no error.">
+          <div class="q">Check yourself: Gemini returns six songs and every one is already in the seen list. What happens?</div>
+          <button class="reveal" type="button">Show answer</button>
+          <div class="a"></div>
+        </div>
+      </section>
+
+      <hr class="rule">
+
+      <section id="ch5" data-title="Running out of quota">
+
+        <div class="prose">
+          <div class="eyebrow">Chapter 5</div>
+          <h2>Living on free tiers</h2>
+          <p class="lede">Three APIs, three quotas, and a surprising amount of the codebase devoted to what happens when they run dry.</p>
+          <p>This is the tax on the Chapter 1 bargain. Owning nothing means depending on three services that will, eventually and at the worst moment, say no.</p>
+        </div>
+        <div class="specimen" data-spec="quota"></div>
+
+        <div class="note-box warn">
+          <span class="badge">Four failures, four different responses</span>
+          <p><strong>404</strong> — the model id was retired. Switch to <code>gemini-flash-latest</code> and retry. This is why dated model ids are a time bomb and rolling aliases are not.</p>
+          <p style="margin-top:10px"><strong>429</strong> — this key is spent. Rotate to the next key <em>silently</em> and retry; only when every key is exhausted does it become an error.</p>
+          <p style="margin-top:10px"><strong>503</strong> — overloaded. Wait 2.5 seconds and retry exactly once. Retrying forever turns a transient wobble into a hang.</p>
+          <p style="margin-top:10px"><strong>400/403</strong> — inspect the message. A rejected or leaked key rotates like a spent one; anything else falls through as a real error, because papering over a genuine bug is worse than showing it.</p>
+        </div>
+
+        <div class="prose">
+          <p>Multiple keys per provider is the interesting structural choice. Free tiers are per-key, so a user with three Gemini keys has three times the quota — and the rotation is invisible except for a small toast. <code>quotaRecovered()</code> then reopens the door after a cooldown, because a daily quota is not a permanent one.</p>
+          <p>The most important line, though, is the classification itself: <strong>a 429 is transient and a 400 is not.</strong> Every project in your folder that talks to a model has rediscovered this, and it is worth stating once as a rule: retry on rate limits and server errors, fail loudly on anything that means you made a mistake.</p>
+        </div>
+
+        <div class="check" data-answer="Rotate to the next key and retry, exactly as if it were a 429 — but only after inspecting the message for API_KEY_INVALID, PERMISSION_DENIED, expired or leaked. A 400 that does NOT match those patterns is a real bug in the request and falls through to the error path. The distinction is made by reading the message, not the status.">
+          <div class="q">Check yourself: a key was revoked by Google and returns 403. Rotate, or fail?</div>
+          <button class="reveal" type="button">Show answer</button>
+          <div class="a"></div>
+        </div>
+      </section>
+
+      <hr class="rule">
+
+      <section id="ch6" data-title="The car">
+
+        <div class="prose">
+          <div class="eyebrow">Chapter 6</div>
+          <h2>The car, and the button that means the opposite</h2>
+          <p class="lede">A Capacitor wrapper for one capability a browser cannot have, and one design decision that is smarter than it first looks.</p>
+          <p>On Android, a browser PWA cannot own a real media session. No steering-wheel buttons, no lock-screen controls, no reliable background audio. Those are the entire reason <code>car/</code> exists — it ships the same web app inside a native shell that <em>can</em> register one.</p>
+        </div>
+        <div class="specimen" data-spec="media"></div>
+
+        <div class="note-box">
+          <span class="badge">The wheel mapping</span>
+          <p><strong>⏮ Previous → ♥ Favourite</strong> (keeps playing, learns at 3× weight). <strong>⏭ Next → skip onward</strong>, and deliberately <strong>learns nothing</strong>.</p>
+          <p style="margin-top:10px">This looks wrong until you think about the context. You are driving. There are two buttons under your thumb and you cannot look at them. What do you actually want to do to a song at 100 km/h?</p>
+          <p style="margin-top:10px">You want to say <em>“this one — remember this”</em>, and you want to say <em>“not this, move on”</em>. You almost never want to hear the previous song again, because on a station that never repeats there is no previous song worth returning to.</p>
+          <p style="margin-top:10px">So the two most reachable controls are mapped to the two things a driver actually needs, and the label on the physical button is simply wrong. That is the right call — <strong>fit the control to the situation, not to the icon printed on it.</strong></p>
+        </div>
+
+        <div class="prose">
+          <p>Note also that Next teaches nothing in the car. In the browser a skip is a negative signal, because you skipped deliberately while looking at the screen. In a car a skip might be a passenger, a wrong turn of the wheel, or a song that is fine but not right for this road. The same gesture carries less information, so it is recorded as less.</p>
+          <p>The APK is built by GitHub Actions — no local Android SDK — and Capacitor 6 is pinned on purpose. That pin is a decision, not neglect: the media session plugin here is hand-written Java against a specific Capacitor plugin API, and a major upgrade means rewriting it.</p>
+        </div>
+
+        <div class="check" data-answer="Because the same physical action carries different information in each place. In the browser you skipped deliberately, looking at the screen — that is a judgement. In a car it might be a passenger, a bump, or a song that is fine but wrong for this road. Recording a low-information action as a strong signal is how a taste profile fills up with noise.">
+          <div class="q">Check yourself: why does the car's Next button teach nothing when the browser's skip teaches a dislike?</div>
+          <button class="reveal" type="button">Show answer</button>
+          <div class="a"></div>
+        </div>
+      </section>
+
+      <hr class="rule">
+
+      <section id="ch7" data-title="Change it yourself">
+
+        <div class="prose">
+          <div class="eyebrow">Chapter 7</div>
+          <h2>Change it yourself</h2>
+          <p class="lede">Four exercises, in order of difficulty. Each one uses a different layer of what you have just read.</p>
+          <ol>
+            <li><strong>Change a weight.</strong> A heart is +3, a like is +1. Make hearts +5 and listen for an afternoon. This is the fastest way to feel what a weight in a recommender actually controls — and to notice that it takes a long time to feel anything, which is itself the lesson about tuning recommenders.</li>
+            <li><strong>Add a prompt rule.</strong> One line in the <code>lines</code> array — “never two songs by the same artist within four picks”, say. Then check that it does not contradict an existing rule, which is the actual skill: a prompt is a document with internal consistency, not a bag of instructions.</li>
+            <li><strong>Add a radio lane.</strong> <code>SEGMENTS</code> is data. A new lane is an object with a <code>laneDesc</code>, and the prompt machinery already handles precedence against stations and exploration.</li>
+            <li><strong>Fix the open bugs.</strong> Two are on the board: artist merge, and songs reporting wrong titles and artist names. Both live in the resolve step, where a model's guess at a title meets YouTube's actual metadata — which is the messiest seam in the app and therefore the most instructive place to work.</li>
+          </ol>
+
+          <h3>Running it</h3>
+          <p>There is nothing to build. Open <code>cassette/index.html</code> from a local server (the service worker needs an origin) and enter a Gemini key. A YouTube Data API key is recommended for reliable search; Last.fm is optional and noticeably improves station quality.</p>
+          <p>The APK builds in CI only: <strong>Actions → Cassette car APK → Run workflow</strong>. No local Android SDK is needed, and none is expected to work.</p>
+
+          <h3>Habits that separate professionals from hobbyists</h3>
+          <ul>
+            <li><strong>Know which interactions are not preferences.</strong> Half the feedback code is guards, and they are why the profile stays clean.</li>
+            <li><strong>Give the user a way to say nothing.</strong> A neutral skip prevents a profile that only knows your bad days.</li>
+            <li><strong>Ground the model rather than trusting its memory.</strong> Real listening data as a candidate pool, with the model curating, beats asking it to recall.</li>
+            <li><strong>Classify failures before handling them.</strong> 404, 429, 503 and 400 mean four different things and deserve four different responses.</li>
+            <li><strong>Fit the control to the situation.</strong> PREVIOUS means favourite because that is what a driver needs, whatever the button says.</li>
+            <li><strong>When you cannot explain it, you do not understand it yet.</strong> Try explaining why finishing a hearted song must not add it to “liked”. The gaps announce themselves.</li>
+          </ul>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div id="pop" role="tooltip"></div>
+
+<script>
+/* ============ specimens: real code from the repo, with per-line notes ============ */
+const SPECS = {
+  "feedback": {
+    "path": "cassette/index.html",
+    "what": "four signals, and when not to learn",
+    "lines": [
+      [
+        1962,
+        "function completed(){                     // listened to the end = COOL (liked) → advance",
+        "Finishing a song is the only signal the user does not have to give deliberately, which makes it the most honest one in the set."
+      ],
+      [
+        1966,
+        "  if(S.mode==='hearts'){ nextHeart(); return; }   // favorites mode: no learning, just next",
+        "In favourites mode nothing is learned at all — the user is replaying songs they already judged, so treating that as fresh evidence would double-count every verdict."
+      ],
+      [
+        1967,
+        "  if(S.profile.loved.some(x=>key(x)===key(t))){ loadNext(); return; }  // already hearted",
+        "A hearted song that plays to the end must not be demoted to merely 'liked'. Without this guard the strongest signal in the system is diluted every time it plays."
+      ],
+      [
+        1968,
+        "  addTo('liked',t); bump(S.profile.genreScore,t.genre,1); bump(S.profile.artistScore,t.artist,1);",
+        "Two scores per signal: genre and artist. Separating them is what lets the model learn that you like this artist but not this genre in general."
+      ],
+      [
+        1971,
+        "function skip(){                          // not my type (disliked)",
+        "A deliberate skip, while looking at the screen. Compare with the car's Next, which is the same gesture carrying far less information."
+      ],
+      [
+        1974,
+        "  if(S.profile.loved.some(x=>key(x)===key(t))){ toast('Still a favorite ♥ · just moving on'); loadNext(); return; }",
+        "Skipping a favourite is not a rejection — it is 'not right now'. And the toast says so, so the user knows the app did not just forget they loved it."
+      ],
+      [
+        1978,
+        "function heart(){                         // all-time favorite (keeps playing)",
+        "The comment matters: hearting does NOT advance the track. A favourite is something you want to keep hearing, so the button must not take it away."
+      ],
+      [
+        1981,
+        "  addTo('loved',t); bump(S.profile.genreScore,t.genre,3); bump(S.profile.artistScore,t.artist,3);",
+        "Triple weight. One deliberate heart counts as much as three passive finishes, which is roughly the right ratio between an action someone chose and one they merely allowed."
+      ],
+      [
+        1990,
+        "  // strong rejection of THIS SONG only — the genre survives",
+        "The most important comment in the block."
+      ],
+      [
+        1992,
+        "  if(t.genre) S.profile.genreScore[t.genre]=(S.profile.genreScore[t.genre]||0)-2;  // mild genre nudge, not a ban",
+        "A nudge of −2, not a ban. One unbearable song is weak evidence about a whole genre, and a recommender that over-generalises from single rejections quietly deletes half your taste."
+      ],
+      [
+        1993,
+        "  S.queue = S.queue.filter(q=>key(q)!==key(t));",
+        "Banning also purges the buffers. Without this the same song could still be sitting two places ahead in the queue, and would play anyway."
+      ]
+    ]
+  },
+  "prompt": {
+    "path": "cassette/index.html",
+    "what": "assembling the algorithm as a document",
+    "lines": [
+      [
+        891,
+        "  const avoid = [...S.seenKeys].slice(-45).join('; ') || 'none yet';",
+        "An explicit avoid-list of the last 45 played or queued. Cheaper and far more reliable than hoping a model does not repeat itself."
+      ],
+      [
+        893,
+        "  const pool = S.exploreMode ? [] : await lastfmSimilarPool();   // similarity pool contradicts exploration",
+        "Precedence, decided in code with the reason attached. A pool of similar tracks is the exact opposite of what exploration means, so in that mode it is skipped entirely."
+      ],
+      [
+        896,
+        "      ? 'CANDIDATE POOL from real listening data — these are the tracks scrobblers most often play alongside the seed song itself.",
+        "Grounding. The pool comes from what real people actually play, and the model's job is reduced from recall to curation — which it is much better at."
+      ],
+      [
+        899,
+        "  const lane = (S.segment && !st) ? SEGMENTS.find(x=>x.id===S.segment) : null;   // a station outranks the radio lane",
+        "The second precedence rule. Two mutually exclusive ways of picking the next song, resolved in one place rather than by whichever check ran first."
+      ],
+      [
+        900,
+        "  const lines = [",
+        "The prompt as an array of conditional lines, filtered and joined at the end. Each mode contributes its own rules and contributes nothing when off."
+      ],
+      [
+        905,
+        "      +'\\nOrder the batch from closest match outward: start with near-twins, end with close cousins.",
+        "Ordering as an instruction, not a post-processing step. The model already ranked its own picks; asking it to emit them in order is free."
+      ],
+      [
+        908,
+        "    S.focus ? ('SESSION FOCUS — hard constraint the listener set for RIGHT NOW; every single pick must fit it, it overrides general taste",
+        "Stating the precedence in the prompt itself. When two instructions could conflict, saying which wins is more reliable than hoping."
+      ],
+      [
+        912,
+        "    'ALL-TIME FAVORITES (weight these the most): '+ (p.loved.map(desc).join(' / ')||'none yet'),",
+        "Note the '|| none yet' on every list. An empty slot rendered as blank invites the model to invent one; 'none yet' is unambiguous."
+      ],
+      [
+        913,
+        "    'LIKED — listened all the way through (sampled across full history): '+ (sampleDiverse(p.liked,20).map(desc).join(' / ')",
+        "Sampled across the FULL history rather than taking the last twenty. Truncation would make the profile amnesiac about everything you liked last month."
+      ],
+      [
+        919,
+        "    'Already played or queued — do NOT repeat any of these: '+avoid,",
+        "The avoid list, placed near the end where recent context weighs most."
+      ],
+      [
+        926,
+        "        : '- Lean toward the mood of the Favorites and Liked list, but DIVERSIFY: never more than 2 songs of the same genre in one batch;",
+        "A constraint expressed as a count. 'Never more than 2' is followed; 'be diverse' is interpreted."
+      ],
+      [
+        928,
+        "        : '- Of the '+n+', make most of them safe/close picks and at most one a tasteful exploration.'),",
+        "The exploration budget, and note it is zero in station mode (line 927). A station that explores is not a station."
+      ],
+      [
+        933,
+        "      ? '[{\"title\":\"\",\"artist\":\"\",\"genre\":\"\",\"reason\":\"max 12 words, what it shares with the seed song\",",
+        "The output shape dictated field by field, with the word cap inline. Free text expands to fill whatever space you allow."
+      ],
+      [
+        939,
+        "     body:JSON.stringify({contents:[{parts:[{text:lines}]}],generationConfig:{temperature:1.0}})});",
+        "Temperature 1.0 — deliberately creative. A recommender at temperature 0 would return the same six songs every time the profile had not changed."
+      ],
+      [
+        965,
+        "  const start=txt.indexOf('['), end=txt.lastIndexOf(']');",
+        "Dig the array out by brackets after stripping code fences. Belt and braces against a model that adds a sentence before its JSON."
+      ]
+    ]
+  },
+  "queue": {
+    "path": "cassette/index.html",
+    "what": "two buffers, filled at different rates",
+    "lines": [
+      [
+        1025,
+        "async function refillCandidates(){",
+        "Stage one: ask Gemini for suggestions. Expensive, batched."
+      ],
+      [
+        1026,
+        "  if(S.candidates.length>=3 || S.thinking) return;",
+        "A low-water mark and a re-entrancy guard. Without the second, two triggers arriving together would fire two identical Gemini calls."
+      ],
+      [
+        1030,
+        "  if(S.artistLane){",
+        "The artist lane bypasses Gemini entirely — when the pool is one artist's discography, there is nothing to recommend."
+      ],
+      [
+        1035,
+        "    toast('That is everything I could find by '+escapeHtml(S.artistLane.name));",
+        "And when it runs dry the lane ENDS and normal recommendation resumes, rather than playback simply stopping. Every mode needs an exit."
+      ],
+      [
+        1040,
+        "  try{ const got=await askGemini(6); S.candidates.push(...got); }",
+        "Six at a time. One expensive call amortised across six songs."
+      ],
+      [
+        1047,
+        "async function ensureQueue(){",
+        "Stage two: turn candidates into playable tracks."
+      ],
+      [
+        1048,
+        "  if(S.resolving) return; S.resolving=true;",
+        "Another re-entrancy guard, because this is called from several places including the player's own events."
+      ],
+      [
+        1051,
+        "    while(S.queue.length<2 && guard++<14){",
+        "Two songs ahead — enough to cover the gap between tracks, few enough that a change of taste is not stuck behind a long queue. The guard bounds a loop where every candidate can legitimately be rejected."
+      ],
+      [
+        1055,
+        "      if(cand.genre && S.profile.hatedGenres.map(g=>g.toLowerCase()).includes((cand.genre||'').toLowerCase())) continue;",
+        "Enforcing the banned-genre rule in code as well as in the prompt. A prompt rule is a request; this is the guarantee."
+      ],
+      [
+        1056,
+        "      if(S.seenKeys.has(key(cand))) continue;",
+        "And the same for repeats. Both constraints are stated to the model AND enforced here — trust, then verify."
+      ],
+      [
+        1059,
+        "        if(res.videoId) S.seenIds.add(res.videoId); S.seenKeys.add(key(cand)); }",
+        "Two dedup sets: by video id and by title/artist key. The same song reaches you under several ids, so one set is not enough."
+      ],
+      [
+        1063,
+        "  if(S.candidates.length<3) refillCandidates();",
+        "Kick off the next expensive batch without awaiting it, so the resolve loop never waits on Gemini."
+      ]
+    ]
+  },
+  "quota": {
+    "path": "cassette/index.html",
+    "what": "four failures, four responses",
+    "lines": [
+      [
+        833,
+        "function rotateGemini(){ if(S.gi < S.geminiKeys.length-1){ S.gi++; toast('Gemini key spent · switched to key '+(S.gi+1)); return true; }",
+        "Multiple keys per provider. Free tiers are per-key, so three keys is three times the quota — and the rotation is invisible except for a small toast."
+      ],
+      [
+        837,
+        "function quotaRecovered(){",
+        "A daily quota is not a permanent one. This reopens the door after a cooldown rather than treating the first 429 as the end of the session."
+      ],
+      [
+        941,
+        "  while(true){",
+        "A retry loop where every branch either continues, throws, or breaks. No branch can fall through silently — which is what makes an unbounded while(true) safe here."
+      ],
+      [
+        943,
+        "    if(res.status===404 && S.model!=='gemini-flash-latest'){",
+        "404 means the model id was retired. Google does this on its own schedule, and a dated id is a time bomb."
+      ],
+      [
+        944,
+        "      S.model='gemini-flash-latest'; toast('Model retired · switched to gemini-flash-latest');",
+        "Fall back to the rolling alias and retry. The app survives a retirement that would otherwise break it on a day nobody deployed anything."
+      ],
+      [
+        947,
+        "    if(res.status===429){                       // this key is spent — rotate silently",
+        "Rate limited. Silently is the operative word — the user should not learn about key rotation from an error."
+      ],
+      [
+        949,
+        "      throw new Error('GEMINI_QUOTA');          // all keys spent",
+        "Only when every key is exhausted does it become an error, and a specific one the caller recognises."
+      ],
+      [
+        951,
+        "    if(res.status===503 && !waited){ waited=true; await new Promise(r=>setTimeout(r,2500)); continue; } // overloaded — one retry",
+        "Overloaded: wait and retry exactly once. The `waited` flag is what stops a persistent 503 becoming an infinite loop."
+      ],
+      [
+        952,
+        "    if(res.status===400 || res.status===403){   // invalid / restricted key — rotation should cover this too",
+        "The subtle case. A 400 is usually your bug, but a revoked or leaked key also lands here."
+      ],
+      [
+        954,
+        "      if(/API_KEY_INVALID|API key not valid|PERMISSION_DENIED|expired|leaked/i.test(msg)){",
+        "So the message is inspected, not just the status. Matching patterns rotate; anything else falls through to a real error, because papering over a genuine bug is worse than showing it."
+      ],
+      [
+        961,
+        "  if(!res.ok){ const t=await res.text(); throw new Error('Gemini '+res.status+': '+t.slice(0,180)); }",
+        "And the final catch-all includes the status and the first 180 characters of the body — enough to diagnose, short enough to show a user."
+      ]
+    ]
+  },
+  "media": {
+    "path": "car/android/app/src/main/java/com/rewind/cassette/media/MediaSessionCallback.java",
+    "what": "the native bridge, in Java",
+    "lines": [
+      [
+        7,
+        "public class MediaSessionCallback extends MediaSessionCompat.Callback {",
+        "The Android side of the wheel. A browser PWA cannot register one of these, which is the entire reason car/ exists."
+      ],
+      [
+        12,
+        "    MediaSessionCallback(MediaSessionPlugin plugin) {",
+        "It holds a Capacitor plugin and does nothing else. All the logic stays in the web app; this class is a translator."
+      ],
+      [
+        17,
+        "    public void onPlay() {",
+        "One override per hardware control. The OS calls these when a steering wheel, a lock screen or a headset button is pressed."
+      ],
+      [
+        18,
+        "        plugin.actionCallback(\"play\");",
+        "Forward the event to JavaScript by name. Thin on purpose — a bug in this class means rebuilding an APK, while a bug in the web app is a refresh."
+      ],
+      [
+        29,
+        "        data.put(\"seekTime\", (double) pos/1000.0);",
+        "Android speaks milliseconds, the web app speaks seconds. Converting at the boundary means neither side has to remember the other's units."
+      ],
+      [
+        44,
+        "    public void onSkipToPrevious() {",
+        "And here is the button the whole design turns on. The OS calls this for PREVIOUS — the web app decides it means ♥ favourite, because that is what a driver actually needs from the most reachable control."
+      ]
+    ]
+  }
+};
+
+/* ============ tiny syntax highlighter (escapes first, then tokenises) ============ */
+const KEYWORDS = new Set(["const","let","var","function","return","if","else","for","of","in","new","await","async","export","import","from","type","interface","class","extends","implements","try","catch","finally","throw","null","undefined","true","false","void","continue","break","this","as","default","typeof","Record","Promise","Set","Number","String","Boolean"]);
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function highlight(src) {
+  let out = "", i = 0;
+  while (i < src.length) {
+    const rest = src.slice(i);
+    let m;
+    if ((m = rest.match(/^\/\/.*/)) || (m = rest.match(/^\/\*[\s\S]*?\*\//)) || (m = rest.match(/^\*.*/)) || (m = rest.match(/^\/\*\*.*/))) {
+      out += '<span class="tok-c">' + esc(m[0]) + "</span>"; i += m[0].length; continue;
+    }
+    if ((m = rest.match(/^"(?:[^"\\]|\\.)*"/)) || (m = rest.match(/^'(?:[^'\\]|\\.)*'/)) || (m = rest.match(/^`(?:[^`\\]|\\.)*`/))) {
+      out += '<span class="tok-s">' + esc(m[0]) + "</span>"; i += m[0].length; continue;
+    }
+    if ((m = rest.match(/^\b\d+(?:\.\d+)?\b/))) {
+      out += '<span class="tok-n">' + esc(m[0]) + "</span>"; i += m[0].length; continue;
+    }
+    if ((m = rest.match(/^[A-Za-z_$][A-Za-z0-9_$]*/))) {
+      const w = m[0];
+      const after = rest.slice(w.length);
+      if (KEYWORDS.has(w)) out += '<span class="tok-k">' + esc(w) + "</span>";
+      else if (/^\s*\(/.test(after)) out += '<span class="tok-f">' + esc(w) + "</span>";
+      else out += esc(w);
+      i += w.length; continue;
+    }
+    out += esc(src[i]); i += 1;
+  }
+  return out;
+}
+
+/* ============ render specimens ============ */
+document.querySelectorAll(".specimen").forEach((host) => {
+  const spec = SPECS[host.dataset.spec];
+  if (!spec) return;
+  const noted = spec.lines.map((l, idx) => (l[2] ? idx : -1)).filter((i) => i >= 0);
+
+  const head = document.createElement("div");
+  head.className = "spec-head";
+  head.innerHTML =
+    '<span class="spec-path">' + esc(spec.path) + "</span>" +
+    '<span class="spec-what">' + esc(spec.what) + "</span>" +
+    '<span class="spec-steps">' +
+      '<button class="step-btn" data-dir="-1" type="button">← Prev</button>' +
+      '<span class="step-count"></span>' +
+      '<button class="step-btn" data-dir="1" type="button">Next →</button>' +
+    "</span>";
+
+  const body = document.createElement("div");
+  body.className = "spec-body";
+  const codePane = document.createElement("div");
+  codePane.className = "code-pane";
+  const pre = document.createElement("pre");
+  pre.className = "code";
+  spec.lines.forEach((l, idx) => {
+    const row = document.createElement("div");
+    row.className = "cl" + (l[2] ? " has-note" : "");
+    if (l[2]) { row.tabIndex = 0; row.setAttribute("role", "button"); row.setAttribute("aria-label", "Explain line " + l[0]); }
+    row.dataset.idx = String(idx);
+    row.innerHTML = '<span class="n">' + l[0] + '</span><span class="dot">•</span><span class="t">' + highlight(l[1]) + "</span>";
+    pre.appendChild(row);
+  });
+  codePane.appendChild(pre);
+
+  const notePane = document.createElement("div");
+  notePane.className = "note-pane";
+  notePane.innerHTML = '<div class="nl">Note</div><div class="nt"></div>';
+
+  body.appendChild(codePane);
+  body.appendChild(notePane);
+  host.appendChild(head);
+  host.appendChild(body);
+
+  let cursor = -1;
+  const rows = pre.querySelectorAll(".cl");
+  const nl = notePane.querySelector(".nl");
+  const nt = notePane.querySelector(".nt");
+  const count = head.querySelector(".step-count");
+  const prevB = head.querySelector('[data-dir="-1"]');
+  const nextB = head.querySelector('[data-dir="1"]');
+
+  function show(idx, scroll) {
+    rows.forEach((r) => r.classList.remove("on"));
+    if (idx < 0) {
+      nl.textContent = "Note";
+      nt.innerHTML = '<span class="hint">Click a line marked with a dot, or press Next, to read what it does.</span>';
+      count.textContent = noted.length + " notes";
+      prevB.disabled = true; nextB.disabled = false;
+      cursor = -1;
+      return;
+    }
+    cursor = idx;
+    const row = rows[idx];
+    row.classList.add("on");
+    if (scroll) row.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    nl.textContent = "Line " + spec.lines[idx][0];
+    nt.textContent = spec.lines[idx][2];
+    const pos = noted.indexOf(idx);
+    count.textContent = (pos + 1) + " / " + noted.length;
+    prevB.disabled = pos <= 0;
+    nextB.disabled = pos >= noted.length - 1;
+  }
+  show(-1, false);
+
+  pre.addEventListener("click", (e) => {
+    const row = e.target.closest(".cl.has-note");
+    if (row) show(Number(row.dataset.idx), false);
+  });
+  pre.addEventListener("keydown", (e) => {
+    const row = e.target.closest(".cl.has-note");
+    if (row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); show(Number(row.dataset.idx), false); }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const pos = noted.indexOf(cursor);
+      const nxt = e.key === "ArrowDown" ? Math.min(pos + 1, noted.length - 1) : Math.max(pos - 1, 0);
+      show(noted[nxt < 0 ? 0 : nxt], true);
+    }
+  });
+  head.addEventListener("click", (e) => {
+    const b = e.target.closest(".step-btn");
+    if (!b) return;
+    const dir = Number(b.dataset.dir);
+    const pos = noted.indexOf(cursor);
+    const nxt = pos === -1 ? 0 : Math.min(Math.max(pos + dir, 0), noted.length - 1);
+    show(noted[nxt], true);
+  });
+});
+
+/* ============ table of contents + scrollspy ============ */
+const secs = [...document.querySelectorAll("section[data-title]")];
+const toc = document.getElementById("toc");
+secs.forEach((s, i) => {
+  const a = document.createElement("a");
+  a.href = "#" + s.id;
+  a.innerHTML = '<span class="num">' + String(i).padStart(2, "0") + "</span><span>" + s.dataset.title + "</span>";
+  toc.appendChild(a);
+});
+const links = [...toc.querySelectorAll("a")];
+const spy = new IntersectionObserver((entries) => {
+  entries.forEach((en) => {
+    if (!en.isIntersecting) return;
+    const i = secs.indexOf(en.target);
+    links.forEach((l, j) => l.classList.toggle("active", j === i));
+  });
+}, { rootMargin: "-15% 0px -70% 0px" });
+secs.forEach((s) => spy.observe(s));
+
+/* ============ trace animation ============ */
+const hops = [...document.querySelectorAll("#hops .hop")];
+const playBtn = document.getElementById("playTrace");
+if (playBtn) playBtn.addEventListener("click", function () {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  hops.forEach((h) => h.classList.remove("lit"));
+  this.disabled = true;
+  const step = (i) => {
+    if (i >= hops.length) { this.disabled = false; this.textContent = "Run it again"; return; }
+    hops[i].classList.add("lit");
+    setTimeout(() => step(i + 1), reduce ? 0 : 520);
+  };
+  step(0);
+});
+
+/* ============ checks ============ */
+document.querySelectorAll(".check").forEach((c) => {
+  c.querySelector(".a").textContent = c.dataset.answer;
+  c.querySelector(".reveal").addEventListener("click", () => c.classList.add("open"));
+});
+
+/* ============ copy buttons ============ */
+document.querySelectorAll(".copy").forEach((b) => {
+  b.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "copied"; }
+    catch { b.textContent = "select it"; }
+    setTimeout(() => (b.textContent = "copy"), 1400);
+  });
+});
+
+/* ============ glossary popover ============ */
+const pop = document.getElementById("pop");
+let popFor = null;
+function hidePop() { pop.style.display = "none"; popFor = null; }
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button.term");
+  if (!t) { if (!e.target.closest("#pop")) hidePop(); return; }
+  if (popFor === t) { hidePop(); return; }
+  pop.innerHTML = "<b>" + esc(t.textContent) + "</b> — " + esc(t.dataset.def);
+  pop.style.display = "block";
+  const r = t.getBoundingClientRect();
+  const top = r.bottom + window.scrollY + 8;
+  const left = Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 16);
+  pop.style.top = top + "px";
+  pop.style.left = Math.max(8, left) + "px";
+  popFor = t;
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") hidePop(); });
+window.addEventListener("scroll", () => { if (popFor) hidePop(); }, { passive: true });
+
+/* ============ theme toggle ============ */
+const btn = document.getElementById("themeBtn");
+if (btn) btn.addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const sysDark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const now = cur ? cur : (sysDark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", now === "dark" ? "light" : "dark");
+});
+
+</script>
+</body>
+</html>
