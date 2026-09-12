@@ -2381,7 +2381,12 @@ async function loadSheet(){
 function playHave(h,m,se){
   const q=probeKeyFor(h.streamUrl);
   const watch=/\/stream\/([0-9a-f]{40})(?:\/(\d+))?/i.exec(h.streamUrl||'');
-  playDirect(h.streamUrl,m,{
+  /* A Plex match is chosen the way the Plex screen chooses, not played from the original.
+     This handed h.streamUrl -- the file itself -- to the player while the Plex screen had
+     long since learnt to prefer the transcode. Same library, two doors, one of them broken:
+     from Play, every MKV and every AC3 MP4 was "This browser cannot decode that file". */
+  const src=h.source==='plex'?plexPlayUrl(h):h.streamUrl;
+  playDirect(src,m,{
     label:h.source==='plex'?'Plex · your library':'Already on the PC',
     se,probe:q,subs:{sn:se?+(/S(d+)/i.exec(se)||[])[1]:null,en:se?+(/E(d+)/i.exec(se)||[])[1]:null},
     watch:(watch&&!h.done)?{hash:watch[1].toLowerCase(),idx:+(watch[2]||0)}:null
@@ -2537,6 +2542,28 @@ async function renderPlexNode(node){
   }
 }
 
+/** Prefer what the browser can actually decode.
+ *
+ * Plex hands over the original file, and most of a library is not something a browser
+ * plays: MKV and AVI fail on the container, and an MP4 with AC3 audio fails on the
+ * sound. Measured in Shasha's shell: h264 yes, aac yes, MKV no, AC3 no. So a direct
+ * part is used only when the container is MP4 and the audio is something we can name as
+ * playable; everything else goes to Plex's transcoder, which is running anyway.
+ *
+ * One function for both ways into the library -- the Plex screen and the Play button --
+ * because they had drifted: the screen chose like this and Play took the original. */
+function plexPlayUrl(it){
+  const canDirect=(function(){
+    if(!it.streamUrl) return false;
+    if(!/\.(mp4|m4v|webm)(\?|$)/i.test(it.streamUrl)) return false;
+    const v=document.createElement('video');
+    const ac=(it.audioCodec||'').toLowerCase();
+    if(ac==='ac3'||ac==='eac3'||ac==='dca'||ac==='dts'||ac==='truehd') return false;
+    return !!v.canPlayType('video/mp4; codecs="avc1.640028"');
+  }());
+  return canDirect?it.streamUrl:(it.hlsUrl||it.streamUrl);
+}
+
 /** A film or an episode plays. A show or a season opens. */
 async function openPlexItem(c){
   const it=c._plex||c;
@@ -2546,7 +2573,8 @@ async function openPlexItem(c){
     showScreen('plex');
     return;
   }
-  if(!it.streamUrl){ toast('Plex has no playable file for this one'); return; }
+  if(!it.streamUrl&&!it.hlsUrl){ toast('Plex has no playable file for this one'); return; }
+  const playUrl=plexPlayUrl(it);
   const m={title:it.showTitle||it.title,year:it.year||'',type:it.type==='episode'?'tv':'movie',
            poster:it.thumb||'',backdrop:it.art||it.thumb||'',id:null,
            overview:it.summary||'',rating:it.rating||'',runtime:Math.round((it.durationMs||0)/60000)};
