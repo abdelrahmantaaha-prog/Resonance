@@ -3514,7 +3514,9 @@ $('startBtn').onclick=async()=>{
       else $('bKick').textContent='Could not build a queue — check your keys, then reload';
       return;
     }
-    S.current=S.queue.shift();
+    /* A title opened from a link while the queue was still building stays put.
+     * Replacing it here left the screen showing one film and Play starting another. */
+    if(!(S.screen==='title'&&S.current)) S.current=S.queue.shift();
     renderBoard();ensureQueue();checkEpisodes();
   }catch(e){
     $('bKick').textContent='Startup failed: '+String(e.message).slice(0,110);
@@ -3527,7 +3529,50 @@ $('foot').innerHTML='Reel learns only from your ratings. Data comes from TMDB an
 
 loadKeys();loadLocal();updateEpBadge();paintHost();
 if(PC.on) refreshHost(); else adoptSelfIfReel();
-openSettings();
+/* Setup, only when there is something to set up.
+ *
+ * This was called unconditionally, so the sheet covered the screen on every single load
+ * -- including the ones where Shasha had already seeded the keys into localStorage before
+ * the page ran, which is the whole point of seeding them. From the sofa it read as the
+ * app having forgotten its configuration again, and the only way past it was to find the
+ * close button with a remote. If the keys that make Reel work are present, they are the
+ * answer to the question this sheet asks. */
+if(!(S.geminiKeys&&S.geminiKeys.length&&S.tmdb)) openSettings();
+
+/* A link straight to one title.
+ *
+ * Shasha's Continue rail knows what you were watching and has to be able to say so;
+ * without this it could only open Reel at its front door, which is precisely the
+ * 'it sent me back to the homepage' complaint. Numeric means a TMDB id, anything else
+ * is a title and gets resolved the same way a recommendation would be.
+ *
+ * Two things this got wrong, both from running before Start had:
+ *
+ *   - S.tmdb is only copied out of the settings form when Start runs, so the details
+ *     fetch went out with an empty key, came back null, and the title screen was left
+ *     showing a name over nothing -- and nothing was ever going to paint it again.
+ *     From the sofa that is "it opens the show's page and gets stuck", which is what
+ *     it was reported as. The fields are already filled by loadKeys(), so they are
+ *     read into S here the same way Start would.
+ *
+ *   - An id alone loses where you were. The entry in continueWatching carries the
+ *     episode, the position and the source, and pressing the same title inside Reel
+ *     hands openTitleFrom that whole entry -- so the entry is looked up first and the
+ *     link's own fields are only what a title Reel has never seen falls back to. */
+(function(){
+  const q=new URLSearchParams(location.search);
+  const want=q.get('open');
+  if(!want) return;
+  if(!S.tmdb) readSettings();
+  const asId=Number(want);
+  const isId=Number.isFinite(asId)&&String(asId)===want.trim();
+  const known={title:q.get('title')||undefined,type:q.get('type')||undefined};
+  const key=isId?{id:asId,type:known.type||'movie'}:{title:want,type:known.type};
+  const cw=S.profile.continueWatching||[];
+  const entry=cw.find(x=>cwSame(x,key))
+    ||(isId?cw.find(x=>String(x.id)===String(asId)):null);
+  openTitleFrom(entry||Object.assign(key,known.title?{title:known.title}:{}));
+})();
 if('serviceWorker' in navigator && location.protocol==='https:'){
   navigator.serviceWorker.register('sw.js').then(r=>{try{r.update();}catch(_){}}).catch(()=>{});
 }
